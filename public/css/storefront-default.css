@@ -1,0 +1,144 @@
+.storefront-page--default .store-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+    align-items: center;
+    gap: 28px;
+    padding: 38px 0 26px;
+}
+
+.storefront-page--default .store-hero-copy {
+    max-width: 520px;
+}
+
+.storefront-page--default .store-hero-copy h1 {
+    margin: 0 0 14px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(42px, 7vw, 78px);
+    line-height: 0.95;
+    letter-spacing: -0.06em;
+}
+
+.storefront-page--default .store-hero-copy p,
+.storefront-page--default .shop-copy,
+.storefront-page--default .featured-description,
+.storefront-page--default .catalog-head p,
+.storefront-page--default .product-card p {
+    font-size: 14px;
+}
+
+.storefront-page--default .catalog-head--default {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.storefront-page--default .catalog-head-copy {
+    min-width: 0;
+}
+
+.storefront-page--default .catalog-head-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: #f3efe8;
+    color: #3f3528;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+@media (max-width: 1024px) {
+    .storefront-page--default .store-hero {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 22px;
+    }
+
+    .storefront-page--default .store-hero-media {
+        width: 100vw;
+        margin-inline: calc(50% - 50vw);
+        border-radius: 0;
+        order: -1;
+    }
+
+    .storefront-page--default .store-hero-copy {
+        order: 1;
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 720px) {
+    .storefront-page--default .catalog-head--default {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 20px;
+        padding: 16px;
+        border: 1px solid rgba(205, 191, 170, 0.7);
+        border-radius: 22px;
+        background: linear-gradient(135deg, #fffdf9 0%, #f5efe5 100%);
+        box-shadow: 0 14px 30px rgba(43, 31, 18, 0.06);
+    }
+
+    .storefront-page--default .catalog-head--default h2 {
+        margin-bottom: 6px;
+    }
+
+    .storefront-page--default .catalog-head-pill {
+        padding: 8px 12px;
+        font-size: 11px;
+    }
+
+    .storefront-page--default .product-card {
+        display: block;
+        padding: 14px;
+        border: 1px solid rgba(218, 210, 196, 0.9);
+        border-radius: 22px;
+        background: linear-gradient(180deg, #ffffff 0%, #fbf8f3 100%);
+        box-shadow: 0 16px 30px rgba(43, 31, 18, 0.06);
+    }
+
+    .storefront-page--default .product-card .product-image {
+        margin-bottom: 12px;
+        aspect-ratio: 1 / 1.02;
+        border-radius: 16px;
+    }
+
+    .storefront-page--default .product-card h3 {
+        margin-bottom: 6px;
+        font-size: 18px;
+    }
+
+    .storefront-page--default .product-card p {
+        margin-bottom: 10px;
+        min-height: 0;
+        -webkit-line-clamp: 2;
+    }
+
+    .storefront-page--default .product-card .price-row {
+        margin-bottom: 10px;
+    }
+
+    .storefront-page--default .product-card .product-preview-link {
+        margin-bottom: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .storefront-page--default .product-card {
+        padding: 12px;
+        border-radius: 18px;
+    }
+
+    .storefront-page--default .product-card .product-image {
+        aspect-ratio: 1 / 1.02;
+    }
+}

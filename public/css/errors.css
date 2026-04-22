@@ -1,0 +1,220 @@
+html, body {
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --brand-dark: #101010;
+    --brand-orange: #ff6a00;
+    --ink: #171717;
+    --muted: #6b7280;
+    --line: rgba(255, 255, 255, 0.1);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body.error-page {
+    min-height: 100vh;
+    font-family: Arial, Helvetica, sans-serif;
+    color: white;
+    background:
+        radial-gradient(circle at top left, rgba(255, 106, 0, 0.16), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(255, 106, 0, 0.1), transparent 20%),
+        linear-gradient(180deg, #171717 0%, #101010 100%);
+}
+
+.error-shell {
+    width: min(1080px, calc(100% - 32px));
+    margin: 0 auto;
+}
+
+.error-nav {
+    padding: 20px 0;
+}
+
+.error-nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.brand-lockup {
+    display: inline-flex;
+    align-items: center;
+    color: white;
+    text-decoration: none;
+}
+
+.brand-logo-image {
+    width: 180px;
+    height: auto;
+    display: block;
+}
+
+.ghost-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 46px;
+    padding: 0 18px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    color: white;
+    text-decoration: none;
+}
+
+.error-main {
+    min-height: calc(100vh - 96px);
+    display: grid;
+    place-items: center;
+    padding: 30px 0 60px;
+}
+
+.error-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+    gap: 28px;
+    align-items: center;
+}
+
+.error-code {
+    font-size: clamp(78px, 14vw, 160px);
+    line-height: .9;
+    font-weight: 800;
+    letter-spacing: -0.08em;
+    margin: 0 0 16px;
+}
+
+.error-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: rgba(255,255,255,.72);
+    text-transform: uppercase;
+    letter-spacing: .16em;
+    font-size: 11px;
+    margin-bottom: 18px;
+}
+
+.error-eyebrow::before {
+    content: "";
+    width: 40px;
+    height: 1px;
+    background: rgba(255,255,255,.32);
+}
+
+.error-title {
+    margin: 0 0 14px;
+    font-size: clamp(30px, 5vw, 52px);
+    letter-spacing: -0.05em;
+}
+
+.error-copy {
+    margin: 0 0 24px;
+    color: rgba(255,255,255,.76);
+    font-size: 17px;
+    line-height: 1.7;
+    max-width: 620px;
+}
+
+.error-actions {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.primary-link,
+.secondary-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 52px;
+    padding: 0 22px;
+    border-radius: 999px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.primary-link {
+    background: var(--brand-orange);
+    color: white;
+    box-shadow: 0 18px 32px rgba(255, 106, 0, 0.26);
+}
+
+.secondary-link {
+    border: 1px solid var(--line);
+    color: white;
+    background: rgba(255,255,255,.04);
+}
+
+.error-card {
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 30px;
+    padding: 24px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+}
+
+.error-card h3 {
+    margin: 0 0 14px;
+    font-size: 24px;
+}
+
+.error-card p {
+    margin: 0 0 18px;
+    color: rgba(255,255,255,.72);
+    line-height: 1.7;
+}
+
+.error-list {
+    display: grid;
+    gap: 12px;
+}
+
+.error-list-item {
+    background: white;
+    color: var(--ink);
+    border-radius: 18px;
+    padding: 14px 16px;
+}
+
+.error-list-item strong {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 14px;
+}
+
+.error-list-item span {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+@media (max-width: 900px) {
+    .error-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .error-shell {
+        width: min(100% - 24px, 1080px);
+    }
+
+    .error-nav-inner {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .error-copy {
+        font-size: 16px;
+    }
+
+    .error-card {
+        border-radius: 24px;
+    }
+}

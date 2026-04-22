@@ -1,0 +1,32 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('products', function (Blueprint $table) {
+            $table->json('sizes')->nullable()->after('description');
+            $table->json('colors')->nullable()->after('sizes');
+        });
+
+        Schema::table('order_items', function (Blueprint $table) {
+            $table->string('size')->nullable()->after('price');
+            $table->string('color')->nullable()->after('size');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('order_items', function (Blueprint $table) {
+            $table->dropColumn(['size', 'color']);
+        });
+
+        Schema::table('products', function (Blueprint $table) {
+            $table->dropColumn(['sizes', 'colors']);
+        });
+    }
+};

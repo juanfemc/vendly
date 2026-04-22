@@ -1,0 +1,55 @@
+.storefront-page--supplements {
+    --soft: #f4f8f2;
+}
+
+.storefront-page--supplements .supplements-hero-media {
+    background: linear-gradient(135deg, #eef8e7 0%, #ffffff 100%);
+}
+
+.storefront-page--supplements .supplements-meta,
+.storefront-page--supplements .supplements-featured {
+    position: relative;
+}
+
+.storefront-page--supplements .supplements-grid {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.storefront-page--supplements .supplements-product-card {
+    background: linear-gradient(180deg, #ffffff 0%, #f7fbf3 100%);
+    border: 1px solid #dfead6;
+    border-radius: 18px;
+    padding: 16px;
+    box-shadow: 0 14px 28px rgba(68, 106, 54, 0.08);
+}
+
+.storefront-page--supplements .supplements-product-card .product-image {
+    border-radius: 14px;
+}
+
+.storefront-page--supplements .supplements-product-card .product-tag {
+    color: #4d7a42;
+}
+
+.storefront-page--supplements .supplements-product-card p {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.storefront-page--supplements .supplements-product-card button {
+    background: #4d7a42;
+}
+
+@media (max-width: 1024px) {
+    .storefront-page--supplements .supplements-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 720px) {
+    .storefront-page--supplements .supplements-grid {
+        grid-template-columns: 1fr;
+    }
+}
