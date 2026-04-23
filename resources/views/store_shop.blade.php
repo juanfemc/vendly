@@ -96,7 +96,7 @@
 
     <div class="cart-feedback" id="cartFeedback" aria-live="polite">{{ $isRestaurant ? 'Plato agregado al pedido' : 'Producto agregado al carrito' }}</div>
 
-    <script src="{{ asset('js/storefront.js') }}" defer></script>
+    <script src="{{ asset('js/storefront.js') }}?v={{ filemtime(public_path('js/storefront.js')) }}" defer></script>
 </body>
 
 </html>

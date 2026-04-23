@@ -5,9 +5,13 @@ namespace App\Services;
 use App\Models\Product;
 use App\Models\Store;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class CartService
 {
+    private const LEGACY_CART_SESSION_KEY = 'cart';
+    private const STORE_CARTS_SESSION_KEY = 'carts';
+
     public function requestedQuantity(Request $request): int
     {
         return max(1, min(99, (int) $request->input('quantity', 1)));
@@ -34,7 +38,7 @@ class CartService
 
     public function addProduct(Product $product, int $quantity = 1, array $options = []): array
     {
-        $cart = session()->get('cart', []);
+        $cart = $this->cartForStore($product->store);
 
         if (! empty($options['error'])) {
             return [$cart, $options['error']];
@@ -42,10 +46,6 @@ class CartService
 
         if (! $product->store?->isAvailable()) {
             return [$cart, 'Esta tienda no esta disponible para recibir pedidos.'];
-        }
-
-        if (! $this->canAcceptStore($cart, (int) $product->store_id)) {
-            return [$cart, 'Solo puedes agregar productos de una tienda a la vez.'];
         }
 
         $cartKey = $this->cartKey($product, $options);
@@ -65,9 +65,129 @@ class CartService
             ];
         }
 
-        session()->put('cart', $cart);
+        $this->putCartForStore((int) $product->store_id, $cart);
 
         return [$cart, null];
+    }
+
+    public function cartForStore(?Store $store): array
+    {
+        if (! $store) {
+            return $this->legacyCart();
+        }
+
+        $storeCart = session()->get($this->storeCartSessionKey((int) $store->id), []);
+
+        if (! empty($storeCart)) {
+            return $storeCart;
+        }
+
+        $legacyCart = $this->legacyCart();
+
+        if (! empty($legacyCart) && $this->matchesStore($legacyCart, $store)) {
+            $this->putCartForStore((int) $store->id, $legacyCart);
+            $this->forgetLegacyCart();
+
+            return $legacyCart;
+        }
+
+        return [];
+    }
+
+    public function putCartForStore(int $storeId, array $cart): void
+    {
+        session()->put($this->storeCartSessionKey($storeId), $cart);
+    }
+
+    public function forgetCartForStore(?Store $store): void
+    {
+        if ($store) {
+            session()->forget($this->storeCartSessionKey((int) $store->id));
+
+            return;
+        }
+
+        $this->forgetLegacyCart();
+    }
+
+    public function cartCountForStore(Store $store): int
+    {
+        return (int) collect($this->cartForStore($store))->sum('quantity');
+    }
+
+    public function firstCartWithItem(string $cartKey): array
+    {
+        foreach ($this->storeCarts() as $storeId => $cart) {
+            if (isset($cart[$cartKey])) {
+                return [(int) $storeId, $cart];
+            }
+        }
+
+        $legacyCart = $this->legacyCart();
+
+        if (isset($legacyCart[$cartKey])) {
+            return [null, $legacyCart];
+        }
+
+        return [null, []];
+    }
+
+    public function updateItemQuantity(string $cartKey, int $quantity): ?array
+    {
+        [$storeId, $cart] = $this->firstCartWithItem($cartKey);
+
+        if (! isset($cart[$cartKey])) {
+            return null;
+        }
+
+        $cart[$cartKey]['quantity'] = $quantity;
+        $this->saveCart($storeId, $cart);
+
+        return $cart;
+    }
+
+    public function removeItem(string $cartKey): ?array
+    {
+        [$storeId, $cart] = $this->firstCartWithItem($cartKey);
+
+        if (! isset($cart[$cartKey])) {
+            return null;
+        }
+
+        unset($cart[$cartKey]);
+        $this->saveCart($storeId, $cart);
+
+        return $cart;
+    }
+
+    public function storeForRequest(Request $request): ?Store
+    {
+        return $this->storeFromSlug($request->query('store'))
+            ?? $this->firstStoreWithCart();
+    }
+
+    public function storeFromSlug(?string $slug): ?Store
+    {
+        $slug = trim((string) $slug);
+
+        if ($slug === '') {
+            return null;
+        }
+
+        return Store::with('user')->where('slug', $slug)->first();
+    }
+
+    public function firstStoreWithCart(): ?Store
+    {
+        foreach ($this->storeCarts() as $storeId => $cart) {
+            if (! empty($cart)) {
+                return Store::with('user')->find($storeId);
+            }
+        }
+
+        $legacyCart = $this->legacyCart();
+
+        return $this->resolveStore($legacyCart);
     }
 
     public function resolveStore(array &$cart): ?Store
@@ -92,7 +212,7 @@ class CartService
 
         if (isset($cart[$firstKey]) && is_array($cart[$firstKey])) {
             $cart[$firstKey]['store_id'] = $product->store_id;
-            session()->put('cart', $cart);
+            session()->put(self::LEGACY_CART_SESSION_KEY, $cart);
         }
 
         return Store::with('user')->find($product->store_id);
@@ -120,8 +240,6 @@ class CartService
                 return false;
             }
         }
-
-        session()->put('cart', $cart);
 
         return true;
     }
@@ -160,23 +278,53 @@ class CartService
             'cart_count' => collect($cart)->sum('quantity'),
             'cart_is_empty' => empty($cart),
             'total' => $this->total($cart),
+            'item_quantity' => $productId && isset($cart[$productId])
+                ? $cart[$productId]['quantity']
+                : null,
             'item_total' => $productId && isset($cart[$productId])
                 ? $cart[$productId]['price'] * $cart[$productId]['quantity']
                 : null,
         ];
     }
 
-    private function canAcceptStore(array $cart, int $storeId): bool
+    private function storeCarts(): Collection
     {
-        foreach ($cart as $productId => $item) {
-            $itemStoreId = $item['store_id'] ?? Product::find($item['product_id'] ?? $this->productIdFromCartKey((string) $productId))?->store_id;
+        return collect(session()->get(self::STORE_CARTS_SESSION_KEY, []))
+            ->filter(fn ($cart) => is_array($cart));
+    }
 
-            if ((int) $itemStoreId !== $storeId) {
-                return false;
-            }
+    private function storeCartSessionKey(int $storeId): string
+    {
+        return self::STORE_CARTS_SESSION_KEY . '.' . $storeId;
+    }
+
+    private function saveCart(?int $storeId, array $cart): void
+    {
+        if (empty($cart)) {
+            $storeId
+                ? session()->forget($this->storeCartSessionKey($storeId))
+                : $this->forgetLegacyCart();
+
+            return;
         }
 
-        return true;
+        if ($storeId) {
+            $this->putCartForStore($storeId, $cart);
+
+            return;
+        }
+
+        session()->put(self::LEGACY_CART_SESSION_KEY, $cart);
+    }
+
+    private function legacyCart(): array
+    {
+        return session()->get(self::LEGACY_CART_SESSION_KEY, []);
+    }
+
+    private function forgetLegacyCart(): void
+    {
+        session()->forget(self::LEGACY_CART_SESSION_KEY);
     }
 
     private function cartKey(Product $product, array $options): string

@@ -28,9 +28,9 @@
         Material: {{ $product->material ?: 'Sin material' }}<br>
         Precio: ${{ $product->price }}<br><br>
 
-        <a href="/admin/products/{{ $product->id }}/edit" class="btn">Editar</a>
+        <a href="{{ route('admin.products.edit', $product) }}" class="btn">Editar</a>
 
-        <form method="POST" action="/admin/products/{{ $product->id }}" style="margin-top:10px;">
+        <form method="POST" action="{{ route('admin.products.destroy', $product) }}" style="margin-top:10px;">
             @csrf
             @method('DELETE')
             <button class="btn btn-secondary">Eliminar</button>

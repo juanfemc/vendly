@@ -61,52 +61,6 @@
     </section>
 @endif
 
-<section class="catalog-section" id="catalogo">
-    <div class="catalog-head">
-        <h2>Catalogo de suplementos</h2>
-        <p>{{ $defaultShopCopy }}</p>
-    </div>
-
-    @if($products->isNotEmpty())
-        <div class="products-grid supplements-grid">
-            @foreach($products as $product)
-                <article class="product-card supplements-product-card">
-                    <div class="product-image">
-                        @if($product->image)
-                            <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" loading="lazy" decoding="async">
-                        @endif
-                    </div>
-
-                    @if($product->category)
-                        <span class="product-tag">{{ $product->category }}</span>
-                    @endif
-
-                    <h3>{{ $product->name }}</h3>
-                    <p>{{ $product->description ?: $productDescriptionFallback }}</p>
-
-                    <div class="price-row">
-                        <span class="price">${{ number_format($product->price, 0, ',', '.') }}</span>
-                    </div>
-
-                    <a href="{{ route('store.product.show', ['slug' => $store->slug, 'product' => $product->publicRouteKey()]) }}" class="product-preview-link">
-                        Comprar ahora
-                    </a>
-
-                    <form action="{{ route('cart.add', $product->id) }}" method="POST" class="add-to-cart-form">
-                        @csrf
-                        <button type="submit">{{ $addLabel }}</button>
-                    </form>
-                </article>
-            @endforeach
-        </div>
-        @if($products->hasPages())
-            <div class="store-pagination">
-                {{ $products->fragment('catalogo')->links() }}
-            </div>
-        @endif
-    @else
-        <div class="empty-state">Aun no hay suplementos publicados.</div>
-    @endif
-</section>
+@include('storefront.partials.category-sections', ['cardClass' => 'supplements-product-card'])
 
 @include('storefront.partials.footer')

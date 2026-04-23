@@ -12,6 +12,7 @@
     const updatedText = page.dataset.feedbackUpdated || 'Carrito actualizado';
     const updateErrorText = page.dataset.feedbackUpdateError || 'No se pudo actualizar el carrito.';
     const emptyErrorText = page.dataset.feedbackEmptyError || 'No se pudo vaciar el carrito.';
+    const storeSlug = page.dataset.storeSlug || '';
     let feedbackTimer;
 
     const money = (value) => `$ ${new Intl.NumberFormat('es-CO').format(value || 0)}`;
@@ -26,6 +27,14 @@
 
     const updateSummary = (data) => {
         if (totalEl) totalEl.textContent = money(data.total);
+    };
+
+    const updateItemQuantity = (item, quantity) => {
+        const qtyEl = item.querySelector('[data-role="quantity"]');
+        const qtyBadge = item.querySelector('[data-role="quantity-badge"]');
+
+        if (qtyEl) qtyEl.textContent = quantity;
+        if (qtyBadge) qtyBadge.textContent = quantity;
     };
 
     const sendCartRequest = async (url, method, body = null) => {
@@ -54,19 +63,28 @@
         return data;
     };
 
-    document.querySelectorAll('[data-action]').forEach((button) => {
-        button.addEventListener('click', async () => {
+    page.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-action]');
+
+        if (!button) {
+            return;
+        }
+
+        event.preventDefault();
+
             const productId = button.dataset.productId;
-            const item = document.querySelector(`[data-cart-item="${productId}"]`);
+            const item = button.closest('[data-cart-item]');
 
             if (!item) return;
 
             const qtyEl = item.querySelector('[data-role="quantity"]');
             const itemTotalEl = item.querySelector('[data-role="item-total"]');
             const currentQty = Number(qtyEl?.textContent || 1);
+            const originalQty = currentQty;
 
             try {
                 let data;
+                button.disabled = true;
 
                 if (button.dataset.action === 'remove') {
                     data = await sendCartRequest(`/cart/item/${encodeURIComponent(productId)}`, 'DELETE');
@@ -78,8 +96,9 @@
                         data = await sendCartRequest(`/cart/item/${encodeURIComponent(productId)}`, 'DELETE');
                         item.remove();
                     } else {
+                        updateItemQuantity(item, nextQty);
                         data = await sendCartRequest(`/cart/item/${encodeURIComponent(productId)}`, 'PATCH', JSON.stringify({ quantity: nextQty }));
-                        if (qtyEl) qtyEl.textContent = nextQty;
+                        updateItemQuantity(item, data.item_quantity || nextQty);
                         if (itemTotalEl && data.item_total !== null) {
                             itemTotalEl.textContent = money(data.item_total);
                         }
@@ -93,15 +112,18 @@
                     window.location.reload();
                 }
             } catch (error) {
+                updateItemQuantity(item, originalQty);
                 showFeedback(error.message || updateErrorText);
+            } finally {
+                button.disabled = false;
             }
-        });
     });
 
     if (clearCartButton) {
         clearCartButton.addEventListener('click', async () => {
             try {
-                const data = await sendCartRequest('/cart', 'DELETE');
+                const clearUrl = storeSlug ? `/cart?store=${encodeURIComponent(storeSlug)}` : '/cart';
+                const data = await sendCartRequest(clearUrl, 'DELETE');
                 updateSummary(data);
                 showFeedback(data.message || updatedText);
 

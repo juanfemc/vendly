@@ -40,15 +40,15 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
-    Route::get('/admin/products', [ProductController::class, 'index']);
-    Route::get('/admin/products/create', [ProductController::class, 'create']);
-    Route::post('/admin/products', [ProductController::class, 'store']);
-    Route::get('/admin/products/{product}/edit', [ProductController::class, 'edit']);
-    Route::put('/admin/products/{product}', [ProductController::class, 'update']);
-    Route::delete('/admin/products/{product}', [ProductController::class, 'destroy']);
+    Route::get('/admin/products', [ProductController::class, 'index'])->name('admin.products.index');
+    Route::get('/admin/products/create', [ProductController::class, 'create'])->name('admin.products.create');
+    Route::post('/admin/products', [ProductController::class, 'store'])->name('admin.products.store');
+    Route::get('/admin/products/{product}/edit', [ProductController::class, 'edit'])->name('admin.products.edit');
+    Route::put('/admin/products/{product}', [ProductController::class, 'update'])->name('admin.products.update');
+    Route::delete('/admin/products/{product}', [ProductController::class, 'destroy'])->name('admin.products.destroy');
 
     Route::get('/admin/orders', [OrderController::class, 'index']);
-    Route::patch('/admin/orders/{id}/status', [OrderController::class, 'updateStatus'])->name('admin.orders.status');
+    Route::patch('/admin/orders/{order}/status', [OrderController::class, 'updateStatus'])->name('admin.orders.status');
     Route::get('/admin/store-settings', [StoreController::class, 'settings']);
     Route::post('/admin/store-settings', [StoreController::class, 'updateSettings']);
     Route::get('/admin/categories', [StoreCategoryController::class, 'index'])->name('admin.categories.index');
@@ -91,5 +91,6 @@ Route::get('/', function () {
     return view('landing');
 });
 require __DIR__.'/auth.php';
+Route::get('/{slug}/categorias/{category}', [ProductController::class, 'category'])->name('store.category.show');
 Route::get('/{slug}/productos/{product}', [ProductController::class, 'show'])->name('store.product.show');
 Route::get('/{slug}', [ProductController::class, 'storeBySlug'])->name('store.show');

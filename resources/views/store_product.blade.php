@@ -23,6 +23,7 @@
         $canManageStore = $page->canManageStore;
         $cartLabel = $isRestaurant ? 'Pedido' : 'Carrito';
         $collectionLabelTitle = $isRestaurant ? 'Menu' : 'Catalogo';
+        $showStorefrontSectionLinks = false;
         $storefrontVariant = $isTechnologyStore ? 'technology' : ($isRestaurant ? 'restaurant' : ($isSupplementStore ? 'supplements' : 'default'));
         $variantStylesheets = [
             'technology' => 'css/storefront-technology.css',
@@ -192,7 +193,7 @@
 
     <div class="cart-feedback" id="cartFeedback" aria-live="polite">Producto agregado al carrito</div>
 
-    <script src="{{ asset('js/storefront.js') }}" defer></script>
+    <script src="{{ asset('js/storefront.js') }}?v={{ filemtime(public_path('js/storefront.js')) }}" defer></script>
     <script>
         (() => {
             const quantityInput = document.getElementById('quantity');

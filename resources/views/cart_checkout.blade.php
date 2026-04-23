@@ -20,6 +20,7 @@
     data-feedback-updated="{{ $isRestaurant ? 'Pedido actualizado' : 'Carrito actualizado' }}"
     data-feedback-update-error="{{ $isRestaurant ? 'No se pudo actualizar el pedido.' : 'No se pudo actualizar el carrito.' }}"
     data-feedback-empty-error="{{ $isRestaurant ? 'No se pudo vaciar el pedido.' : 'No se pudo vaciar el carrito.' }}"
+    data-store-slug="{{ $store?->slug }}"
     style="--accent: {{ $brandTheme->color }};"
 >
     @if (empty($cart))
@@ -48,7 +49,7 @@
                         </div>
                     @endif
 
-                    <form action="{{ route('cart.whatsapp') }}" method="POST">
+                    <form action="{{ route('cart.whatsapp', ['store' => $store?->slug]) }}" method="POST">
                         @csrf
 
                         <section>
@@ -119,7 +120,7 @@
                             @else
                                 <div class="fallback-thumb"></div>
                             @endif
-                            <span class="qty-badge">{{ $item['quantity'] }}</span>
+                            <span class="qty-badge" data-role="quantity-badge">{{ $item['quantity'] }}</span>
                         </div>
 
                         <div>
@@ -171,6 +172,6 @@
 
     <div class="cart-feedback" id="cartFeedback" aria-live="polite"></div>
 
-    <script src="{{ asset('js/cart-checkout.js') }}" defer></script>
+    <script src="{{ asset('js/cart-checkout.js') }}?v={{ filemtime(public_path('js/cart-checkout.js')) }}" defer></script>
 </body>
 </html>

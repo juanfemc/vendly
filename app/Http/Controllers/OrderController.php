@@ -33,7 +33,7 @@ class OrderController extends Controller
         return view('admin.orders.index', compact('orders', 'statusOptions'));
     }
 
-    public function updateStatus(Request $request, $id)
+    public function updateStatus(Request $request, Order $order)
     {
         $user = auth()->user();
 
@@ -41,14 +41,11 @@ class OrderController extends Controller
             'status' => ['required', 'in:' . implode(',', array_keys(Order::statusOptions()))],
         ]);
 
-        if ($user?->isAdmin()) {
-            $order = Order::findOrFail($id);
-        } else {
+        if (! $user?->isAdmin()) {
             $store = $user?->store ?? $user?->stores()->first();
 
             abort_if(! $store, 404);
-
-            $order = Order::where('store_id', $store->id)->findOrFail($id);
+            abort_unless((int) $order->store_id === (int) $store->id, 404);
         }
 
         $this->authorize('update', $order);

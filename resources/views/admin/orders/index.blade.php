@@ -50,7 +50,7 @@
             </ul>
         @endif
         <br>
-        <form method="POST" action="{{ route('admin.orders.status', $order->id) }}" style="margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <form method="POST" action="{{ route('admin.orders.status', $order) }}" style="margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
             @csrf
             @method('PATCH')
             <label for="status-{{ $order->id }}">Cambiar estado</label>

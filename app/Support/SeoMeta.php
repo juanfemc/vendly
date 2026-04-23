@@ -53,4 +53,19 @@ class SeoMeta
             type: 'product',
         );
     }
+
+    public static function category(Store $store, string $categoryName, ?string $categoryDescription, string $url, ?string $image, string $fallbackDescription, ?string $favicon = null): self
+    {
+        $description = trim((string) $categoryDescription);
+
+        return new self(
+            title: Str::limit($categoryName . ' | ' . $store->name, 70, ''),
+            description: Str::limit($description !== '' ? $description : $fallbackDescription, 160, ''),
+            url: $url,
+            image: $image,
+            imageAlt: $image ? 'Categoria ' . $categoryName . ' de ' . $store->name : null,
+            favicon: $favicon,
+            type: 'website',
+        );
+    }
 }

@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasAdminRouteKey;
 use Illuminate\Database\Eloquent\Model;
 
 class StoreBanner extends Model
 {
+    use HasAdminRouteKey;
+
     protected $fillable = [
         'store_id',
         'title',
@@ -16,6 +19,7 @@ class StoreBanner extends Model
         'sort_order',
         'group_token',
         'applies_to_all',
+        'admin_token',
     ];
 
     public function store()

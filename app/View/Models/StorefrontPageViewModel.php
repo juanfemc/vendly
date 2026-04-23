@@ -3,6 +3,7 @@
 namespace App\View\Models;
 
 use App\Models\Store;
+use App\Services\CartService;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -24,7 +25,7 @@ class StorefrontPageViewModel
         return new self(
             store: $store,
             publicBaseUrl: rtrim(config('app.url') ?: request()->getSchemeAndHttpHost(), '/'),
-            cartCount: (int) collect(session('cart', []))->sum('quantity'),
+            cartCount: app(CartService::class)->cartCountForStore($store),
             instagramUrl: $store->instagram_url ?: 'https://instagram.com',
             facebookUrl: $store->facebook_url ?: 'https://facebook.com',
             tiktokUrl: $store->tiktok_url ?: 'https://tiktok.com',

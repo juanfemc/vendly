@@ -181,7 +181,7 @@ body.cart-page {
     border-radius: 14px;
     background: #fff;
     border: 1px solid var(--line);
-    overflow: hidden;
+    overflow: visible;
 }
 
 .cart-thumb-wrap img,
@@ -190,6 +190,7 @@ body.cart-page {
     height: 100%;
     object-fit: cover;
     display: block;
+    border-radius: 14px;
 }
 
 .fallback-thumb {

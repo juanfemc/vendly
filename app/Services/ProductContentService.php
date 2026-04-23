@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Store;
+use App\Models\StoreCategory;
 use Illuminate\Support\Str;
 
 class ProductContentService
@@ -15,9 +16,13 @@ class ProductContentService
             return;
         }
 
-        $store->categories()->firstOrCreate([
-            'name' => $categoryName,
-        ]);
+        $store->categories()->firstOrCreate(
+            ['name' => $categoryName],
+            [
+                'slug' => StoreCategory::uniqueSlugFor((int) $store->id, $categoryName),
+                'is_active' => true,
+            ]
+        );
     }
 
     public function optionList(?string $value): array

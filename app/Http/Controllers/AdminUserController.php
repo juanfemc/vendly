@@ -119,6 +119,10 @@ class AdminUserController extends Controller
                 $this->deleteBannerImageIfUnused($banner->image, $store->id);
             }
 
+            foreach ($store->categories as $category) {
+                $this->deletePublicFile($category->image);
+            }
+
             if ($store->cover_image) {
                 $this->deletePublicFile($store->cover_image);
             }

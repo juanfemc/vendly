@@ -23,7 +23,7 @@
             : ($product->features ?? '');
     @endphp
 
-    <form method="POST" action="/admin/products/{{ $product->id }}" enctype="multipart/form-data">
+    <form method="POST" action="{{ route('admin.products.update', $product) }}" enctype="multipart/form-data">
         @csrf
         @method('PUT')
  

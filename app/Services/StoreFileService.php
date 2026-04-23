@@ -46,6 +46,10 @@ class StoreFileService
             $this->deleteBannerImageIfUnused($banner->image, $store->id);
         }
 
+        foreach ($store->categories as $category) {
+            $this->deletePublicFile($category->image);
+        }
+
         $this->deletePublicFile($store->cover_image);
         $this->deletePublicFile($store->logo_image);
     }

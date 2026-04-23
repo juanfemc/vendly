@@ -61,13 +61,13 @@ class CartController extends Controller
             return back()->with('error', $message);
         }
 
-        return redirect('/cart')->with('success', 'Producto agregado');
+        return redirect()->route('cart.index', ['store' => $product->store?->slug])->with('success', 'Producto agregado');
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $cart = session()->get('cart', []);
-        $store = $this->cartService->resolveStore($cart);
+        $store = $this->cartService->storeForRequest($request);
+        $cart = $this->cartService->cartForStore($store);
         $total = $this->cartService->total($cart);
 
         return view('cart_checkout', compact('cart', 'store', 'total'));
@@ -79,35 +79,31 @@ class CartController extends Controller
             'quantity' => ['required', 'integer', 'min:1', 'max:99'],
         ]);
 
-        $cart = session()->get('cart', []);
+        $cart = $this->cartService->updateItemQuantity((string) $id, (int) $validated['quantity']);
 
-        if (! isset($cart[$id])) {
+        if ($cart === null) {
             return response()->json(['message' => 'Producto no encontrado en el carrito.'], 404);
         }
-
-        $cart[$id]['quantity'] = (int) $validated['quantity'];
-        session()->put('cart', $cart);
 
         return response()->json($this->cartService->responsePayload($cart, (string) $id, 'Cantidad actualizada'));
     }
 
     public function removeItem($id)
     {
-        $cart = session()->get('cart', []);
+        $cart = $this->cartService->removeItem((string) $id);
 
-        if (! isset($cart[$id])) {
+        if ($cart === null) {
             return response()->json(['message' => 'Producto no encontrado en el carrito.'], 404);
         }
-
-        unset($cart[$id]);
-        session()->put('cart', $cart);
 
         return response()->json($this->cartService->responsePayload($cart, null, 'Producto eliminado del carrito'));
     }
 
-    public function clear()
+    public function clear(Request $request)
     {
-        session()->forget('cart');
+        $store = $this->cartService->storeForRequest($request);
+
+        $this->cartService->forgetCartForStore($store);
 
         return response()->json([
             'message' => 'Carrito vaciado',
@@ -122,34 +118,35 @@ class CartController extends Controller
     {
         $validated = $request->validated();
 
-        $cart = session()->get('cart', []);
+        $store = $this->cartService->storeForRequest($request);
+        $cart = $this->cartService->cartForStore($store);
 
         if (empty($cart)) {
-            return redirect('/cart')->with('error', 'El carrito esta vacio.');
+            return redirect()->route('cart.index', ['store' => $store?->slug])->with('error', 'El carrito esta vacio.');
         }
 
-        $store = $this->cartService->resolveStore($cart);
+        $store = $store ?: $this->cartService->resolveStore($cart);
 
         if (! $store) {
-            return redirect('/cart')->with('error', 'No se pudo identificar la tienda del pedido.');
+            return redirect()->route('cart.index')->with('error', 'No se pudo identificar la tienda del pedido.');
         }
 
         if (! $store->isAvailable()) {
-            return redirect('/cart')->with('error', 'Esta tienda no esta disponible para recibir pedidos.');
+            return redirect()->route('cart.index', ['store' => $store->slug])->with('error', 'Esta tienda no esta disponible para recibir pedidos.');
         }
 
         if (! $store->whatsapp) {
-            return redirect('/cart')->with('error', 'La tienda no tiene un WhatsApp configurado.');
+            return redirect()->route('cart.index', ['store' => $store->slug])->with('error', 'La tienda no tiene un WhatsApp configurado.');
         }
 
         if (! $this->cartService->matchesStore($cart, $store)) {
-            return redirect('/cart')->with('error', 'El carrito contiene productos de otra tienda. Vacialo e intenta de nuevo.');
+            return redirect()->route('cart.index', ['store' => $store->slug])->with('error', 'El carrito contiene productos de otra tienda. Vacialo e intenta de nuevo.');
         }
 
         [$cartIsAvailable, $cartAvailabilityMessage] = $this->cartService->productsAreAvailable($cart, $store);
 
         if (! $cartIsAvailable) {
-            return redirect('/cart')->with('error', $cartAvailabilityMessage);
+            return redirect()->route('cart.index', ['store' => $store->slug])->with('error', $cartAvailabilityMessage);
         }
 
         $order = $this->checkoutService->createOrder($store, $cart, $validated);
@@ -158,10 +155,10 @@ class CartController extends Controller
         $url = $this->whatsAppOrderMessageBuilder->url($order);
 
         if (! $url) {
-            return redirect('/cart')->with('error', 'La tienda no tiene un WhatsApp configurado.');
+            return redirect()->route('cart.index', ['store' => $store->slug])->with('error', 'La tienda no tiene un WhatsApp configurado.');
         }
 
-        session()->forget('cart');
+        $this->cartService->forgetCartForStore($store);
 
         return redirect($url);
     }

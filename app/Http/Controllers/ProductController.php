@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ProductRequest;
 use App\Models\Product;
 use App\Models\Store;
+use App\Models\StoreCategory;
 use App\Services\ProductContentService;
 use App\Services\ProductFileService;
+use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {
@@ -131,13 +133,32 @@ class ProductController extends Controller
 
         $this->countStoreVisit($store);
 
-        $allProducts = Product::where('store_id', $store->id)->latest()->get();
+        return view('store_shop', $this->storefrontPayload($store));
+    }
+
+    public function category($slug, string $category)
+    {
+        $store = Store::publiclyAvailable()
+            ->where('slug', $slug)
+            ->firstOrFail();
+
+        $category = $store->categories()
+            ->where('slug', $category)
+            ->where('is_active', true)
+            ->firstOrFail();
+
+        $this->countStoreVisit($store);
+
         $products = Product::where('store_id', $store->id)
+            ->where('category', $category->name)
             ->latest()
             ->paginate(7)
             ->withQueryString();
 
-        return view('store_shop', compact('products', 'allProducts', 'store'));
+        return view('store_category', array_merge($this->storefrontNavigationPayload($store), [
+            'category' => $category,
+            'products' => $products,
+        ]));
     }
 
     public function show($slug, string $product)
@@ -166,6 +187,85 @@ class ProductController extends Controller
             ->take(4)
             ->get();
 
-        return view('store_product', compact('store', 'product', 'relatedProducts'));
+        return view('store_product', array_merge($this->storefrontNavigationPayload($store), [
+            'product' => $product,
+            'relatedProducts' => $relatedProducts,
+        ]));
+    }
+
+    private function storefrontPayload(Store $store): array
+    {
+        $activeCategories = $this->activeCategories($store);
+        $categoryNames = $activeCategories->pluck('name')->all();
+        $categoryProductCounts = empty($categoryNames)
+            ? collect()
+            : Product::where('store_id', $store->id)
+                ->whereIn('category', $categoryNames)
+                ->select('category', DB::raw('count(*) as total'))
+                ->groupBy('category')
+                ->pluck('total', 'category');
+
+        $categorySections = $activeCategories
+            ->filter(fn (StoreCategory $category) => (int) ($categoryProductCounts[$category->name] ?? 0) > 0)
+            ->take(3)
+            ->map(function (StoreCategory $category) use ($store, $categoryProductCounts) {
+                return [
+                    'category' => $category,
+                    'products' => Product::where('store_id', $store->id)
+                        ->where('category', $category->name)
+                        ->latest()
+                        ->take(4)
+                        ->get(),
+                    'total' => (int) ($categoryProductCounts[$category->name] ?? 0),
+                ];
+            })
+            ->values();
+
+        $visibleCategorySections = $categorySections;
+        $otherProducts = Product::where('store_id', $store->id)
+            ->where(function ($query) {
+                $query->whereNull('category')->orWhere('category', '');
+            })
+            ->latest()
+            ->take(4)
+            ->get();
+
+        $products = Product::where('store_id', $store->id)
+            ->latest()
+            ->paginate(7)
+            ->withQueryString();
+        $allProducts = Product::where('store_id', $store->id)
+            ->latest()
+            ->take(12)
+            ->get();
+
+        return compact(
+            'store',
+            'products',
+            'allProducts',
+            'activeCategories',
+            'categorySections',
+            'visibleCategorySections',
+            'otherProducts'
+        );
+    }
+
+    private function storefrontNavigationPayload(Store $store): array
+    {
+        return [
+            'store' => $store,
+            'activeCategories' => $this->activeCategories($store),
+        ];
+    }
+
+    private function activeCategories(Store $store)
+    {
+        $store->ensureCategoryRecords();
+
+        return $store->categories()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
     }
 }

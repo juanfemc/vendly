@@ -5,6 +5,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\StoreBanner;
+use App\Models\StoreCategory;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 
@@ -109,7 +110,7 @@ test('checkout rejects an old cart when owner account expires', function () {
             'city' => 'Bogota',
             'document' => '123456',
         ])
-        ->assertRedirect('/cart')
+        ->assertRedirect(route('cart.index', ['store' => $store->slug]))
         ->assertSessionHas('error', 'Esta tienda no esta disponible para recibir pedidos.');
 
     $this->assertDatabaseCount('orders', 0);
@@ -317,7 +318,7 @@ test('deleting a sold product keeps the order item history', function () {
     ]);
 
     $this->actingAs($storeUser)
-        ->delete('/admin/products/' . $product->id)
+        ->delete(route('admin.products.destroy', $product))
         ->assertRedirect();
 
     $this->assertDatabaseHas('orders', ['id' => $order->id]);
@@ -372,7 +373,7 @@ test('checkout rejects a cart item whose product was deleted without creating an
             'city' => 'Bogota',
             'document' => '123456',
         ])
-        ->assertRedirect('/cart')
+        ->assertRedirect(route('cart.index', ['store' => $store->slug]))
         ->assertSessionHas('error', 'Uno de los productos del carrito ya no esta disponible. Eliminalo e intenta de nuevo.');
 
     $this->assertDatabaseCount('orders', 0);
@@ -485,7 +486,7 @@ test('admin can update order status from global orders list', function () {
     ]);
 
     $this->actingAs($admin)
-        ->patch(route('admin.orders.status', $order->id), [
+        ->patch(route('admin.orders.status', $order), [
             'status' => 'pagado',
         ])
         ->assertRedirect('/admin/orders');
@@ -698,4 +699,225 @@ test('public product route key regenerates missing slugs instead of exposing ids
     expect($routeKey)->toStartWith('producto-importado-');
     expect($routeKey)->not->toBe((string) $product->id);
     expect($product->refresh()->slug)->toBe($routeKey);
+});
+
+test('store home groups products by three categories and category pages show the full list', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Categorias',
+        'slug' => 'tienda-categorias',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    foreach (['Audio', 'Computo', 'Gaming', 'Accesorios'] as $index => $name) {
+        StoreCategory::create([
+            'store_id' => $store->id,
+            'name' => $name,
+            'slug' => strtolower($name),
+            'description' => 'Descripcion de ' . $name,
+            'is_active' => true,
+            'sort_order' => $index + 1,
+        ]);
+
+        foreach (range(1, 5) as $productIndex) {
+            Product::create([
+                'user_id' => $user->id,
+                'store_id' => $store->id,
+                'name' => $name . ' Producto ' . $productIndex,
+                'category' => $name,
+                'price' => 10000 + $productIndex,
+            ]);
+        }
+    }
+
+    Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Producto sin categoria',
+        'price' => 25000,
+    ]);
+
+    $this->get('/tienda-categorias')
+        ->assertOk()
+        ->assertSee('id="categoria-audio"', false)
+        ->assertSee('id="categoria-computo"', false)
+        ->assertSee('id="categoria-gaming"', false)
+        ->assertDontSee('id="categoria-accesorios"', false)
+        ->assertSee('Audio Producto 4')
+        ->assertDontSee('Audio Producto 5')
+        ->assertSee('Producto sin categoria')
+        ->assertSee('/tienda-categorias/categorias/accesorios', false);
+
+    $this->get('/tienda-categorias/categorias/audio')
+        ->assertOk()
+        ->assertSee('Audio Producto 5')
+        ->assertSee('<title>Audio | Tienda Categorias</title>', false);
+
+    $product = Product::where('store_id', $store->id)
+        ->where('category', 'Audio')
+        ->firstOrFail();
+
+    $this->get(route('store.product.show', [
+        'slug' => $store->slug,
+        'product' => $product->publicRouteKey(),
+    ]))
+        ->assertOk()
+        ->assertSee('Categorias')
+        ->assertSee('/tienda-categorias/categorias/audio', false)
+        ->assertDontSee('href="#destacado"', false)
+        ->assertDontSee('href="#novedades"', false);
+});
+
+test('admin panel routes use admin tokens instead of numeric ids', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $storeUser = User::factory()->create();
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda segura',
+        'slug' => 'tienda-segura',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto seguro',
+        'price' => 50000,
+    ]);
+
+    expect(route('admin.products.edit', $product))
+        ->toContain($product->admin_token)
+        ->not->toContain('/' . $product->id . '/');
+
+    $this->actingAs($storeUser)
+        ->get('/admin/products/' . $product->id . '/edit')
+        ->assertNotFound();
+
+    $this->actingAs($storeUser)
+        ->get(route('admin.products.edit', $product))
+        ->assertOk();
+
+    expect(route('admin.stores.edit', $store))
+        ->toContain($store->admin_token)
+        ->not->toContain('/' . $store->id . '/');
+
+    $this->actingAs($admin)
+        ->get('/admin/stores/' . $store->id . '/edit')
+        ->assertNotFound();
+});
+
+test('cart items are isolated by store when customers switch storefronts', function () {
+    $userA = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $userB = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $storeA = Store::create([
+        'user_id' => $userA->id,
+        'name' => 'Tienda A',
+        'slug' => 'tienda-a',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    $storeB = Store::create([
+        'user_id' => $userB->id,
+        'name' => 'Tienda B',
+        'slug' => 'tienda-b',
+        'whatsapp' => '573001112244',
+        'is_active' => true,
+    ]);
+
+    $productA = Product::create([
+        'user_id' => $userA->id,
+        'store_id' => $storeA->id,
+        'name' => 'Producto tienda A',
+        'price' => 10000,
+    ]);
+    $productB = Product::create([
+        'user_id' => $userB->id,
+        'store_id' => $storeB->id,
+        'name' => 'Producto tienda B',
+        'price' => 20000,
+    ]);
+
+    $this->post(route('cart.add', $productA->id))->assertRedirect();
+
+    $this->get(route('cart.index', ['store' => $storeA->slug]))
+        ->assertOk()
+        ->assertSee('Producto tienda A')
+        ->assertDontSee('Producto tienda B');
+
+    $this->get(route('cart.index', ['store' => $storeB->slug]))
+        ->assertOk()
+        ->assertSee('Tu carrito esta vacio')
+        ->assertDontSee('Producto tienda A');
+
+    $this->post(route('cart.add', $productB->id))->assertRedirect();
+
+    $this->get(route('cart.index', ['store' => $storeA->slug]))
+        ->assertOk()
+        ->assertSee('Producto tienda A')
+        ->assertDontSee('Producto tienda B');
+
+    $this->get(route('cart.index', ['store' => $storeB->slug]))
+        ->assertOk()
+        ->assertSee('Producto tienda B')
+        ->assertDontSee('Producto tienda A');
+});
+
+test('checkout clears the store cart without reviving the legacy cart', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Checkout',
+        'slug' => 'tienda-checkout',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $product = Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Producto checkout',
+        'price' => 30000,
+    ]);
+
+    $this->post(route('cart.add', $product->id))->assertRedirect();
+
+    $this->post(route('cart.whatsapp', ['store' => $store->slug]), [
+        'name' => 'Cliente',
+        'last_name' => 'Prueba',
+        'phone' => '3001234567',
+        'address' => 'Calle 1',
+        'city' => 'Bogota',
+        'document' => '123456',
+    ])->assertRedirectContains('https://wa.me/573001112233');
+
+    $this->assertDatabaseHas('orders', [
+        'store_id' => $store->id,
+        'total' => 30000,
+    ]);
+
+    expect(session()->has('cart'))->toBeFalse();
+    expect(session()->has('carts.' . $store->id))->toBeFalse();
+
+    $this->get(route('cart.index', ['store' => $store->slug]))
+        ->assertOk()
+        ->assertSee('Tu carrito esta vacio')
+        ->assertDontSee('Producto checkout');
 });

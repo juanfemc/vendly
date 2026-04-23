@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasAdminRouteKey;
 use Illuminate\Database\Eloquent\Model;
 
 class Order extends Model
 {
+    use HasAdminRouteKey;
+
     public const STATUSES = [
         'pendiente' => 'Pendiente',
         'pagado' => 'Pagado',
@@ -21,7 +24,8 @@ class Order extends Model
         'notes',
         'status',
         'total',
-        'store_id'
+        'store_id',
+        'admin_token',
     ];
 
     public function statusLabel(): string

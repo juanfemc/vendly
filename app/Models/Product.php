@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasAdminRouteKey;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 class Product extends Model
 {
+    use HasAdminRouteKey;
+
     protected $fillable = [
         'name',
         'slug',
@@ -19,7 +22,8 @@ class Product extends Model
         'colors',
         'image',
         'user_id',
-        'store_id'
+        'store_id',
+        'admin_token',
     ];
 
     protected $casts = [

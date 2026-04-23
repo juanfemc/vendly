@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasAdminRouteKey;
 use Illuminate\Database\Eloquent\Model;
 
 class Store extends Model
 {
+    use HasAdminRouteKey;
+
     public const BUSINESS_TYPES = [
         'store' => 'Tienda',
         'restaurant' => 'Restaurante',
@@ -29,6 +32,7 @@ class Store extends Model
         'instagram_url',
         'facebook_url',
         'tiktok_url',
+        'admin_token',
     ];
 
     protected $casts = [
@@ -144,6 +148,8 @@ class Store extends Model
         foreach ($this->defaultProductCategoryOptions() as $categoryName) {
             $this->categories()->create([
                 'name' => $categoryName,
+                'slug' => StoreCategory::uniqueSlugFor((int) $this->id, $categoryName),
+                'is_active' => true,
             ]);
         }
     }
@@ -157,6 +163,7 @@ class Store extends Model
         $this->ensureCategoryRecords();
 
         $savedCategories = $this->categories()
+            ->orderBy('sort_order')
             ->orderBy('name')
             ->pluck('name');
 
