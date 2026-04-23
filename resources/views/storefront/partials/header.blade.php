@@ -16,8 +16,9 @@
                     <circle cx="9.5" cy="20" r="1.4"></circle>
                     <circle cx="17" cy="20" r="1.4"></circle>
                 </svg>
-                <span>{{ $cartLabel }}</span>
-                <span class="cart-badge">{{ $cartCount }}</span>
+                @if($cartCount > 0)
+                    <span class="cart-badge">{{ $cartCount }}</span>
+                @endif
             </a>
 
             <button
@@ -66,14 +67,15 @@
                     <a href="{{ route('dashboard') }}" class="dashboard-link">Dashboard</a>
                 @endif
 
-                <a href="{{ route('cart.index', ['store' => $store->slug]) }}" class="cart-link">
+                <a href="{{ route('cart.index', ['store' => $store->slug]) }}" class="cart-link desktop-cart-link">
                     <svg class="cart-link-icon" viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M6.5 7h14l-1.4 8.4a2 2 0 0 1-2 1.6H9.2a2 2 0 0 1-2-1.6L5.8 4.8H3.5"></path>
                         <circle cx="9.5" cy="20" r="1.4"></circle>
                         <circle cx="17" cy="20" r="1.4"></circle>
                     </svg>
-                    <span>{{ $cartLabel }}</span>
-                    <span class="cart-badge">{{ $cartCount }}</span>
+                    @if($cartCount > 0)
+                        <span class="cart-badge">{{ $cartCount }}</span>
+                    @endif
                 </a>
             </div>
         </div>

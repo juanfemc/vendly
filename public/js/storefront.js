@@ -66,8 +66,27 @@
             return;
         }
 
-        document.querySelectorAll('.cart-badge').forEach((badge) => {
+        const ensureBadge = (link) => {
+            let badge = link.querySelector('.cart-badge');
+
+            if (!badge && count > 0) {
+                badge = document.createElement('span');
+                badge.className = 'cart-badge';
+                link.appendChild(badge);
+            }
+
+            return badge;
+        };
+
+        document.querySelectorAll('.cart-link').forEach((link) => {
+            const badge = ensureBadge(link);
+
+            if (!badge) {
+                return;
+            }
+
             badge.textContent = count;
+            badge.hidden = count < 1;
         });
     };
 
