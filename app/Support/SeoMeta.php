@@ -23,7 +23,10 @@ class SeoMeta
     {
         $copy = trim((string) $store->shop_copy);
         $description = $copy !== '' ? $copy : $fallbackDescription;
-        $title = $copy !== '' ? $copy : ($store->name ?? $store->businessTypeLabel());
+        $storeName = trim((string) ($store->name ?? ''));
+        $title = $copy !== '' && $storeName !== ''
+            ? $storeName . ' | ' . $copy
+            : ($storeName !== '' ? $storeName : $store->businessTypeLabel());
 
         return new self(
             title: Str::limit(trim($title), 70, ''),

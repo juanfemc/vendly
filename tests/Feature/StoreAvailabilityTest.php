@@ -574,8 +574,8 @@ test('store home meta title uses cover short copy', function () {
 
     $this->get('/tienda-copy')
         ->assertOk()
-        ->assertSee('<title>Compra ropa urbana y pide por WhatsApp en minutos.</title>', false)
-        ->assertSee('<meta property="og:title" content="Compra ropa urbana y pide por WhatsApp en minutos.">', false);
+        ->assertSee('<title>Tienda Copy | Compra ropa urbana y pide por WhatsApp en minutos.</title>', false)
+        ->assertSee('<meta property="og:title" content="Tienda Copy | Compra ropa urbana y pide por WhatsApp en minutos.">', false);
 });
 
 test('store home uses cover image for hero and social preview and logo as favicon', function () {

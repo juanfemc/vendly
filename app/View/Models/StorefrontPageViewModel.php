@@ -3,6 +3,8 @@
 namespace App\View\Models;
 
 use App\Models\Store;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class StorefrontPageViewModel
 {
@@ -32,8 +34,14 @@ class StorefrontPageViewModel
 
     public function storageUrl(?string $path): ?string
     {
-        return $path
-            ? $this->publicBaseUrl . \Illuminate\Support\Facades\Storage::url($path)
-            : null;
+        if (! $path) {
+            return null;
+        }
+
+        $url = Storage::url($path);
+
+        return Str::startsWith($url, ['http://', 'https://'])
+            ? $url
+            : $this->publicBaseUrl . $url;
     }
 }
