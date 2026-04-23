@@ -39,7 +39,7 @@ class StorefrontPageViewModel
             return null;
         }
 
-        $url = Storage::url($path);
+        $url = Storage::disk('public')->url($path);
 
         return Str::startsWith($url, ['http://', 'https://'])
             ? $url
