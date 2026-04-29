@@ -38,7 +38,10 @@
     const feedback = document.getElementById('cartFeedback');
     const navToggle = document.querySelector('.nav-toggle');
     const navbar = document.querySelector('.navbar');
+    const navClose = document.querySelector('.nav-close');
+    const navBackdrop = document.querySelector('.nav-backdrop');
     const navPanelLinks = document.querySelectorAll('.nav-panel a');
+    const navDropdowns = document.querySelectorAll('.nav-dropdown');
     const csrfToken = page.dataset.csrf || '';
     const addingText = page.dataset.addingText || 'Agregando...';
     const addedText = page.dataset.feedbackAdded || 'Producto agregado al carrito';
@@ -100,6 +103,35 @@
         navToggle.setAttribute('aria-expanded', 'false');
     };
 
+    const closeDropdowns = (currentDropdown = null) => {
+        navDropdowns.forEach((dropdown) => {
+            if (dropdown === currentDropdown) {
+                return;
+            }
+
+            dropdown.classList.remove('is-open');
+            dropdown.querySelector('.nav-dropdown-button')?.setAttribute('aria-expanded', 'false');
+        });
+    };
+
+    navDropdowns.forEach((dropdown) => {
+        const button = dropdown.querySelector('.nav-dropdown-button');
+
+        button?.addEventListener('click', (event) => {
+            event.stopPropagation();
+
+            const isOpen = dropdown.classList.toggle('is-open');
+            button.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            closeDropdowns(dropdown);
+        });
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!event.target.closest('.nav-dropdown')) {
+            closeDropdowns();
+        }
+    });
+
     if (navToggle && navbar) {
         navToggle.addEventListener('click', () => {
             const isOpen = navbar.classList.toggle('is-open');
@@ -107,8 +139,20 @@
             navToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
         });
 
+        navClose?.addEventListener('click', closeMenu);
+        navBackdrop?.addEventListener('click', closeMenu);
+
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeMenu();
+                closeDropdowns();
+            }
+        });
+
         navPanelLinks.forEach((link) => {
             link.addEventListener('click', () => {
+                closeDropdowns();
+
                 if (window.innerWidth <= 900) {
                     closeMenu();
                 }
@@ -119,6 +163,8 @@
             if (window.innerWidth > 900) {
                 closeMenu();
             }
+
+            closeDropdowns();
         });
     }
 

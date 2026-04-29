@@ -32,6 +32,17 @@
         <input type="text" name="slug" value="{{ old('slug') }}" placeholder="Slug (ej: mitienda)">
         <input type="text" name="whatsapp" value="{{ old('whatsapp') }}" placeholder="WhatsApp">
         <textarea name="shop_copy" placeholder="Texto corto del shop header">{{ old('shop_copy') }}</textarea>
+        <label class="field-label" for="responsive_product_columns">Columnas de productos en responsive</label>
+        <select id="responsive_product_columns" name="responsive_product_columns">
+            <option value="1" @selected((int) old('responsive_product_columns', 2) === 1)>1 columna</option>
+            <option value="2" @selected((int) old('responsive_product_columns', 2) === 2)>2 columnas</option>
+            <option value="3" @selected((int) old('responsive_product_columns', 2) === 3)>3 columnas</option>
+        </select>
+        <label class="field-label" for="show_hero_products_action">Boton y texto sobre la portada</label>
+        <select id="show_hero_products_action" name="show_hero_products_action">
+            <option value="1" @selected((bool) old('show_hero_products_action', true))>Habilitado</option>
+            <option value="0" @selected(! (bool) old('show_hero_products_action', true))>Deshabilitado</option>
+        </select>
         <label class="field-label" for="store_cover_image">Sube la portada de la tienda</label>
         <input id="store_cover_image" type="file" name="cover_image" accept="image/*" data-optimize-image data-max-width="1920" data-max-height="1080" data-quality="0.82" data-output="webp">
 

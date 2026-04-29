@@ -29,6 +29,8 @@ class Store extends Model
         'cover_image',
         'logo_image',
         'brand_color',
+        'responsive_product_columns',
+        'show_hero_products_action',
         'instagram_url',
         'facebook_url',
         'tiktok_url',
@@ -38,6 +40,8 @@ class Store extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'views_count' => 'integer',
+        'responsive_product_columns' => 'integer',
+        'show_hero_products_action' => 'boolean',
     ];
 
     public function isRestaurant(): bool

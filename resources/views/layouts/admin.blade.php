@@ -578,6 +578,21 @@
                         <a href="/admin/stores/create">Crear tienda</a>
                     </div>
                 </details>
+
+                <details class="sidebar-menu-group" {{ request()->is('admin/products*') ? 'open' : '' }}>
+                    <summary>Productos</summary>
+                    <div class="sidebar-submenu">
+                        <a href="/admin/products">Ver productos</a>
+                        <a href="/admin/products/create">Crear producto</a>
+                    </div>
+                </details>
+
+                <details class="sidebar-menu-group" {{ request()->is('admin/categories*') || request()->is('admin/stores*/categories') ? 'open' : '' }}>
+                    <summary>Categorias</summary>
+                    <div class="sidebar-submenu">
+                        <a href="/admin/categories">Ver categorias</a>
+                    </div>
+                </details>
             @else
                 <details class="sidebar-menu-group" {{ request()->is('admin/store-settings') || request()->is('admin/categories*') ? 'open' : '' }}>
                     <summary>Tienda</summary>

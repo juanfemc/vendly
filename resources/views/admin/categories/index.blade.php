@@ -17,18 +17,77 @@
     </div>
 @endif
 
-<div class="list-card">
-    <h3 style="margin-top:0;">Crear categoria</h3>
-    <form method="POST" action="{{ route('admin.categories.store') }}" enctype="multipart/form-data">
-        @csrf
-        <input type="text" name="name" value="{{ old('name') }}" placeholder="Nombre de la categoria" required>
-        <input type="text" name="slug" value="{{ old('slug') }}" placeholder="Slug opcional">
-        <textarea name="description" rows="3" placeholder="Descripcion corta">{{ old('description') }}</textarea>
-        <input type="file" name="image" accept="image/*">
-        <label>
-            <span>Posicion en la tienda</span>
-            <select name="sort_order">
-                @foreach([
+@if(auth()->user()->isAdmin() && empty($selectedStore))
+    @foreach(($stores ?? collect()) as $storeOption)
+        <div class="list-card" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div>
+                <strong>{{ $storeOption->name }}</strong><br>
+                <span style="color:#6b7280; font-size:13px;">{{ $storeOption->categories_count }} categoria(s)</span>
+            </div>
+            <a href="{{ route('admin.stores.categories.index', $storeOption) }}" class="btn">Ver categorias</a>
+        </div>
+    @endforeach
+
+    @if(($stores ?? null) && method_exists($stores, 'hasPages') && $stores->hasPages())
+        <div class="list-card">
+            {{ $stores->links() }}
+        </div>
+    @endif
+@else
+    @if(auth()->user()->isAdmin() && ! empty($selectedStore))
+        <div class="list-card" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div>
+                <strong>{{ $selectedStore->name }}</strong><br>
+                <span style="color:#6b7280; font-size:13px;">Categorias de esta tienda</span>
+            </div>
+            <a href="/admin/categories" class="btn btn-secondary">Volver a tiendas</a>
+        </div>
+    @endif
+
+    <div class="list-card">
+        <h3 style="margin-top:0;">Crear categoria</h3>
+        <form method="POST" action="{{ route('admin.categories.store') }}" enctype="multipart/form-data">
+            @csrf
+            @if(auth()->user()->isAdmin())
+                <input type="hidden" name="store_id" value="{{ $store->id }}">
+            @endif
+            <input type="text" name="name" value="{{ old('name') }}" placeholder="Nombre de la categoria" required>
+            <input type="text" name="slug" value="{{ old('slug') }}" placeholder="Slug opcional">
+            <textarea name="description" rows="3" placeholder="Descripcion corta">{{ old('description') }}</textarea>
+            <input type="file" name="image" accept="image/*">
+            <label>
+                <span>Posicion en la tienda</span>
+                <select name="sort_order">
+                    @foreach([
+                        0 => 'Normal',
+                        10 => 'Primero',
+                        20 => 'Segundo',
+                        30 => 'Tercero',
+                        40 => 'Cuarto',
+                        50 => 'Quinto',
+                        100 => 'Al final',
+                    ] as $orderValue => $orderLabel)
+                        <option value="{{ $orderValue }}" @selected((int) old('sort_order', 0) === $orderValue)>{{ $orderLabel }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <label style="display:flex; gap:8px; align-items:center; margin:10px 0;">
+                <input type="checkbox" name="is_active" value="1" checked>
+                <span>Categoria visible</span>
+            </label>
+            <button class="btn" type="submit">Agregar categoria</button>
+        </form>
+    </div>
+
+    @if ($categories->isEmpty())
+        <div class="list-card">No hay categorias registradas.</div>
+    @endif
+
+    @foreach ($categories as $category)
+        <div class="list-card">
+            <strong>{{ $category->name }}</strong>
+            @php
+                $positionLabel = [
                     0 => 'Normal',
                     10 => 'Primero',
                     20 => 'Segundo',
@@ -36,54 +95,26 @@
                     40 => 'Cuarto',
                     50 => 'Quinto',
                     100 => 'Al final',
-                ] as $orderValue => $orderLabel)
-                    <option value="{{ $orderValue }}" @selected((int) old('sort_order', 0) === $orderValue)>{{ $orderLabel }}</option>
-                @endforeach
-            </select>
-        </label>
-        <label style="display:flex; gap:8px; align-items:center; margin:10px 0;">
-            <input type="checkbox" name="is_active" value="1" checked>
-            <span>Categoria visible</span>
-        </label>
-        <button class="btn" type="submit">Agregar categoria</button>
-    </form>
-</div>
+                ][$category->sort_order] ?? 'Personalizada';
+            @endphp
+            <div style="color:#666; margin-top:6px;">/{{ $category->slug }} - {{ $positionLabel }} - {{ $category->is_active ? 'Visible' : 'Oculta' }}</div>
+            @if($category->description)
+                <p style="margin-bottom:0;">{{ $category->description }}</p>
+            @endif
+            @if($category->image)
+                <img src="{{ asset('storage/' . $category->image) }}" alt="{{ $category->name }}" style="width:120px; height:80px; object-fit:cover; border-radius:10px; margin-top:12px;">
+            @endif
 
-@if ($categories->isEmpty())
-    <div class="list-card">No hay categorias registradas.</div>
-@endif
+            <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:14px;">
+                <a href="{{ route('admin.categories.edit', $category) }}" class="btn">Editar</a>
 
-@foreach ($categories as $category)
-    <div class="list-card">
-        <strong>{{ $category->name }}</strong>
-        @php
-            $positionLabel = [
-                0 => 'Normal',
-                10 => 'Primero',
-                20 => 'Segundo',
-                30 => 'Tercero',
-                40 => 'Cuarto',
-                50 => 'Quinto',
-                100 => 'Al final',
-            ][$category->sort_order] ?? 'Personalizada';
-        @endphp
-        <div style="color:#666; margin-top:6px;">/{{ $category->slug }} · {{ $positionLabel }} · {{ $category->is_active ? 'Visible' : 'Oculta' }}</div>
-        @if($category->description)
-            <p style="margin-bottom:0;">{{ $category->description }}</p>
-        @endif
-        @if($category->image)
-            <img src="{{ asset('storage/' . $category->image) }}" alt="{{ $category->name }}" style="width:120px; height:80px; object-fit:cover; border-radius:10px; margin-top:12px;">
-        @endif
-
-        <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:14px;">
-            <a href="{{ route('admin.categories.edit', $category) }}" class="btn">Editar</a>
-
-            <form method="POST" action="{{ route('admin.categories.destroy', $category) }}" onsubmit="return confirm('¿Eliminar esta categoria? Los productos quedaran sin categoria.');">
-                @csrf
-                @method('DELETE')
-                <button type="submit" class="btn btn-secondary">Eliminar</button>
-            </form>
+                <form method="POST" action="{{ route('admin.categories.destroy', $category) }}" onsubmit="return confirm('Eliminar esta categoria? Los productos quedaran sin categoria.');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-secondary">Eliminar</button>
+                </form>
+            </div>
         </div>
-    </div>
-@endforeach
+    @endforeach
+@endif
 @endsection

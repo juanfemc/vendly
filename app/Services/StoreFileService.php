@@ -5,10 +5,13 @@ namespace App\Services;
 use App\Models\Store;
 use App\Models\StoreBanner;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class StoreFileService
 {
+    public function __construct(private PublicFileService $publicFileService)
+    {
+    }
+
     public function storeUploadedImages(Request $request): array
     {
         return [
@@ -40,16 +43,14 @@ class StoreFileService
     {
         foreach ($store->products as $product) {
             $this->deletePublicFile($product->image);
+            $this->publicFileService->deleteMany($product->images ?? []);
         }
 
         foreach ($store->banners as $banner) {
             $this->deleteBannerImageIfUnused($banner->image, $store->id);
         }
 
-        foreach ($store->categories as $category) {
-            $this->deletePublicFile($category->image);
-        }
-
+        $this->publicFileService->deleteMany($store->categories->pluck('image'));
         $this->deletePublicFile($store->cover_image);
         $this->deletePublicFile($store->logo_image);
     }
@@ -69,17 +70,8 @@ class StoreFileService
         }
     }
 
-    public function deletePublicFile(?string $path): void
+    private function deletePublicFile(?string $path): void
     {
-        if (! $path) {
-            return;
-        }
-
-        $disk = Storage::disk('public');
-        $disk->delete($path);
-
-        if ($disk->exists($path)) {
-            @unlink($disk->path($path));
-        }
+        $this->publicFileService->delete($path);
     }
 }

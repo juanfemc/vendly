@@ -18,7 +18,6 @@
         $logoImage = $absoluteStorageUrl($store->logo_image);
         $faviconImage = $storageAssetUrl($store->logo_image) ?: asset('images/vendly-logo.svg');
         $seoImage = $heroMetaImage ?: $logoImage;
-        $featuredProduct = $heroProduct;
         $cartCount = $page->cartCount;
         $instagramUrl = $page->instagramUrl;
         $facebookUrl = $page->facebookUrl;
@@ -32,9 +31,6 @@
         $collectionLabelTitle = $isRestaurant ? 'Menu' : 'Catalogo';
         $itemsLabel = $isRestaurant ? 'platos' : 'productos';
         $productsTotal = method_exists($catalogProducts, 'total') ? $catalogProducts->total() : $allProducts->count();
-        $featuredItemLabel = $isRestaurant
-            ? 'Plato destacado'
-            : ($isTechnologyStore ? 'Tecnologia destacada' : ($isSupplementStore ? 'Suplemento destacado' : 'Producto destacado'));
         $buyNowLabel = $isRestaurant ? 'Pedir ahora' : 'Comprar ahora';
         $addLabel = $isRestaurant ? 'Agregar al pedido' : 'Agregar al carrito';
         $heroEyebrow = $isRestaurant
@@ -47,6 +43,7 @@
                 : ($isSupplementStore
                     ? 'Encuentra suplementos para energia, fuerza y bienestar en una experiencia pensada para cerrar pedidos por WhatsApp.'
                     : 'Descubre nuestros productos y compra rapido desde una experiencia pensada para cerrar pedidos por WhatsApp.'));
+        $heroShortCopy = trim((string) $store->shop_copy) !== '' ? trim((string) $store->shop_copy) : $defaultHeroCopy;
         $defaultShopCopy = $isRestaurant
             ? 'Explora el menu actual de ' . ($store->name ?? 'el restaurante') . ' y agrega tus favoritos al pedido para enviarlo por WhatsApp.'
             : ($isTechnologyStore
@@ -54,16 +51,9 @@
                 : ($isSupplementStore
                     ? 'Explora la linea actual de suplementos de ' . ($store->name ?? 'la tienda') . ' y agrega tus favoritos al carrito para cerrar tu pedido por WhatsApp.'
                     : 'Explora la coleccion actual de ' . ($store->name ?? 'la tienda') . ' y agrega tus favoritos al carrito para finalizar tu pedido por WhatsApp.'));
-        $featuredDescriptionFallback = $isRestaurant
-            ? 'Uno de los recomendados de la casa, ideal para destacar el sabor y la identidad del restaurante.'
-            : ($isTechnologyStore
-                ? 'Un destacado de la tienda, pensado para resaltar innovacion, utilidad y rendimiento.'
-                : ($isSupplementStore
-                    ? 'Uno de los suplementos destacados de la tienda, ideal para apoyar tu rutina y tus objetivos.'
-                    : 'Una pieza clave de esta coleccion, ideal para destacar el estilo y la identidad de la tienda.'));
         $productDescriptionFallback = $isRestaurant
             ? 'Plato recomendado del restaurante.'
-            : ($isTechnologyStore ? 'Producto destacado de tecnologia.' : ($isSupplementStore ? 'Suplemento destacado de la tienda.' : 'Producto destacado de la tienda.'));
+            : ($isTechnologyStore ? 'Producto de tecnologia.' : ($isSupplementStore ? 'Suplemento de la tienda.' : 'Producto de la tienda.'));
         $storefrontVariant = $isTechnologyStore ? 'technology' : ($isRestaurant ? 'restaurant' : ($isSupplementStore ? 'supplements' : 'default'));
         $variantStylesheets = [
             'technology' => 'css/storefront-technology.css',
@@ -74,6 +64,8 @@
         $metaUrl = $publicBaseUrl . '/' . $store->slug;
         $seo = \App\Support\SeoMeta::storeHome($store, $metaUrl, $seoImage, $defaultShopCopy, $faviconImage);
         $brandTheme = \App\Support\BrandTheme::from($store->brand_color);
+        $responsiveProductColumns = in_array((int) $store->responsive_product_columns, [1, 2, 3], true) ? (int) $store->responsive_product_columns : 2;
+        $showHeroProductsAction = (bool) ($store->show_hero_products_action ?? true);
     @endphp
     @include('storefront.partials.seo', ['seo' => $seo])
     <link rel="stylesheet" href="{{ asset('css/storefront.css') }}">
@@ -86,7 +78,7 @@
     data-adding-text="{{ $isRestaurant ? 'Agregando al pedido...' : 'Agregando...' }}"
     data-feedback-added="{{ $isRestaurant ? 'Plato agregado al pedido' : 'Producto agregado al carrito' }}"
     data-feedback-error="{{ $isRestaurant ? 'No pudimos agregar el plato' : 'No pudimos agregar el producto' }}"
-    style="--brand-color: {{ $brandTheme->color }}; --brand-contrast: {{ $brandTheme->contrast }};"
+    style="--brand-color: {{ $brandTheme->color }}; --brand-contrast: {{ $brandTheme->contrast }}; --responsive-product-columns: {{ $responsiveProductColumns }};"
 >
     @include('storefront.partials.header')
 

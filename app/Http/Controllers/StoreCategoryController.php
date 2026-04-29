@@ -5,29 +5,49 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\StoreCategory;
+use App\Services\PublicFileService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class StoreCategoryController extends Controller
 {
-    public function index(): View
+    public function __construct(private PublicFileService $publicFileService)
     {
-        $store = $this->currentStore();
+    }
+
+    public function index(?Store $store = null): View
+    {
+        $selectedStore = null;
+
+        if (auth()->user()?->isAdmin()) {
+            $stores = Store::withCount('categories')->orderBy('name')->paginate(10);
+            $selectedStore = $store?->exists ? $store : null;
+
+            if (! $selectedStore) {
+                return view('admin.categories.index', [
+                    'store' => null,
+                    'stores' => $stores,
+                    'selectedStore' => null,
+                    'categories' => collect(),
+                ]);
+            }
+        }
+
+        $store = $selectedStore ?: $this->currentStore();
         $categories = $store->categories()
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
 
-        return view('admin.categories.index', compact('store', 'categories'));
+        return view('admin.categories.index', compact('store', 'categories', 'selectedStore'));
     }
 
     public function store(Request $request): RedirectResponse
     {
-        $store = $this->currentStore();
+        $store = $this->storeForRequest($request);
         $request->merge([
             'slug' => Str::slug($request->input('slug') ?: $request->input('name')),
         ]);
@@ -65,21 +85,25 @@ class StoreCategoryController extends Controller
             'is_active' => $request->boolean('is_active', true),
         ]);
 
-        return redirect('/admin/categories')->with('success', 'Categoria creada.');
+        return $this->redirectToCategories($store)->with('success', 'Categoria creada.');
     }
 
     public function edit(StoreCategory $category): View
     {
-        $store = $this->currentStore();
-        abort_unless((int) $category->store_id === (int) $store->id, 404);
+        $store = auth()->user()?->isAdmin()
+            ? $category->store
+            : $this->currentStore();
+        abort_unless($store && (int) $category->store_id === (int) $store->id, 404);
 
         return view('admin.categories.edit', compact('store', 'category'));
     }
 
     public function update(Request $request, StoreCategory $category): RedirectResponse
     {
-        $store = $this->currentStore();
-        abort_unless((int) $category->store_id === (int) $store->id, 404);
+        $store = auth()->user()?->isAdmin()
+            ? $category->store
+            : $this->currentStore();
+        abort_unless($store && (int) $category->store_id === (int) $store->id, 404);
         $request->merge([
             'slug' => Str::slug($request->input('slug') ?: $request->input('name')),
         ]);
@@ -132,13 +156,15 @@ class StoreCategoryController extends Controller
                 ->update(['category' => $newName]);
         }
 
-        return redirect('/admin/categories')->with('success', 'Categoria actualizada.');
+        return $this->redirectToCategories($store)->with('success', 'Categoria actualizada.');
     }
 
     public function destroy(StoreCategory $category): RedirectResponse
     {
-        $store = $this->currentStore();
-        abort_unless((int) $category->store_id === (int) $store->id, 404);
+        $store = auth()->user()?->isAdmin()
+            ? $category->store
+            : $this->currentStore();
+        abort_unless($store && (int) $category->store_id === (int) $store->id, 404);
 
         Product::where('store_id', $store->id)
             ->where('category', $category->name)
@@ -148,7 +174,7 @@ class StoreCategoryController extends Controller
 
         $category->delete();
 
-        return redirect('/admin/categories')->with('success', 'Categoria eliminada.');
+        return $this->redirectToCategories($store)->with('success', 'Categoria eliminada.');
     }
 
     protected function currentStore(): Store
@@ -162,10 +188,29 @@ class StoreCategoryController extends Controller
         return $store;
     }
 
+    private function storeForRequest(Request $request): Store
+    {
+        if (auth()->user()?->isAdmin()) {
+            $store = Store::findOrFail($request->integer('store_id'));
+            $store->ensureCategoryRecords();
+
+            return $store;
+        }
+
+        return $this->currentStore();
+    }
+
+    private function redirectToCategories(Store $store): RedirectResponse
+    {
+        if (auth()->user()?->isAdmin()) {
+            return redirect()->route('admin.stores.categories.index', $store);
+        }
+
+        return redirect()->route('admin.categories.index');
+    }
+
     private function deleteCategoryImage(?string $path): void
     {
-        if ($path) {
-            Storage::disk('public')->delete($path);
-        }
+        $this->publicFileService->delete($path);
     }
 }

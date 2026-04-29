@@ -55,6 +55,17 @@
         <input type="url" name="facebook_url" value="{{ old('facebook_url', $store->facebook_url) }}" placeholder="Facebook URL">
         <input type="url" name="tiktok_url" value="{{ old('tiktok_url', $store->tiktok_url) }}" placeholder="TikTok URL">
         <textarea name="shop_copy" placeholder="Texto corto de la portada">{{ old('shop_copy', $store->shop_copy) }}</textarea>
+        <label class="field-label" for="responsive_product_columns">Columnas de productos en responsive</label>
+        <select id="responsive_product_columns" name="responsive_product_columns">
+            <option value="1" @selected((int) old('responsive_product_columns', $store->responsive_product_columns ?? 2) === 1)>1 columna</option>
+            <option value="2" @selected((int) old('responsive_product_columns', $store->responsive_product_columns ?? 2) === 2)>2 columnas</option>
+            <option value="3" @selected((int) old('responsive_product_columns', $store->responsive_product_columns ?? 2) === 3)>3 columnas</option>
+        </select>
+        <label class="field-label" for="show_hero_products_action">Boton y texto sobre la portada</label>
+        <select id="show_hero_products_action" name="show_hero_products_action">
+            <option value="1" @selected((bool) old('show_hero_products_action', $store->show_hero_products_action ?? true))>Habilitado</option>
+            <option value="0" @selected(! (bool) old('show_hero_products_action', $store->show_hero_products_action ?? true))>Deshabilitado</option>
+        </select>
 
         @if ($store->logo_image)
             <img src="{{ asset('storage/' . $store->logo_image) }}" alt="{{ $store->name }}" style="width:100px; height:100px; object-fit:cover; border-radius:14px; display:block; margin-bottom:12px;">

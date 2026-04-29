@@ -15,6 +15,11 @@
         $logoImage = $absoluteStorageUrl($store->logo_image);
         $faviconImage = $storageAssetUrl($store->logo_image) ?: asset('images/vendly-logo.svg');
         $productImage = $absoluteStorageUrl($product->image);
+        $productGallery = collect([$product->image])
+            ->merge($product->images ?? [])
+            ->filter()
+            ->unique()
+            ->values();
         $seoImage = $productImage ?: $logoImage;
         $cartCount = $page->cartCount;
         $instagramUrl = $page->instagramUrl;
@@ -40,6 +45,7 @@
         $metaUrl = $publicBaseUrl . '/' . $store->slug . '/productos/' . $product->publicRouteKey();
         $seo = \App\Support\SeoMeta::product($store, $product, $metaUrl, $seoImage, $previewCopy, $faviconImage);
         $brandTheme = \App\Support\BrandTheme::from($store->brand_color);
+        $responsiveProductColumns = in_array((int) $store->responsive_product_columns, [1, 2, 3], true) ? (int) $store->responsive_product_columns : 2;
     @endphp
     @include('storefront.partials.seo', ['seo' => $seo])
     <link rel="stylesheet" href="{{ asset('css/storefront.css') }}">
@@ -53,7 +59,7 @@
     data-adding-text="Agregando..."
     data-feedback-added="Producto agregado al carrito"
     data-feedback-error="No pudimos agregar el producto"
-    style="--brand-color: {{ $brandTheme->color }}; --brand-contrast: {{ $brandTheme->contrast }};"
+    style="--brand-color: {{ $brandTheme->color }}; --brand-contrast: {{ $brandTheme->contrast }}; --responsive-product-columns: {{ $responsiveProductColumns }};"
 >
     @include('storefront.partials.header')
 
@@ -65,13 +71,52 @@
         </section>
 
         <section class="product-detail">
-            <div class="product-detail-media">
-                @if($product->image)
-                    <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" loading="eager" fetchpriority="high" decoding="async">
-                @else
+            @if($productGallery->isNotEmpty())
+                <div class="product-carousel" data-product-carousel>
+                    <div class="product-carousel-stage">
+                        @foreach($productGallery as $index => $galleryImage)
+                            <img
+                                src="{{ asset('storage/' . $galleryImage) }}"
+                                alt="{{ $product->name }} imagen {{ $index + 1 }}"
+                                class="product-carousel-image {{ $index === 0 ? 'is-active' : '' }}"
+                                data-carousel-slide="{{ $index }}"
+                                loading="{{ $index === 0 ? 'eager' : 'lazy' }}"
+                                fetchpriority="{{ $index === 0 ? 'high' : 'auto' }}"
+                                decoding="async"
+                            >
+                        @endforeach
+
+                        @if($productGallery->count() > 1)
+                            <button type="button" class="product-carousel-control product-carousel-control--prev" data-carousel-prev aria-label="Imagen anterior">
+                                <span aria-hidden="true"></span>
+                            </button>
+                            <button type="button" class="product-carousel-control product-carousel-control--next" data-carousel-next aria-label="Imagen siguiente">
+                                <span aria-hidden="true"></span>
+                            </button>
+                        @endif
+                    </div>
+
+                    @if($productGallery->count() > 1)
+                        <div class="product-carousel-thumbs" aria-label="Imagenes del producto">
+                            @foreach($productGallery as $index => $galleryImage)
+                                <button
+                                    type="button"
+                                    class="product-carousel-thumb {{ $index === 0 ? 'is-active' : '' }}"
+                                    data-carousel-thumb="{{ $index }}"
+                                    aria-label="Ver imagen {{ $index + 1 }}"
+                                    aria-current="{{ $index === 0 ? 'true' : 'false' }}"
+                                >
+                                    <img src="{{ asset('storage/' . $galleryImage) }}" alt="" loading="lazy" decoding="async">
+                                </button>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+            @else
+                <div class="product-detail-media">
                     <div class="product-detail-fallback">{{ $product->name }}</div>
-                @endif
-            </div>
+                </div>
+            @endif
 
             <div class="product-detail-panel">
                 @if($product->category)
@@ -168,12 +213,7 @@
                                 @endif
                             </div>
 
-                            @if($relatedProduct->category)
-                                <span class="product-tag">{{ $relatedProduct->category }}</span>
-                            @endif
-
                             <h3>{{ $relatedProduct->name }}</h3>
-                            <p>{{ $relatedProduct->description ?: 'Disponible para compra inmediata desde la tienda.' }}</p>
 
                             <div class="price-row">
                                 <span class="price">${{ number_format($relatedProduct->price, 0, ',', '.') }}</span>
@@ -195,6 +235,44 @@
 
     <script src="{{ asset('js/storefront.js') }}?v={{ filemtime(public_path('js/storefront.js')) }}" defer></script>
     <script>
+        (() => {
+            const carousel = document.querySelector('[data-product-carousel]');
+
+            if (!carousel) {
+                return;
+            }
+
+            const slides = [...carousel.querySelectorAll('[data-carousel-slide]')];
+            const thumbs = [...carousel.querySelectorAll('[data-carousel-thumb]')];
+            const prev = carousel.querySelector('[data-carousel-prev]');
+            const next = carousel.querySelector('[data-carousel-next]');
+            let current = 0;
+
+            const showSlide = (index) => {
+                if (slides.length === 0) {
+                    return;
+                }
+
+                current = (index + slides.length) % slides.length;
+
+                slides.forEach((slide, slideIndex) => {
+                    slide.classList.toggle('is-active', slideIndex === current);
+                });
+
+                thumbs.forEach((thumb, thumbIndex) => {
+                    const isActive = thumbIndex === current;
+                    thumb.classList.toggle('is-active', isActive);
+                    thumb.setAttribute('aria-current', isActive ? 'true' : 'false');
+                });
+            };
+
+            prev?.addEventListener('click', () => showSlide(current - 1));
+            next?.addEventListener('click', () => showSlide(current + 1));
+            thumbs.forEach((thumb, index) => {
+                thumb.addEventListener('click', () => showSlide(index));
+            });
+        })();
+
         (() => {
             const quantityInput = document.getElementById('quantity');
             const buyNowQuantity = document.querySelector('[data-role="buy-now-quantity"]');

@@ -1,11 +1,11 @@
 .storefront-page--technology .tech-hero {
+    position: relative;
     display: flex;
     flex-direction: column;
-    gap: 26px;
+    gap: 0;
     padding: 26px 0 18px;
 }
 
-.storefront-page--technology .tech-hero-copy,
 .storefront-page--technology .tech-hero-media,
 .storefront-page--technology .tech-promo-card,
 .storefront-page--technology .tech-sale-banner,
@@ -13,28 +13,13 @@
     border-radius: 28px;
 }
 
-.storefront-page--technology .tech-hero-copy {
-    background: linear-gradient(140deg, #f6f6f6 0%, #ececec 100%);
-    padding: 46px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    min-height: 0;
-}
-
-.storefront-page--technology .tech-hero-copy h1 {
-    margin: 0 0 14px;
-    font-size: clamp(46px, 6vw, 78px);
-    line-height: 0.9;
-    letter-spacing: -0.07em;
-    font-family: "Arial Black", Arial, sans-serif;
-    text-transform: uppercase;
-}
-
 .storefront-page--technology .tech-hero-media {
     position: relative;
     overflow: hidden;
-    min-height: 460px;
+    width: 100%;
+    aspect-ratio: 820 / 312;
+    height: auto;
+    min-height: 0;
     background: linear-gradient(135deg, #f0f0f0 0%, #ffffff 100%);
     box-shadow: var(--shadow);
 }
@@ -102,14 +87,6 @@
     font-size: 30px;
     line-height: 0.95;
     letter-spacing: -0.05em;
-}
-
-.storefront-page--technology .tech-promo-copy p {
-    margin: 0 0 14px;
-    font-size: 13px;
-    line-height: 1.55;
-    color: inherit;
-    opacity: 0.9;
 }
 
 .storefront-page--technology .tech-promo-copy a {
@@ -180,14 +157,6 @@
     line-height: 0.92;
     letter-spacing: -0.06em;
     font-family: "Arial Black", Arial, sans-serif;
-}
-
-.storefront-page--technology .tech-sale-copy p {
-    margin: 0 0 18px;
-    color: inherit;
-    opacity: 0.92;
-    line-height: 1.7;
-    max-width: 500px;
 }
 
 .storefront-page--technology .tech-sale-actions form {
@@ -261,53 +230,23 @@
 
 .storefront-page--technology .tech-product-card {
     background: #fff;
-    border-radius: 22px;
-    padding: 16px;
-    box-shadow: 0 10px 24px rgba(23, 23, 23, 0.05);
+    border-radius: 0;
+    padding: 18px;
+    box-shadow: none;
 }
 
 .storefront-page--technology .tech-product-card .product-image {
     aspect-ratio: 1 / 1;
     background: #f4f4f4;
     border-radius: 18px;
-    margin-bottom: 16px;
-}
-
-.storefront-page--technology .tech-product-card .product-tag {
-    background: #f1f1f1;
-    color: #6b7280;
-    padding: 7px 10px;
-    border-radius: 999px;
-    letter-spacing: 0.08em;
+    margin-bottom: 22px;
 }
 
 .storefront-page--technology .tech-product-card h3 {
+    margin-bottom: 18px;
     font-family: Arial, sans-serif;
     font-size: 18px;
     font-weight: 700;
-}
-
-.storefront-page--technology .tech-product-card p,
-.storefront-page--technology .tech-news-card p,
-.storefront-page--technology .tech-promo-copy p {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.storefront-page--technology .tech-product-card p {
-    min-height: 66px;
-    -webkit-line-clamp: 3;
-}
-
-.storefront-page--technology .tech-news-card p,
-.storefront-page--technology .tech-promo-copy p {
-    -webkit-line-clamp: 3;
-}
-
-.storefront-page--technology .tech-product-card button {
-    background: #111;
-    color: #fff;
 }
 
 .storefront-page--technology .tech-news-section {
@@ -354,13 +293,6 @@
     letter-spacing: -0.04em;
 }
 
-.storefront-page--technology .tech-news-card p {
-    margin: 0;
-    font-size: 14px;
-    color: var(--muted);
-    line-height: 1.65;
-}
-
 @media (max-width: 1024px) {
     .storefront-page--technology .tech-hero,
     .storefront-page--technology .tech-sale-banner {
@@ -368,9 +300,8 @@
     }
 
     .storefront-page--technology .tech-hero-media {
-        width: 100vw;
-        margin-inline: calc(50% - 50vw);
-        border-radius: 0;
+        width: 100%;
+        margin-inline: 0;
     }
 
     .storefront-page--technology .tech-promo-card-1,
@@ -381,9 +312,12 @@
         grid-column: span 6;
     }
 
-    .storefront-page--technology .tech-news-grid,
-    .storefront-page--technology .tech-products-grid {
+    .storefront-page--technology .tech-news-grid {
         grid-template-columns: repeat(2, 1fr);
+    }
+
+    .storefront-page--technology .tech-products-grid {
+        grid-template-columns: repeat(var(--responsive-product-columns, 2), minmax(0, 1fr));
     }
 }
 
@@ -402,23 +336,14 @@
 }
 
 @media (max-width: 720px) {
-    .storefront-page--technology .tech-hero-copy,
     .storefront-page--technology .tech-sale-banner,
     .storefront-page--technology .tech-promo-card {
         border-radius: 20px;
     }
 
-    .storefront-page--technology .tech-hero-copy {
-        min-height: 0;
-        padding: 26px 22px;
-    }
-
-    .storefront-page--technology .tech-hero-copy h1 {
-        font-size: 38px;
-    }
-
     .storefront-page--technology .tech-hero-media {
-        min-height: 300px;
+        height: auto;
+        min-height: 0;
         border-radius: 20px;
     }
 
@@ -431,8 +356,12 @@
         height: 180px;
     }
 
-    .storefront-page--technology .tech-news-grid,
     .storefront-page--technology .tech-products-grid {
+        grid-template-columns: repeat(var(--responsive-product-columns, 2), minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .storefront-page--technology .tech-news-grid {
         grid-template-columns: 1fr;
     }
 
@@ -442,14 +371,6 @@
 }
 
 @media (max-width: 480px) {
-    .storefront-page--technology .tech-hero-copy {
-        padding: 22px 18px;
-    }
-
-    .storefront-page--technology .tech-hero-copy h1 {
-        font-size: 32px;
-    }
-
     .storefront-page--technology .tech-sale-banner {
         padding: 20px 18px;
     }

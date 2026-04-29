@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\StoreBanner;
 use App\Models\StoreCategory;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 test('public store is hidden when owner account is expired', function () {
@@ -128,7 +129,7 @@ test('technology storefront renders variant selectors before adding to cart', fu
         'is_active' => true,
     ]);
 
-    Product::create([
+    $product = Product::create([
         'user_id' => $user->id,
         'store_id' => $store->id,
         'name' => 'Audifonos',
@@ -137,7 +138,7 @@ test('technology storefront renders variant selectors before adding to cart', fu
         'colors' => ['Negro'],
     ]);
 
-    $this->get('/tech-store')
+    $this->get('/tech-store/productos/' . $product->publicRouteKey())
         ->assertOk()
         ->assertSee('name="size"', false)
         ->assertSee('name="color"', false);
@@ -172,6 +173,78 @@ test('brand color must be a hex value and is normalized', function () {
             'brand_color' => '#fff;background:red',
         ])
         ->assertSessionHasErrors('brand_color');
+});
+
+test('store responsive product columns can be configured from the panel', function () {
+    $storeUser = User::factory()->create();
+
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Columnas',
+        'slug' => 'tienda-columnas',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->post('/admin/store-settings', [
+            'name' => $store->name,
+            'business_type' => 'store',
+            'whatsapp' => $store->whatsapp,
+            'responsive_product_columns' => 1,
+            'show_hero_products_action' => 1,
+        ])
+        ->assertRedirect('/admin/store-settings');
+
+    expect($store->refresh()->responsive_product_columns)->toBe(1);
+
+    $this->get('/tienda-columnas')
+        ->assertOk()
+        ->assertSee('--responsive-product-columns: 1', false);
+
+    $this->actingAs($storeUser)
+        ->post('/admin/store-settings', [
+            'name' => $store->name,
+            'business_type' => 'store',
+            'whatsapp' => $store->whatsapp,
+            'responsive_product_columns' => 4,
+        ])
+        ->assertSessionHasErrors('responsive_product_columns');
+});
+
+test('hero products action can be disabled from the panel', function () {
+    $storeUser = User::factory()->create();
+
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Hero',
+        'slug' => 'tienda-hero',
+        'whatsapp' => '573001112233',
+        'shop_copy' => 'Texto visible cuando el hero esta activo.',
+        'is_active' => true,
+    ]);
+
+    $this->get('/tienda-hero')
+        ->assertOk()
+        ->assertSee('store-hero-products-action', false)
+        ->assertSee('Texto visible cuando el hero esta activo.');
+
+    $this->actingAs($storeUser)
+        ->post('/admin/store-settings', [
+            'name' => $store->name,
+            'business_type' => 'store',
+            'whatsapp' => $store->whatsapp,
+            'responsive_product_columns' => 2,
+            'show_hero_products_action' => 0,
+        ])
+        ->assertRedirect('/admin/store-settings');
+
+    expect($store->refresh()->show_hero_products_action)->toBeFalse();
+
+    $this->get('/tienda-hero')
+        ->assertOk()
+        ->assertDontSee('store-hero-products-action', false)
+        ->assertDontSee('<p class="store-hero-short-copy">Texto visible cuando el hero esta activo.</p>', false);
 });
 
 test('admin cannot create a second store for the same user', function () {
@@ -218,6 +291,7 @@ test('deleting a store removes its products and banners from the database', func
         'name' => 'Producto con imagen',
         'price' => 10000,
         'image' => 'products/product.webp',
+        'images' => ['products/product-extra.webp'],
     ]);
 
     StoreBanner::create([
@@ -226,6 +300,9 @@ test('deleting a store removes its products and banners from the database', func
         'image' => 'banners/banner.webp',
     ]);
 
+    Storage::disk('public')->put('products/product.webp', 'fake');
+    Storage::disk('public')->put('products/product-extra.webp', 'fake');
+
     $this->actingAs($admin)
         ->delete(route('admin.stores.destroy', $store))
         ->assertRedirect('/admin/stores');
@@ -233,6 +310,8 @@ test('deleting a store removes its products and banners from the database', func
     $this->assertDatabaseMissing('stores', ['id' => $store->id]);
     $this->assertDatabaseMissing('products', ['store_id' => $store->id]);
     $this->assertDatabaseMissing('store_banners', ['store_id' => $store->id]);
+    Storage::disk('public')->assertMissing('products/product.webp');
+    Storage::disk('public')->assertMissing('products/product-extra.webp');
 });
 
 test('deleting a user does not remove shared global banner files used by another store', function () {
@@ -394,6 +473,35 @@ test('admin cannot assign a store to a non store user', function () {
         ->assertSessionHasErrors('user_id');
 });
 
+test('admin can create another admin user from the panel', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $this->actingAs($admin)
+        ->post('/admin/users', [
+            'name' => 'Admin Nuevo',
+            'email' => 'admin-nuevo@example.com',
+            'role' => 'admin',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ])
+        ->assertRedirect('/admin/users');
+
+    $this->assertDatabaseHas('users', [
+        'email' => 'admin-nuevo@example.com',
+        'role' => 'admin',
+        'is_active' => true,
+        'active_starts_at' => null,
+        'active_duration_days' => null,
+        'active_ends_at' => null,
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/users')
+        ->assertOk()
+        ->assertSee('Admin Nuevo')
+        ->assertSee('Administrador');
+});
+
 test('legacy invalid brand colors are not printed in public inline styles', function () {
     $storeUser = User::factory()->create();
     $store = Store::create([
@@ -494,6 +602,122 @@ test('admin can update order status from global orders list', function () {
     expect($order->refresh()->status)->toBe('pagado');
 });
 
+test('admin can create edit and delete products for any store', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $storeUser = User::factory()->create();
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Productos Admin',
+        'slug' => 'tienda-productos-admin',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/products')
+        ->assertOk()
+        ->assertSee('Tienda Productos Admin')
+        ->assertSee('Ver productos');
+
+    $this->actingAs($admin)
+        ->post('/admin/products', [
+            'store_id' => $store->id,
+            'name' => 'Producto desde Admin',
+            'category' => 'Admin',
+            'price' => 75000,
+            'description' => 'Creado desde el administrador.',
+        ])
+        ->assertRedirect('/admin/products');
+
+    $product = Product::where('store_id', $store->id)
+        ->where('name', 'Producto desde Admin')
+        ->firstOrFail();
+
+    expect($product->user_id)->toBe($storeUser->id);
+
+    $this->actingAs($admin)
+        ->get(route('admin.stores.products.index', $store))
+        ->assertOk()
+        ->assertSee('Producto desde Admin')
+        ->assertSee('Volver a tiendas');
+
+    $this->actingAs($admin)
+        ->put(route('admin.products.update', $product), [
+            'store_id' => $store->id,
+            'name' => 'Producto editado por Admin',
+            'category' => 'Admin',
+            'price' => 82000,
+            'description' => 'Editado desde el administrador.',
+        ])
+        ->assertRedirect('/admin/products');
+
+    expect($product->refresh()->name)->toBe('Producto editado por Admin');
+    expect((float) $product->price)->toBe(82000.0);
+
+    $this->actingAs($admin)
+        ->delete(route('admin.products.destroy', $product))
+        ->assertRedirect();
+
+    $this->assertDatabaseMissing('products', ['id' => $product->id]);
+});
+
+test('admin can browse stores before managing categories for one store', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $storeUser = User::factory()->create();
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Categorias Admin',
+        'slug' => 'tienda-categorias-admin',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/categories')
+        ->assertOk()
+        ->assertSee('Tienda Categorias Admin')
+        ->assertSee('Ver categorias');
+
+    $this->actingAs($admin)
+        ->get(route('admin.stores.categories.index', $store))
+        ->assertOk()
+        ->assertSee('Categorias de esta tienda')
+        ->assertSee('Agregar categoria');
+
+    $this->actingAs($admin)
+        ->post(route('admin.categories.store'), [
+            'store_id' => $store->id,
+            'name' => 'Admin Especial',
+            'slug' => 'admin-especial',
+            'description' => 'Categoria creada por admin.',
+            'sort_order' => 10,
+            'is_active' => 1,
+        ])
+        ->assertRedirect(route('admin.stores.categories.index', $store));
+
+    $category = StoreCategory::where('store_id', $store->id)
+        ->where('name', 'Admin Especial')
+        ->firstOrFail();
+
+    $this->actingAs($admin)
+        ->put(route('admin.categories.update', $category), [
+            'name' => 'Admin Editada',
+            'slug' => 'admin-editada',
+            'description' => 'Categoria editada por admin.',
+            'sort_order' => 20,
+            'is_active' => 1,
+        ])
+        ->assertRedirect(route('admin.stores.categories.index', $store));
+
+    expect($category->refresh()->name)->toBe('Admin Editada');
+
+    $this->actingAs($admin)
+        ->delete(route('admin.categories.destroy', $category))
+        ->assertRedirect(route('admin.stores.categories.index', $store));
+
+    $this->assertDatabaseMissing('store_categories', ['id' => $category->id]);
+});
+
 test('product social preview includes product name description and image', function () {
     Storage::fake('public');
 
@@ -575,6 +799,7 @@ test('store home meta title uses cover short copy', function () {
 
     $this->get('/tienda-copy')
         ->assertOk()
+        ->assertSee('Compra ropa urbana y pide por WhatsApp en minutos.')
         ->assertSee('<title>Tienda Copy | Compra ropa urbana y pide por WhatsApp en minutos.</title>', false)
         ->assertSee('<meta property="og:title" content="Tienda Copy | Compra ropa urbana y pide por WhatsApp en minutos.">', false);
 });
@@ -638,6 +863,123 @@ test('store user can add material to a product and customers can see it', functi
         ->assertOk()
         ->assertSee('Material')
         ->assertSee('Denim 100% algodon');
+});
+
+test('store user can add multiple product images and customers see a carousel', function () {
+    Storage::fake('public');
+
+    $storeUser = User::factory()->create();
+    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=');
+
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Galeria',
+        'slug' => 'tienda-galeria',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->post('/admin/products', [
+            'name' => 'Bolso Galeria',
+            'price' => 89000,
+            'image' => UploadedFile::fake()->createWithContent('principal.png', $png),
+            'images' => [
+                UploadedFile::fake()->createWithContent('detalle-uno.png', $png),
+                UploadedFile::fake()->createWithContent('detalle-dos.png', $png),
+            ],
+        ])
+        ->assertRedirect('/admin/products');
+
+    $product = Product::where('name', 'Bolso Galeria')->firstOrFail();
+
+    expect($product->images)->toHaveCount(2);
+    Storage::disk('public')->assertExists($product->image);
+
+    foreach ($product->images as $image) {
+        Storage::disk('public')->assertExists($image);
+    }
+
+    $this->get('/tienda-galeria/productos/' . $product->publicRouteKey())
+        ->assertOk()
+        ->assertSee('data-product-carousel', false)
+        ->assertSee('data-carousel-thumb="2"', false);
+});
+
+test('store user can remove an extra product image from the gallery', function () {
+    Storage::fake('public');
+
+    $storeUser = User::factory()->create();
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Quitar Imagen',
+        'slug' => 'tienda-quitar-imagen',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    Storage::disk('public')->put('products/main.webp', 'fake');
+    Storage::disk('public')->put('products/extra-a.webp', 'fake');
+    Storage::disk('public')->put('products/extra-b.webp', 'fake');
+
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto Galeria',
+        'price' => 49000,
+        'image' => 'products/main.webp',
+        'images' => ['products/extra-a.webp', 'products/extra-b.webp'],
+    ]);
+
+    $this->actingAs($storeUser)
+        ->put(route('admin.products.update', $product), [
+            'name' => $product->name,
+            'price' => $product->price,
+            'remove_images' => ['products/extra-a.webp'],
+        ])
+        ->assertRedirect('/admin/products');
+
+    expect($product->refresh()->images)->toBe(['products/extra-b.webp']);
+    Storage::disk('public')->assertMissing('products/extra-a.webp');
+    Storage::disk('public')->assertExists('products/extra-b.webp');
+});
+
+test('store user cannot remove product images outside the product gallery', function () {
+    Storage::fake('public');
+
+    $storeUser = User::factory()->create();
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Imagen Segura',
+        'slug' => 'tienda-imagen-segura',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    Storage::disk('public')->put('products/main.webp', 'fake');
+    Storage::disk('public')->put('products/gallery.webp', 'fake');
+    Storage::disk('public')->put('stores/cover.webp', 'fake-cover');
+
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto Seguro',
+        'price' => 59000,
+        'image' => 'products/main.webp',
+        'images' => ['products/gallery.webp'],
+    ]);
+
+    $this->actingAs($storeUser)
+        ->put(route('admin.products.update', $product), [
+            'name' => $product->name,
+            'price' => $product->price,
+            'remove_images' => ['stores/cover.webp'],
+        ])
+        ->assertRedirect('/admin/products');
+
+    expect($product->refresh()->images)->toBe(['products/gallery.webp']);
+    Storage::disk('public')->assertExists('stores/cover.webp');
+    Storage::disk('public')->assertExists('products/gallery.webp');
 });
 
 test('admin cannot use reserved store slugs and entered slugs are normalized', function () {
@@ -752,7 +1094,16 @@ test('store home groups products by three categories and category pages show the
         ->assertSee('Audio Producto 4')
         ->assertDontSee('Audio Producto 5')
         ->assertSee('Producto sin categoria')
+        ->assertSee('/tienda-categorias/productos', false)
+        ->assertSee('Ver todos los productos')
         ->assertSee('/tienda-categorias/categorias/accesorios', false);
+
+    $this->get('/tienda-categorias/productos')
+        ->assertOk()
+        ->assertSee('Audio Producto 5')
+        ->assertSee('Accesorios Producto 5')
+        ->assertSee('Producto sin categoria')
+        ->assertSee('<title>Catalogo | Tienda Categorias</title>', false);
 
     $this->get('/tienda-categorias/categorias/audio')
         ->assertOk()

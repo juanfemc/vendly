@@ -24,6 +24,15 @@
     <form method="POST" action="/admin/products" enctype="multipart/form-data">
         @csrf
 
+        @if(auth()->user()->isAdmin())
+            <label class="field-label" for="store_id">Tienda del producto</label>
+            <select name="store_id" id="store_id" required>
+                <option value="">Selecciona tienda</option>
+                @foreach (($stores ?? collect()) as $storeOption)
+                    <option value="{{ $storeOption->id }}" @selected(old('store_id') == $storeOption->id)>{{ $storeOption->name }}</option>
+                @endforeach
+            </select>
+        @endif
         <input type="text" name="name" value="{{ old('name') }}" placeholder="Nombre" required>
         <select name="category" id="category_select">
             <option value="">Selecciona categoria</option>
@@ -61,6 +70,8 @@
         <input id="colors" type="text" name="colors" value="{{ old('colors') }}" placeholder="Ej: Negro, Blanco, Rojo">
         <label class="field-label" for="product_image">Sube la imagen del producto</label>
         <input id="product_image" type="file" name="image" accept="image/*" data-optimize-image data-max-width="1600" data-max-height="1600" data-quality="0.82" data-output="webp">
+        <label class="field-label" for="product_images">Sube imagenes adicionales del producto</label>
+        <input id="product_images" type="file" name="images[]" accept="image/*" multiple data-optimize-image data-max-width="1600" data-max-height="1600" data-quality="0.82" data-output="webp">
  
         <button class="btn">Guardar</button>
     </form>

@@ -35,18 +35,23 @@
         </div>
 
         <div class="nav-panel" id="storefrontNavPanel">
+            <div class="nav-panel-head">
+                <span>{{ $store->name }}</span>
+                <button type="button" class="nav-close" aria-label="Cerrar menu">
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+
             <nav class="nav-links" aria-label="Navegacion principal">
                 <a href="{{ route('store.show', $store->slug) }}">Inicio</a>
-                @if($showStorefrontSectionLinks ?? true)
-                    <a href="#destacado">Destacado</a>
-                @endif
                 @if(($activeCategories ?? collect())->isNotEmpty())
                     <div class="nav-dropdown">
-                        <button type="button" class="nav-dropdown-button" aria-haspopup="true" aria-expanded="false">
+                        <button type="button" class="nav-dropdown-button" aria-haspopup="true" aria-expanded="false" aria-controls="storefrontCategoryMenu">
                             <span>Categorias</span>
                             <span class="nav-dropdown-icon" aria-hidden="true"></span>
                         </button>
-                        <div class="nav-dropdown-menu">
+                        <div class="nav-dropdown-menu" id="storefrontCategoryMenu">
                             @foreach(($activeCategories ?? collect()) as $categoryLink)
                                 <a href="{{ route('store.category.show', ['slug' => $store->slug, 'category' => $categoryLink->slug]) }}">
                                     {{ $categoryLink->name }}
@@ -79,5 +84,7 @@
                 </a>
             </div>
         </div>
+
+        <button type="button" class="nav-backdrop" aria-label="Cerrar menu"></button>
     </div>
 </header>

@@ -2,21 +2,26 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\StoreBanner;
 use App\Models\User;
+use App\Services\StoreFileService;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
 class AdminUserController extends Controller
 {
+    public function __construct(private StoreFileService $storeFileService)
+    {
+    }
+
     public function index(): View
     {
-        $users = User::where('role', 'store')->latest()->get();
+        $users = User::orderByRaw("case when role = 'admin' then 0 else 1 end")
+            ->latest()
+            ->get();
 
         return view('admin.users.index', compact('users'));
     }
@@ -28,8 +33,6 @@ class AdminUserController extends Controller
 
     public function edit(User $user): View
     {
-        abort_unless($user->role === 'store', 404);
-
         return view('admin.users.edit', compact('user'));
     }
 
@@ -38,29 +41,33 @@ class AdminUserController extends Controller
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
+            'role' => ['required', 'in:admin,store'],
             'password' => ['required', 'confirmed', Password::defaults()],
             'active_starts_at' => ['nullable', 'date'],
             'active_duration_days' => ['nullable', 'integer', 'min:1', 'max:3650'],
         ]);
 
-        $activePeriod = $this->activePeriodData($request);
+        $role = $request->input('role', 'store');
+        $activePeriod = $role === 'store' ? $this->activePeriodData($request) : [
+            'active_starts_at' => null,
+            'active_duration_days' => null,
+            'active_ends_at' => null,
+        ];
 
         User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'role' => 'store',
+            'role' => $role,
             'is_active' => true,
             ...$activePeriod,
         ]);
 
-        return redirect('/admin/users')->with('success', 'Usuario de tienda creado.');
+        return redirect('/admin/users')->with('success', $role === 'admin' ? 'Administrador creado.' : 'Usuario de tienda creado.');
     }
 
     public function update(Request $request, User $user): RedirectResponse
     {
-        abort_unless($user->role === 'store', 404);
-
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email,' . $user->id],
@@ -72,7 +79,7 @@ class AdminUserController extends Controller
         $data = [
             'name' => $request->name,
             'email' => $request->email,
-            ...$this->activePeriodData($request),
+            ...($user->role === 'store' ? $this->activePeriodData($request) : []),
         ];
 
         if ($request->filled('password')) {
@@ -109,61 +116,12 @@ class AdminUserController extends Controller
         abort_unless($user->role === 'store', 404);
 
         foreach ($user->stores as $store) {
-            foreach ($store->products as $product) {
-                if ($product->image) {
-                    $this->deletePublicFile($product->image);
-                }
-            }
-
-            foreach ($store->banners as $banner) {
-                $this->deleteBannerImageIfUnused($banner->image, $store->id);
-            }
-
-            foreach ($store->categories as $category) {
-                $this->deletePublicFile($category->image);
-            }
-
-            if ($store->cover_image) {
-                $this->deletePublicFile($store->cover_image);
-            }
-
-            if ($store->logo_image) {
-                $this->deletePublicFile($store->logo_image);
-            }
+            $this->storeFileService->deleteStoreFiles($store);
         }
 
         $user->delete();
 
         return redirect('/admin/users')->with('success', 'Usuario eliminado.');
-    }
-
-    private function deleteBannerImageIfUnused(?string $image, int $storeId): void
-    {
-        if (! $image) {
-            return;
-        }
-
-        $isShared = StoreBanner::where('image', $image)
-            ->where('store_id', '!=', $storeId)
-            ->exists();
-
-        if (! $isShared) {
-            $this->deletePublicFile($image);
-        }
-    }
-
-    private function deletePublicFile(?string $path): void
-    {
-        if (! $path) {
-            return;
-        }
-
-        $disk = Storage::disk('public');
-        $disk->delete($path);
-
-        if ($disk->exists($path)) {
-            @unlink($disk->path($path));
-        }
     }
 
     private function activePeriodData(Request $request): array

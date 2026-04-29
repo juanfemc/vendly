@@ -27,6 +27,15 @@
         @csrf
         @method('PUT')
  
+        @if(auth()->user()->isAdmin())
+            <label class="field-label" for="store_id">Tienda del producto</label>
+            <select name="store_id" id="store_id" required>
+                <option value="">Selecciona tienda</option>
+                @foreach (($stores ?? collect()) as $storeOption)
+                    <option value="{{ $storeOption->id }}" @selected(old('store_id', $product->store_id) == $storeOption->id)>{{ $storeOption->name }}</option>
+                @endforeach
+            </select>
+        @endif
         <input type="text" name="name" value="{{ old('name', $product->name) }}" placeholder="Nombre">
         <select name="category" id="category_select">
             <option value="">Selecciona categoria</option>
@@ -67,8 +76,24 @@
             <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" class="thumb" style="width:140px; height:140px;">
         @endif
 
+        @if (! empty($product->images))
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+                @foreach ($product->images as $productImage)
+                    <label style="display:grid; gap:6px; width:96px; font-size:12px; color:#374151;">
+                        <img src="{{ asset('storage/' . $productImage) }}" alt="{{ $product->name }}" class="thumb" style="width:86px; height:86px; margin-bottom:0;">
+                        <span style="display:flex; align-items:center; gap:6px;">
+                            <input type="checkbox" name="remove_images[]" value="{{ $productImage }}" style="width:auto; margin:0;">
+                            Quitar
+                        </span>
+                    </label>
+                @endforeach
+            </div>
+        @endif
+
         <label class="field-label" for="product_image">Sube una nueva imagen del producto</label>
         <input id="product_image" type="file" name="image" accept="image/*" data-optimize-image data-max-width="1600" data-max-height="1600" data-quality="0.82" data-output="webp">
+        <label class="field-label" for="product_images">Agrega imagenes adicionales del producto</label>
+        <input id="product_images" type="file" name="images[]" accept="image/*" multiple data-optimize-image data-max-width="1600" data-max-height="1600" data-quality="0.82" data-output="webp">
 
         <button type="submit" class="btn">Actualizar</button>
     </form>

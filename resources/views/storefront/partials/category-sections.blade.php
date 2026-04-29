@@ -1,18 +1,9 @@
 <section class="catalog-section category-showcase" id="catalogo">
-    <div class="catalog-head catalog-head--default">
-        <div class="catalog-head-copy">
-            <h2>{{ $collectionLabelTitle }}</h2>
-            <p>{{ $defaultShopCopy }}</p>
-        </div>
-        <span class="catalog-head-pill">{{ $productsTotal }} {{ $itemsLabel }}</span>
-    </div>
-
     @forelse($visibleCategorySections as $section)
         @php($sectionCategory = $section['category'])
         <section class="category-block" id="categoria-{{ $sectionCategory->slug }}">
             <div class="category-block-head">
                 <div class="category-block-copy">
-                    <span class="product-tag">{{ $section['total'] }} {{ $itemsLabel }}</span>
                     <h2>{{ $sectionCategory->name }}</h2>
                     @if($sectionCategory->description)
                         <p>{{ $sectionCategory->description }}</p>
@@ -44,9 +35,7 @@
         <section class="category-block category-block--other">
             <div class="category-block-head">
                 <div class="category-block-copy">
-                    <span class="product-tag">{{ $otherProducts->count() }} {{ $itemsLabel }}</span>
                     <h2>Otros productos</h2>
-                    <p>Productos que todavia no tienen una categoria asignada.</p>
                 </div>
             </div>
 

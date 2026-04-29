@@ -33,11 +33,12 @@
             'supplements' => 'css/storefront-supplements.css',
             'default' => 'css/storefront-default.css',
         ];
+        $cardClass = $isTechnologyStore ? 'tech-product-card' : ($isRestaurant ? 'restaurant-product-card' : ($isSupplementStore ? 'supplements-product-card' : ''));
         $faviconImage = $storageAssetUrl($store->logo_image) ?: asset('images/vendly-logo.svg');
-        $seoImage = $absoluteStorageUrl($category->image) ?: $absoluteStorageUrl($store->cover_image) ?: $absoluteStorageUrl($store->logo_image);
-        $metaUrl = $publicBaseUrl . '/' . $store->slug . '/categorias/' . $category->slug;
-        $fallbackDescription = 'Explora ' . $category->name . ' de ' . $store->name . ' y compra por WhatsApp.';
-        $seo = \App\Support\SeoMeta::category($store, $category->name, $category->description, $metaUrl, $seoImage, $fallbackDescription, $faviconImage);
+        $seoImage = $absoluteStorageUrl($store->cover_image) ?: $absoluteStorageUrl($store->logo_image);
+        $metaUrl = $publicBaseUrl . '/' . $store->slug . '/productos';
+        $fallbackDescription = 'Explora todos los ' . $itemsLabel . ' de ' . $store->name . ' y compra por WhatsApp.';
+        $seo = \App\Support\SeoMeta::category($store, $collectionLabelTitle, null, $metaUrl, $seoImage, $fallbackDescription, $faviconImage);
         $brandTheme = \App\Support\BrandTheme::from($store->brand_color);
         $responsiveProductColumns = in_array((int) $store->responsive_product_columns, [1, 2, 3], true) ? (int) $store->responsive_product_columns : 2;
     @endphp
@@ -57,30 +58,24 @@
     @include('storefront.partials.header')
 
     <main class="shell">
-        <section class="category-page-hero">
+        <section class="category-page-hero category-page-hero--catalog">
             <div class="category-page-copy">
                 <span class="eyebrow">{{ $businessLabel }}</span>
-                <h1>{{ $category->name }}</h1>
-                <p>{{ $category->description ?: $fallbackDescription }}</p>
+                <h1>{{ $collectionLabelTitle }}</h1>
+                <p>{{ $fallbackDescription }}</p>
             </div>
-
-            @if($category->image)
-                <div class="category-page-media">
-                    <img src="{{ asset('storage/' . $category->image) }}" alt="{{ $category->name }}" loading="eager" fetchpriority="high" decoding="async">
-                </div>
-            @endif
         </section>
 
         <section class="catalog-section" id="catalogo">
             <div class="catalog-head">
                 <h2>{{ $products->total() }} {{ $itemsLabel }}</h2>
-                <p>{{ $category->description ?: $fallbackDescription }}</p>
+                <p>{{ $fallbackDescription }}</p>
             </div>
 
             @if($products->isNotEmpty())
                 <div class="products-grid">
                     @foreach($products as $product)
-                        @include('storefront.partials.product-card')
+                        @include('storefront.partials.product-card', ['cardClass' => $cardClass])
                     @endforeach
                 </div>
 
@@ -90,7 +85,7 @@
                     </div>
                 @endif
             @else
-                <div class="empty-state">Aun no hay {{ $itemsLabel }} en esta categoria.</div>
+                <div class="empty-state">Aun no hay {{ $itemsLabel }} publicados.</div>
             @endif
         </section>
 

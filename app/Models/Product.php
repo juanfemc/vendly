@@ -21,6 +21,7 @@ class Product extends Model
         'sizes',
         'colors',
         'image',
+        'images',
         'user_id',
         'store_id',
         'admin_token',
@@ -29,6 +30,7 @@ class Product extends Model
     protected $casts = [
         'sizes' => 'array',
         'colors' => 'array',
+        'images' => 'array',
     ];
 
     protected static function booted(): void

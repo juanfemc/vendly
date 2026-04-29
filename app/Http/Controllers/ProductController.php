@@ -36,9 +36,23 @@ class ProductController extends Controller
         $store->increment('views_count');
     }
 
-    public function index()
+    public function index(?Store $store = null)
     {
         $this->authorize('viewAny', Product::class);
+
+        $selectedStore = null;
+
+        if (auth()->user()?->isAdmin()) {
+            $selectedStore = $store?->exists ? $store : null;
+            $stores = $selectedStore
+                ? collect()
+                : Store::withCount('products')->orderBy('name')->paginate(10);
+            $products = $selectedStore
+                ? Product::with('store')->where('store_id', $selectedStore->id)->latest()->get()
+                : collect();
+
+            return view('admin.products.index', compact('products', 'stores', 'selectedStore'));
+        }
 
         $store = $this->currentStore();
         $products = $store
@@ -54,9 +68,14 @@ class ProductController extends Controller
 
         $store = $this->currentStore();
         $store?->ensureCategoryRecords();
-        $categoryOptions = $store?->productCategoryOptions() ?? [];
+        $stores = auth()->user()?->isAdmin()
+            ? Store::orderBy('name')->get()
+            : collect();
+        $categoryOptions = auth()->user()?->isAdmin()
+            ? StoreCategory::orderBy('name')->pluck('name')->unique()->values()->all()
+            : ($store?->productCategoryOptions() ?? []);
 
-        return view('admin.products.create', compact('store', 'categoryOptions'));
+        return view('admin.products.create', compact('store', 'stores', 'categoryOptions'));
     }
 
     public function store(ProductRequest $request)
@@ -64,7 +83,9 @@ class ProductController extends Controller
         $this->authorize('create', Product::class);
 
         $user = auth()->user();
-        $store = $this->currentStore();
+        $store = $user?->isAdmin()
+            ? Store::findOrFail($request->integer('store_id'))
+            : $this->currentStore();
 
         if (! $store) {
             return back()->with('error', 'No tienes tienda creada.');
@@ -72,13 +93,21 @@ class ProductController extends Controller
 
         $this->productContentService->ensureStoreCategory($store, $request->category);
 
+        $primaryImage = $this->productFileService->storeImage($request);
+        $galleryImages = $this->productFileService->storeImages($request);
+
+        if (! $primaryImage && ! empty($galleryImages)) {
+            $primaryImage = array_shift($galleryImages);
+        }
+
         Product::create(array_merge($request->baseData(), [
             'slug' => Product::uniqueSlugFor((int) $store->id, $request->name),
             'features' => $this->productContentService->cleanRichText($request->features),
             'sizes' => $this->productContentService->optionList($request->sizes),
             'colors' => $this->productContentService->optionList($request->colors),
-            'image' => $this->productFileService->storeImage($request),
-            'user_id' => $user->id,
+            'image' => $primaryImage,
+            'images' => $galleryImages,
+            'user_id' => $user->isAdmin() ? $store->user_id : $user->id,
             'store_id' => $store->id,
         ]));
 
@@ -90,9 +119,14 @@ class ProductController extends Controller
         $this->authorize('update', $product);
 
         $product->store?->ensureCategoryRecords();
-        $categoryOptions = $product->store?->productCategoryOptions() ?? [];
+        $stores = auth()->user()?->isAdmin()
+            ? Store::orderBy('name')->get()
+            : collect();
+        $categoryOptions = auth()->user()?->isAdmin()
+            ? StoreCategory::orderBy('name')->pluck('name')->unique()->values()->all()
+            : ($product->store?->productCategoryOptions() ?? []);
 
-        return view('admin.products.edit', compact('product', 'categoryOptions'));
+        return view('admin.products.edit', compact('product', 'stores', 'categoryOptions'));
     }
 
     public function update(ProductRequest $request, Product $product)
@@ -100,13 +134,24 @@ class ProductController extends Controller
         $this->authorize('update', $product);
 
         $data = $request->baseData();
-        $data['slug'] = $product->slug ?: Product::uniqueSlugFor((int) $product->store_id, $request->name, $product->id);
+        $store = auth()->user()?->isAdmin()
+            ? Store::findOrFail($request->integer('store_id'))
+            : $product->store;
+
+        if (auth()->user()?->isAdmin()) {
+            $data['store_id'] = $store->id;
+            $data['user_id'] = $store->user_id;
+        }
+
+        $data['slug'] = (! $product->slug || (int) $store?->id !== (int) $product->store_id)
+            ? Product::uniqueSlugFor((int) $store->id, $request->name, $product->id)
+            : $product->slug;
         $data['features'] = $this->productContentService->cleanRichText($request->features);
         $data['sizes'] = $this->productContentService->optionList($request->sizes);
         $data['colors'] = $this->productContentService->optionList($request->colors);
 
-        if ($product->store) {
-            $this->productContentService->ensureStoreCategory($product->store, $request->category);
+        if ($store) {
+            $this->productContentService->ensureStoreCategory($store, $request->category);
         }
 
         $product->update($this->productFileService->replaceImage($product, $request, $data));
@@ -157,6 +202,24 @@ class ProductController extends Controller
 
         return view('store_category', array_merge($this->storefrontNavigationPayload($store), [
             'category' => $category,
+            'products' => $products,
+        ]));
+    }
+
+    public function allProducts($slug)
+    {
+        $store = Store::publiclyAvailable()
+            ->where('slug', $slug)
+            ->firstOrFail();
+
+        $this->countStoreVisit($store);
+
+        $products = Product::where('store_id', $store->id)
+            ->latest()
+            ->paginate(24)
+            ->withQueryString();
+
+        return view('store_products', array_merge($this->storefrontNavigationPayload($store), [
             'products' => $products,
         ]));
     }

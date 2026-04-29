@@ -4,14 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Models\Store;
 use App\Models\StoreBanner;
+use App\Services\PublicFileService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class AdminBannerController extends Controller
 {
+    public function __construct(private PublicFileService $publicFileService)
+    {
+    }
+
     public function index(): View
     {
         $this->authorize('viewAny', StoreBanner::class);
@@ -112,9 +116,7 @@ class AdminBannerController extends Controller
         $banners = $this->bannerGroupQuery($banner)->get();
 
         foreach ($banners as $bannerItem) {
-            if ($bannerItem->image) {
-                Storage::disk('public')->delete($bannerItem->image);
-            }
+            $this->publicFileService->delete($bannerItem->image);
         }
 
         $this->bannerGroupQuery($banner)->delete();
