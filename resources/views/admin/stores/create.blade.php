@@ -40,8 +40,8 @@
         </select>
         <label class="field-label" for="show_hero_products_action">Boton y texto sobre la portada</label>
         <select id="show_hero_products_action" name="show_hero_products_action">
-            <option value="1" @selected((bool) old('show_hero_products_action', true))>Habilitado</option>
-            <option value="0" @selected(! (bool) old('show_hero_products_action', true))>Deshabilitado</option>
+            <option value="1" @selected((bool) old('show_hero_products_action', false))>Habilitado</option>
+            <option value="0" @selected(! (bool) old('show_hero_products_action', false))>Deshabilitado</option>
         </select>
         <label class="field-label" for="store_cover_image">Sube la portada de la tienda</label>
         <input id="store_cover_image" type="file" name="cover_image" accept="image/*" data-optimize-image data-max-width="1920" data-max-height="1080" data-quality="0.82" data-output="webp">

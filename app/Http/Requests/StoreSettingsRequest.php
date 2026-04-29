@@ -47,7 +47,7 @@ class StoreSettingsRequest extends FormRequest
 
         $data['brand_color'] = $this->normalizeBrandColor($data['brand_color'] ?? null);
         $data['responsive_product_columns'] = (int) ($data['responsive_product_columns'] ?? 2);
-        $data['show_hero_products_action'] = $this->boolean('show_hero_products_action', true);
+        $data['show_hero_products_action'] = $this->boolean('show_hero_products_action', false);
 
         return $data;
     }

@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('stores', function (Blueprint $table) {
-            $table->boolean('show_hero_products_action')->default(true)->after('responsive_product_columns');
+            $table->boolean('show_hero_products_action')->default(false)->after('responsive_product_columns');
         });
     }
 

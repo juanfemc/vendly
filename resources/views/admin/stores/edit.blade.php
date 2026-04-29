@@ -44,8 +44,8 @@
         </select>
         <label class="field-label" for="show_hero_products_action">Boton y texto sobre la portada</label>
         <select id="show_hero_products_action" name="show_hero_products_action">
-            <option value="1" @selected((bool) old('show_hero_products_action', $store->show_hero_products_action ?? true))>Habilitado</option>
-            <option value="0" @selected(! (bool) old('show_hero_products_action', $store->show_hero_products_action ?? true))>Deshabilitado</option>
+            <option value="1" @selected((bool) old('show_hero_products_action', $store->show_hero_products_action ?? false))>Habilitado</option>
+            <option value="0" @selected(! (bool) old('show_hero_products_action', $store->show_hero_products_action ?? false))>Deshabilitado</option>
         </select>
 
         @if ($store->logo_image)

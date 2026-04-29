@@ -212,7 +212,7 @@ test('store responsive product columns can be configured from the panel', functi
         ->assertSessionHasErrors('responsive_product_columns');
 });
 
-test('hero products action can be disabled from the panel', function () {
+test('hero products action is disabled by default and can be enabled from the panel', function () {
     $storeUser = User::factory()->create();
 
     $store = Store::create([
@@ -226,8 +226,8 @@ test('hero products action can be disabled from the panel', function () {
 
     $this->get('/tienda-hero')
         ->assertOk()
-        ->assertSee('store-hero-products-action', false)
-        ->assertSee('Texto visible cuando el hero esta activo.');
+        ->assertDontSee('store-hero-products-action', false)
+        ->assertDontSee('<p class="store-hero-short-copy">Texto visible cuando el hero esta activo.</p>', false);
 
     $this->actingAs($storeUser)
         ->post('/admin/store-settings', [
@@ -235,16 +235,16 @@ test('hero products action can be disabled from the panel', function () {
             'business_type' => 'store',
             'whatsapp' => $store->whatsapp,
             'responsive_product_columns' => 2,
-            'show_hero_products_action' => 0,
+            'show_hero_products_action' => 1,
         ])
         ->assertRedirect('/admin/store-settings');
 
-    expect($store->refresh()->show_hero_products_action)->toBeFalse();
+    expect($store->refresh()->show_hero_products_action)->toBeTrue();
 
     $this->get('/tienda-hero')
         ->assertOk()
-        ->assertDontSee('store-hero-products-action', false)
-        ->assertDontSee('<p class="store-hero-short-copy">Texto visible cuando el hero esta activo.</p>', false);
+        ->assertSee('store-hero-products-action', false)
+        ->assertSee('Texto visible cuando el hero esta activo.');
 });
 
 test('admin cannot create a second store for the same user', function () {
@@ -1055,6 +1055,7 @@ test('store home groups products by three categories and category pages show the
         'slug' => 'tienda-categorias',
         'whatsapp' => '573001112233',
         'is_active' => true,
+        'show_hero_products_action' => true,
     ]);
 
     foreach (['Audio', 'Computo', 'Gaming', 'Accesorios'] as $index => $name) {
