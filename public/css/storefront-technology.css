@@ -32,7 +32,14 @@
 }
 
 @media (max-width: 900px) {
+    .storefront-page--technology .tech-hero-media {
+        aspect-ratio: auto;
+        height: auto;
+        min-height: 0;
+    }
+
     .storefront-page--technology .tech-hero-media img {
+        height: auto;
         object-fit: contain;
         object-position: center;
     }

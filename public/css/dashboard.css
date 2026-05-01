@@ -262,11 +262,11 @@
 
 @media (max-width: 900px) {
     .dashboard-slide-media {
-        min-height: 220px;
+        min-height: 0;
     }
 
     .dashboard-slide-media img {
-        height: 220px;
+        height: auto;
         object-fit: contain;
         object-position: center;
     }
@@ -310,11 +310,11 @@
     }
 
     .dashboard-slide-media {
-        min-height: 190px;
+        min-height: 0;
     }
 
     .dashboard-slide-media img {
-        height: 190px;
+        height: auto;
         object-fit: contain;
         object-position: center;
     }

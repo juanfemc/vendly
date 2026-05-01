@@ -1235,7 +1235,14 @@ body.storefront-page {
         align-items: stretch;
     }
 
+    .store-hero-media {
+        aspect-ratio: auto;
+        height: auto;
+        min-height: 0;
+    }
+
     .store-hero-media img {
+        height: auto;
         object-fit: contain;
         object-position: center;
     }
