@@ -31,8 +31,8 @@
     @endforeach
 
     @if(($stores ?? null) && method_exists($stores, 'hasPages') && $stores->hasPages())
-        <div class="list-card">
-            {{ $stores->links() }}
+        <div class="list-card admin-pagination">
+            {{ $stores->onEachSide(1)->links('pagination::bootstrap-4') }}
         </div>
     @endif
 @else

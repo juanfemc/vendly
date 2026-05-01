@@ -12,6 +12,6 @@
     </div>
 
     <a href="{{ route('store.product.show', ['slug' => $store->slug, 'product' => $product->publicRouteKey()]) }}" class="product-preview-link">
-        Comprar ahora
+        Ver más
     </a>
 </article>

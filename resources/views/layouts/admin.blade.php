@@ -235,6 +235,54 @@
             color: #ffffff;
         }
 
+        .admin-pagination {
+            overflow-x: auto;
+        }
+
+        .admin-pagination nav {
+            display: flex;
+            justify-content: center;
+        }
+
+        .admin-pagination .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            flex-wrap: wrap;
+        }
+
+        .admin-pagination .page-link {
+            min-width: 36px;
+            height: 36px;
+            padding: 0 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            background: #ffffff;
+            color: #374151;
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1;
+            text-decoration: none;
+        }
+
+        .admin-pagination .page-item.active .page-link {
+            border-color: #4f46e5;
+            background: #4f46e5;
+            color: #ffffff;
+        }
+
+        .admin-pagination .page-item.disabled .page-link {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
         input,
         textarea,
         select {
@@ -346,6 +394,44 @@
             border-radius: 10px;
             display: block;
             margin-bottom: 10px;
+        }
+
+        .product-image-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+            gap: 12px;
+            margin: 0 0 18px;
+        }
+
+        .product-image-preview[hidden] {
+            display: none;
+        }
+
+        .product-image-preview-item {
+            min-width: 0;
+            display: grid;
+            gap: 6px;
+            padding: 8px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: #ffffff;
+        }
+
+        .product-image-preview-item img {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            border-radius: 8px;
+            background: #f3f4f6;
+        }
+
+        .product-image-preview-item span {
+            overflow: hidden;
+            color: #6b7280;
+            font-size: 11px;
+            line-height: 1.25;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         @media (max-width: 900px) {
@@ -660,7 +746,8 @@
             });
         })();
     </script>
-    <script src="{{ asset('js/image-upload-optimizer.js') }}"></script>
+    <script src="{{ asset('js/image-upload-optimizer.js') }}?v={{ filemtime(public_path('js/image-upload-optimizer.js')) }}"></script>
+    <script src="{{ asset('js/product-image-preview.js') }}?v={{ filemtime(public_path('js/product-image-preview.js')) }}"></script>
     @stack('scripts')
 </body>
 

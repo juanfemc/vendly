@@ -66,6 +66,7 @@
         $brandTheme = \App\Support\BrandTheme::from($store->brand_color);
         $responsiveProductColumns = in_array((int) $store->responsive_product_columns, [1, 2, 3], true) ? (int) $store->responsive_product_columns : 2;
         $showHeroProductsAction = (bool) ($store->show_hero_products_action ?? false);
+        $showAboutSection = trim((string) $store->mission) !== '' && trim((string) $store->vision) !== '';
     @endphp
     @include('storefront.partials.seo', ['seo' => $seo])
     <link rel="stylesheet" href="{{ asset('css/storefront.css') }}">

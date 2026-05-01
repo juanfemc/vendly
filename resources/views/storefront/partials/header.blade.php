@@ -45,6 +45,9 @@
 
             <nav class="nav-links" aria-label="Navegacion principal">
                 <a href="{{ route('store.show', $store->slug) }}">Inicio</a>
+                @if($showAboutSection ?? false)
+                    <a href="#quienes-somos">Quienes somos</a>
+                @endif
                 @if(($activeCategories ?? collect())->isNotEmpty())
                     <div class="nav-dropdown">
                         <button type="button" class="nav-dropdown-button" aria-haspopup="true" aria-expanded="false" aria-controls="storefrontCategoryMenu">

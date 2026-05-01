@@ -24,8 +24,8 @@
                 <option value="{{ $store->id }}" @selected(old('store_id') == $store->id)>{{ $store->name }}</option>
             @endforeach
         </select>
-        <input type="text" name="title" value="{{ old('title') }}" placeholder="Titulo del banner">
-        <textarea name="subtitle" placeholder="Texto corto del banner">{{ old('subtitle') }}</textarea>
+        <input type="text" name="title" value="{{ old('title') }}" placeholder="Titulo del banner opcional">
+        <textarea name="subtitle" placeholder="Texto corto opcional">{{ old('subtitle') }}</textarea>
         <input type="text" name="link" value="{{ old('link') }}" placeholder="Link opcional">
         <input type="number" name="sort_order" value="{{ old('sort_order', 0) }}" placeholder="Orden">
         <label style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">

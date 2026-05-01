@@ -31,6 +31,13 @@
     display: block;
 }
 
+@media (max-width: 900px) {
+    .storefront-page--technology .tech-hero-media img {
+        object-fit: contain;
+        object-position: center;
+    }
+}
+
 .storefront-page--technology .tech-promo-grid {
     display: grid;
     grid-template-columns: repeat(12, 1fr);

@@ -88,6 +88,8 @@
     @endif
 @endif
 
+@include('storefront.partials.about')
+
 <section class="tech-news-section" id="novedades">
     <div class="catalog-head tech-section-head">
         <h2>Novedades</h2>

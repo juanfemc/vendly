@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('store_banners', function (Blueprint $table) {
             $table->id();
             $table->foreignId('store_id')->constrained()->onDelete('cascade');
-            $table->string('title');
+            $table->string('title')->nullable();
             $table->string('subtitle')->nullable();
             $table->string('image');
             $table->string('link')->nullable();

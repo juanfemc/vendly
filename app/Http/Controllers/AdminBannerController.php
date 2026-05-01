@@ -47,7 +47,7 @@ class AdminBannerController extends Controller
 
         $request->validate([
             'store_id' => ['required'],
-            'title' => ['required', 'string', 'max:255'],
+            'title' => ['nullable', 'string', 'max:255'],
             'subtitle' => ['nullable', 'string', 'max:500'],
             'image' => ['required', 'image', 'max:4096'],
             'link' => ['nullable', 'string', 'max:255'],
@@ -91,6 +91,65 @@ class AdminBannerController extends Controller
             'success',
             $request->store_id === 'all' ? 'Banner creado para todas las tiendas.' : 'Banner creado.'
         );
+    }
+
+    public function edit(StoreBanner $banner): View
+    {
+        $this->authorize('update', $banner);
+
+        $stores = Store::orderBy('name')->get();
+
+        return view('admin.banners.edit', compact('banner', 'stores'));
+    }
+
+    public function update(Request $request, StoreBanner $banner): RedirectResponse
+    {
+        $this->authorize('update', $banner);
+
+        $request->validate([
+            'title' => ['nullable', 'string', 'max:255'],
+            'subtitle' => ['nullable', 'string', 'max:500'],
+            'image' => ['nullable', 'image', 'max:4096'],
+            'link' => ['nullable', 'string', 'max:255'],
+            'sort_order' => ['nullable', 'integer'],
+        ]);
+
+        $data = [
+            'title' => $request->input('title'),
+            'subtitle' => $request->input('subtitle'),
+            'link' => $request->input('link'),
+            'sort_order' => $request->input('sort_order', 0),
+            'is_active' => $request->boolean('is_active'),
+        ];
+
+        $oldImages = collect();
+        $groupIds = collect();
+
+        if ($request->hasFile('image')) {
+            $groupBanners = $this->bannerGroupQuery($banner)->get(['id', 'image']);
+            $groupIds = $groupBanners->pluck('id');
+            $oldImages = $groupBanners
+                ->pluck('image')
+                ->filter()
+                ->unique()
+                ->values();
+
+            $data['image'] = $request->file('image')->store('banners', 'public');
+        }
+
+        $this->bannerGroupQuery($banner)->update($data);
+
+        $oldImages->each(function ($image) use ($groupIds) {
+            $isShared = StoreBanner::where('image', $image)
+                ->whereNotIn('id', $groupIds)
+                ->exists();
+
+            if (! $isShared) {
+                $this->publicFileService->delete($image);
+            }
+        });
+
+        return redirect('/admin/banners')->with('success', 'Banner actualizado.');
     }
 
     public function toggle(StoreBanner $banner): RedirectResponse

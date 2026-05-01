@@ -70,6 +70,8 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/banners', [AdminBannerController::class, 'index']);
     Route::get('/admin/banners/create', [AdminBannerController::class, 'create']);
     Route::post('/admin/banners', [AdminBannerController::class, 'store']);
+    Route::get('/admin/banners/{banner}/edit', [AdminBannerController::class, 'edit'])->name('admin.banners.edit');
+    Route::put('/admin/banners/{banner}', [AdminBannerController::class, 'update'])->name('admin.banners.update');
     Route::patch('/admin/banners/{banner}/toggle', [AdminBannerController::class, 'toggle'])->name('admin.banners.toggle');
     Route::delete('/admin/banners/{banner}', [AdminBannerController::class, 'destroy'])->name('admin.banners.destroy');
 

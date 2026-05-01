@@ -54,7 +54,12 @@
         <input type="url" name="instagram_url" value="{{ old('instagram_url', $store->instagram_url) }}" placeholder="Instagram URL">
         <input type="url" name="facebook_url" value="{{ old('facebook_url', $store->facebook_url) }}" placeholder="Facebook URL">
         <input type="url" name="tiktok_url" value="{{ old('tiktok_url', $store->tiktok_url) }}" placeholder="TikTok URL">
-        <textarea name="shop_copy" placeholder="Texto corto de la portada">{{ old('shop_copy', $store->shop_copy) }}</textarea>
+        <label class="field-label" for="shop_copy">Quienes somos</label>
+        <textarea id="shop_copy" name="shop_copy" placeholder="Cuenta brevemente que hace la tienda y que la diferencia">{{ old('shop_copy', $store->shop_copy) }}</textarea>
+        <label class="field-label" for="mission">Mision</label>
+        <textarea id="mission" name="mission" placeholder="Que hace hoy la tienda y para que existe">{{ old('mission', $store->mission) }}</textarea>
+        <label class="field-label" for="vision">Vision</label>
+        <textarea id="vision" name="vision" placeholder="Hacia donde quiere crecer la tienda">{{ old('vision', $store->vision) }}</textarea>
         <label class="field-label" for="responsive_product_columns">Columnas de productos en responsive</label>
         <select id="responsive_product_columns" name="responsive_product_columns">
             <option value="1" @selected((int) old('responsive_product_columns', $store->responsive_product_columns ?? 2) === 1)>1 columna</option>

@@ -19,4 +19,6 @@
 
 @include('storefront.partials.category-sections')
 
+@include('storefront.partials.about')
+
 @include('storefront.partials.footer')

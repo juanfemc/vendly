@@ -114,30 +114,53 @@
 
     inputs.forEach((input) => {
         input.addEventListener('change', async () => {
-            const [file] = input.files ?? [];
+            const files = Array.from(input.files ?? []);
 
-            if (!file) {
+            if (!files.length) {
                 setBusyState(input, false, '');
+                input.dispatchEvent(new CustomEvent('image-upload:optimized'));
                 return;
             }
 
-            setBusyState(input, true, 'Optimizando imagen antes de subir...');
+            setBusyState(input, true, files.length > 1
+                ? 'Optimizando imagenes antes de subir...'
+                : 'Optimizando imagen antes de subir...');
 
             try {
-                const optimizedFile = await optimizeImage(input, file);
+                const optimizedFiles = [];
                 const transfer = new DataTransfer();
-                transfer.items.add(optimizedFile);
+
+                for (const file of files) {
+                    const optimizedFile = await optimizeImage(input, file);
+                    optimizedFiles.push(optimizedFile);
+                    transfer.items.add(optimizedFile);
+                }
+
                 input.files = transfer.files;
 
-                if (optimizedFile === file) {
-                    setBusyState(input, false, 'La imagen se mantuvo original porque ya estaba optimizada o no se pudo reducir más.');
+                const savedKb = files.reduce((total, file, index) => {
+                    const optimizedFile = optimizedFiles[index];
+
+                    return total + Math.max(0, Math.round((file.size - optimizedFile.size) / 1024));
+                }, 0);
+
+                input.dispatchEvent(new CustomEvent('image-upload:optimized'));
+
+                if (savedKb === 0) {
+                    setBusyState(input, false, files.length > 1
+                        ? 'Las imagenes se mantuvieron originales porque ya estaban optimizadas o no se pudieron reducir mas.'
+                        : 'La imagen se mantuvo original porque ya estaba optimizada o no se pudo reducir mas.');
                     return;
                 }
 
-                const savedKb = Math.max(0, Math.round((file.size - optimizedFile.size) / 1024));
-                setBusyState(input, false, `Imagen optimizada. Reduccion aproximada: ${savedKb} KB.`);
+                setBusyState(input, false, files.length > 1
+                    ? `Imagenes optimizadas. Reduccion aproximada: ${savedKb} KB.`
+                    : `Imagen optimizada. Reduccion aproximada: ${savedKb} KB.`);
             } catch (error) {
-                setBusyState(input, false, 'No se pudo optimizar automaticamente. Se subira la imagen original.');
+                input.dispatchEvent(new CustomEvent('image-upload:optimized'));
+                setBusyState(input, false, files.length > 1
+                    ? 'No se pudieron optimizar automaticamente. Se subiran las imagenes originales.'
+                    : 'No se pudo optimizar automaticamente. Se subira la imagen original.');
             }
         });
     });

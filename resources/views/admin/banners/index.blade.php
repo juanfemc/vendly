@@ -16,12 +16,14 @@
 
 @foreach($banners as $banner)
     <div class="list-card">
-        <img src="{{ asset('storage/' . $banner->image) }}" alt="{{ $banner->title }}" style="width:100%; max-width:420px; max-height:180px; object-fit:cover; border-radius:10px; display:block; margin-bottom:12px;">
-        <strong>{{ $banner->title }}</strong><br>
+        <img src="{{ asset('storage/' . $banner->image) }}" alt="{{ $banner->title ?: 'Banner' }}" style="width:100%; max-width:420px; max-height:180px; object-fit:cover; border-radius:10px; display:block; margin-bottom:12px;">
+        <strong>{{ $banner->title ?: 'Sin titulo' }}</strong><br>
         Tienda: {{ $banner->applies_to_all ? 'Todas las tiendas' : ($banner->store->name ?? 'Sin tienda') }}<br>
         Texto: {{ $banner->subtitle ?: 'Sin subtítulo' }}<br>
         Orden: {{ $banner->sort_order }}<br>
         Estado: {{ $banner->is_active ? 'Activo' : 'Inactivo' }}<br><br>
+
+        <a href="{{ route('admin.banners.edit', $banner) }}" class="btn" style="display:inline-block; margin-right:8px;">Editar</a>
 
         <form method="POST" action="{{ route('admin.banners.toggle', $banner) }}" style="display:inline-block; margin-right:8px;">
             @csrf

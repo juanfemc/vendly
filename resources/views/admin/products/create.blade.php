@@ -71,7 +71,8 @@
         <label class="field-label" for="product_image">Sube la imagen del producto</label>
         <input id="product_image" type="file" name="image" accept="image/*" data-optimize-image data-max-width="1600" data-max-height="1600" data-quality="0.82" data-output="webp">
         <label class="field-label" for="product_images">Sube imagenes adicionales del producto</label>
-        <input id="product_images" type="file" name="images[]" accept="image/*" multiple data-optimize-image data-max-width="1600" data-max-height="1600" data-quality="0.82" data-output="webp">
+        <input id="product_images" type="file" name="images[]" accept="image/*" multiple data-optimize-image data-max-width="1600" data-max-height="1600" data-quality="0.82" data-output="webp" data-product-image-preview data-preview-target="product_images_preview">
+        <div id="product_images_preview" class="product-image-preview" hidden></div>
  
         <button class="btn">Guardar</button>
     </form>

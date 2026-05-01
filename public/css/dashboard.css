@@ -198,7 +198,7 @@
     height: 260px;
     object-fit: cover;
     display: block;
-    opacity: .78;
+    opacity: 1;
 }
 
 .dashboard-slide-overlay {
@@ -267,6 +267,8 @@
 
     .dashboard-slide-media img {
         height: 220px;
+        object-fit: contain;
+        object-position: center;
     }
 
     .dashboard-slide-overlay {
@@ -313,6 +315,8 @@
 
     .dashboard-slide-media img {
         height: 190px;
+        object-fit: contain;
+        object-position: center;
     }
 
     .dashboard-slide-overlay {

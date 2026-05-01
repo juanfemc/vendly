@@ -138,13 +138,13 @@
                 @endif
 
                 <div class="product-detail-description">
-                    <h2>Descripcion</h2>
+                    <h2>Descripción</h2>
                     <p>{{ $product->description ?: 'Este producto aun no tiene una descripcion amplia configurada, pero ya esta listo para venderse desde la tienda.' }}</p>
                 </div>
 
                 @if($product->features)
                     <div class="product-detail-description product-detail-features">
-                        <h2>Caracteristicas</h2>
+                        <h2>Características</h2>
                         <div class="product-rich-content">{!! $product->features !!}</div>
                     </div>
                 @endif
@@ -220,7 +220,7 @@
                             </div>
 
                             <a href="{{ route('store.product.show', ['slug' => $store->slug, 'product' => $relatedProduct->publicRouteKey()]) }}" class="product-preview-link">
-                                Comprar ahora
+                                Ver más
                             </a>
                         </article>
                     @endforeach

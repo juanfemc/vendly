@@ -26,6 +26,8 @@ class Store extends Model
         'slug',
         'whatsapp',
         'shop_copy',
+        'mission',
+        'vision',
         'cover_image',
         'logo_image',
         'brand_color',

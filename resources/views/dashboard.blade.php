@@ -163,18 +163,22 @@
                 @foreach ($banners as $index => $banner)
                     <div class="dashboard-slide {{ $index === 0 ? 'is-active' : '' }}">
                         <div class="dashboard-slide-media">
-                            <img src="{{ asset('storage/' . $banner->image) }}" alt="{{ $banner->title }}">
-                            <div class="dashboard-slide-overlay">
-                                <div class="dashboard-slide-title">{{ $banner->title }}</div>
-                                @if ($banner->subtitle)
-                                    <div class="dashboard-slide-text">{{ $banner->subtitle }}</div>
-                                @endif
-                                @if ($banner->link)
-                                    <div class="dashboard-slide-actions">
-                                        <a href="{{ $banner->link }}" class="btn dashboard-slide-link">Ver mas</a>
-                                    </div>
-                                @endif
-                            </div>
+                            <img src="{{ asset('storage/' . $banner->image) }}" alt="{{ $banner->title ?: 'Banner' }}">
+                            @if ($banner->title || $banner->subtitle || $banner->link)
+                                <div class="dashboard-slide-overlay">
+                                    @if ($banner->title)
+                                        <div class="dashboard-slide-title">{{ $banner->title }}</div>
+                                    @endif
+                                    @if ($banner->subtitle)
+                                        <div class="dashboard-slide-text">{{ $banner->subtitle }}</div>
+                                    @endif
+                                    @if ($banner->link)
+                                        <div class="dashboard-slide-actions">
+                                            <a href="{{ $banner->link }}" class="btn dashboard-slide-link">Ver mas</a>
+                                        </div>
+                                    @endif
+                                </div>
+                            @endif
                         </div>
                     </div>
                 @endforeach
