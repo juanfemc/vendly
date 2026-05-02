@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\AdminUpdateService;
 use App\Services\StoreFileService;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -13,8 +14,10 @@ use Illuminate\View\View;
 
 class AdminUserController extends Controller
 {
-    public function __construct(private StoreFileService $storeFileService)
-    {
+    public function __construct(
+        private StoreFileService $storeFileService,
+        private AdminUpdateService $adminUpdateService,
+    ) {
     }
 
     public function index(): View
@@ -54,7 +57,7 @@ class AdminUserController extends Controller
             'active_ends_at' => null,
         ];
 
-        User::create([
+        $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
@@ -62,6 +65,13 @@ class AdminUserController extends Controller
             'is_active' => true,
             ...$activePeriod,
         ]);
+
+        $this->adminUpdateService->record(
+            $role === 'admin' ? 'Administrador creado' : 'Usuario de tienda creado',
+            $user->name,
+            'usuario',
+            route('admin.users.edit', $user)
+        );
 
         return redirect('/admin/users')->with('success', $role === 'admin' ? 'Administrador creado.' : 'Usuario de tienda creado.');
     }
@@ -88,6 +98,13 @@ class AdminUserController extends Controller
 
         $user->update($data);
 
+        $this->adminUpdateService->record(
+            'Usuario actualizado',
+            $user->name,
+            'usuario',
+            route('admin.users.edit', $user)
+        );
+
         return redirect('/admin/users')->with('success', 'Usuario actualizado.');
     }
 
@@ -105,6 +122,13 @@ class AdminUserController extends Controller
             'is_active' => $nextState,
         ]);
 
+        $this->adminUpdateService->record(
+            $nextState ? 'Usuario reactivado' : 'Usuario pausado',
+            $user->name,
+            'usuario',
+            route('admin.users.edit', $user)
+        );
+
         return redirect('/admin/users')->with(
             'success',
             $nextState ? 'Usuario y tienda reactivados.' : 'Usuario y tienda pausados.'
@@ -119,7 +143,10 @@ class AdminUserController extends Controller
             $this->storeFileService->deleteStoreFiles($store);
         }
 
+        $userName = $user->name;
         $user->delete();
+
+        $this->adminUpdateService->record('Usuario eliminado', $userName, 'usuario');
 
         return redirect('/admin/users')->with('success', 'Usuario eliminado.');
     }

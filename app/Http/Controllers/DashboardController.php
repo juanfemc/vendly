@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\AdminUpdate;
 use App\Models\Order;
 use App\Models\Store;
 use App\Models\StoreBanner;
 use App\Models\User;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -27,8 +29,11 @@ class DashboardController extends Controller
                 ->get();
             $totalSales = (float) Order::whereIn('status', ['pagado', 'enviado'])->sum('total');
             $totalVisits = (int) Store::sum('views_count');
+            $adminUpdates = Schema::hasTable('admin_updates')
+                ? AdminUpdate::orderByDesc('id')->take(10)->get()
+                : collect();
 
-            return view('dashboard', compact('storeUsersCount', 'storesCount', 'storeUsers', 'expiringUsers', 'totalSales', 'totalVisits'));
+            return view('dashboard', compact('storeUsersCount', 'storesCount', 'storeUsers', 'expiringUsers', 'totalSales', 'totalVisits', 'adminUpdates'));
         }
 
         $store = $user?->store ?? $user?->stores()->first();

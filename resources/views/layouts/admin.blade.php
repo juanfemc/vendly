@@ -661,6 +661,7 @@
                     <summary>Tiendas</summary>
                     <div class="sidebar-submenu">
                         <a href="/admin/stores">Ver tiendas</a>
+                        <a href="{{ route('admin.stores.visits') }}">Visitas</a>
                         <a href="/admin/stores/create">Crear tienda</a>
                     </div>
                 </details>

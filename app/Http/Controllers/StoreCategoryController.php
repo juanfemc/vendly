@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\StoreCategory;
+use App\Services\AdminUpdateService;
 use App\Services\PublicFileService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,8 +15,10 @@ use Illuminate\View\View;
 
 class StoreCategoryController extends Controller
 {
-    public function __construct(private PublicFileService $publicFileService)
-    {
+    public function __construct(
+        private PublicFileService $publicFileService,
+        private AdminUpdateService $adminUpdateService,
+    ) {
     }
 
     public function index(?Store $store = null): View
@@ -76,7 +79,7 @@ class StoreCategoryController extends Controller
             'is_active' => ['nullable', 'boolean'],
         ]);
 
-        $store->categories()->create([
+        $category = $store->categories()->create([
             'name' => $validated['name'],
             'slug' => $validated['slug'] ?: StoreCategory::uniqueSlugFor((int) $store->id, $validated['name']),
             'description' => $validated['description'] ?? null,
@@ -84,6 +87,13 @@ class StoreCategoryController extends Controller
             'sort_order' => $validated['sort_order'] ?? 0,
             'is_active' => $request->boolean('is_active', true),
         ]);
+
+        $this->adminUpdateService->record(
+            'Categoria creada',
+            $category->name . ' en ' . $store->name,
+            'categoria',
+            route('admin.categories.edit', $category)
+        );
 
         return $this->redirectToCategories($store)->with('success', 'Categoria creada.');
     }
@@ -156,6 +166,13 @@ class StoreCategoryController extends Controller
                 ->update(['category' => $newName]);
         }
 
+        $this->adminUpdateService->record(
+            'Categoria actualizada',
+            $category->name . ' en ' . $store->name,
+            'categoria',
+            route('admin.categories.edit', $category)
+        );
+
         return $this->redirectToCategories($store)->with('success', 'Categoria actualizada.');
     }
 
@@ -172,7 +189,10 @@ class StoreCategoryController extends Controller
 
         $this->deleteCategoryImage($category->image);
 
+        $categoryName = $category->name;
         $category->delete();
+
+        $this->adminUpdateService->record('Categoria eliminada', $categoryName . ' en ' . $store->name, 'categoria');
 
         return $this->redirectToCategories($store)->with('success', 'Categoria eliminada.');
     }

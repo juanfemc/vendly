@@ -81,7 +81,7 @@
 
                 @if($products->hasPages())
                     <div class="store-pagination">
-                        {{ $products->fragment('catalogo')->links() }}
+                        {{ $products->fragment('catalogo')->links('storefront.partials.pagination') }}
                     </div>
                 @endif
             @else

@@ -7,12 +7,15 @@ use App\Http\Requests\StoreRequest;
 use App\Http\Requests\StoreSettingsRequest;
 use App\Models\Store;
 use App\Models\User;
+use App\Services\AdminUpdateService;
 use App\Services\StoreFileService;
 
 class StoreController extends Controller
 {
-    public function __construct(private StoreFileService $storeFileService)
-    {
+    public function __construct(
+        private StoreFileService $storeFileService,
+        private AdminUpdateService $adminUpdateService,
+    ) {
     }
 
     public function index()
@@ -36,13 +39,34 @@ class StoreController extends Controller
         return view('admin.stores.create', compact('users'));
     }
 
+    public function visits()
+    {
+        $this->authorize('create', Store::class);
+
+        $stores = Store::with('user')
+            ->where('views_count', '>', 0)
+            ->orderByDesc('views_count')
+            ->orderBy('name')
+            ->paginate(10);
+        $totalVisits = (int) Store::where('views_count', '>', 0)->sum('views_count');
+
+        return view('admin.stores.visits', compact('stores', 'totalVisits'));
+    }
+
     public function store(StoreRequest $request)
     {
         $this->authorize('create', Store::class);
 
-        Store::create(array_merge($request->storeData(), $this->storeFileService->storeUploadedImages($request), [
+        $store = Store::create(array_merge($request->storeData(), $this->storeFileService->storeUploadedImages($request), [
             'created_by_admin_id' => auth()->id(),
         ]));
+
+        $this->adminUpdateService->record(
+            'Tienda creada',
+            $store->name,
+            'tienda',
+            route('admin.stores.edit', $store)
+        );
 
         return redirect('/admin/stores')->with('success', 'Tienda creada.');
     }
@@ -69,6 +93,13 @@ class StoreController extends Controller
 
         $store->update($this->storeFileService->replaceUploadedImages($store, $request, $request->storeData()));
 
+        $this->adminUpdateService->record(
+            'Tienda actualizada',
+            $store->name,
+            'tienda',
+            route('admin.stores.edit', $store)
+        );
+
         return redirect('/admin/stores')->with('success', 'Tienda actualizada.');
     }
 
@@ -78,7 +109,10 @@ class StoreController extends Controller
 
         $this->storeFileService->deleteStoreFiles($store);
 
+        $storeName = $store->name;
         $store->delete();
+
+        $this->adminUpdateService->record('Tienda eliminada', $storeName, 'tienda');
 
         return redirect('/admin/stores')->with('success', 'Tienda eliminada.');
     }
@@ -103,6 +137,13 @@ class StoreController extends Controller
         $this->authorize('update', $store);
 
         $store->update($this->storeFileService->replaceUploadedImages($store, $request, $request->settingsData()));
+
+        $this->adminUpdateService->record(
+            'Configuracion de tienda actualizada',
+            $store->name,
+            'tienda',
+            route('admin.stores.edit', $store)
+        );
 
         return redirect('/admin/store-settings')->with('success', 'Configuración de tienda actualizada.');
     }

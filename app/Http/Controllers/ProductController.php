@@ -6,6 +6,7 @@ use App\Http\Requests\ProductRequest;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\StoreCategory;
+use App\Services\AdminUpdateService;
 use App\Services\ProductContentService;
 use App\Services\ProductFileService;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,7 @@ class ProductController extends Controller
     public function __construct(
         private ProductContentService $productContentService,
         private ProductFileService $productFileService,
+        private AdminUpdateService $adminUpdateService,
     ) {
     }
 
@@ -100,7 +102,7 @@ class ProductController extends Controller
             $primaryImage = array_shift($galleryImages);
         }
 
-        Product::create(array_merge($request->baseData(), [
+        $product = Product::create(array_merge($request->baseData(), [
             'slug' => Product::uniqueSlugFor((int) $store->id, $request->name),
             'features' => $this->productContentService->cleanRichText($request->features),
             'sizes' => $this->productContentService->optionList($request->sizes),
@@ -110,6 +112,13 @@ class ProductController extends Controller
             'user_id' => $user->isAdmin() ? $store->user_id : $user->id,
             'store_id' => $store->id,
         ]));
+
+        $this->adminUpdateService->record(
+            'Producto creado',
+            $product->name . ' en ' . $store->name,
+            'producto',
+            route('admin.products.edit', $product)
+        );
 
         return redirect('/admin/products')->with('success', 'Producto guardado.');
     }
@@ -156,6 +165,13 @@ class ProductController extends Controller
 
         $product->update($this->productFileService->replaceImage($product, $request, $data));
 
+        $this->adminUpdateService->record(
+            'Producto actualizado',
+            $product->name,
+            'producto',
+            route('admin.products.edit', $product)
+        );
+
         return redirect('/admin/products')->with('success', 'Actualizado');
     }
 
@@ -165,7 +181,10 @@ class ProductController extends Controller
 
         $this->productFileService->deleteImage($product);
 
+        $productName = $product->name;
         $product->delete();
+
+        $this->adminUpdateService->record('Producto eliminado', $productName, 'producto');
 
         return redirect()->back()->with('success', 'Eliminado');
     }
@@ -197,7 +216,7 @@ class ProductController extends Controller
         $products = Product::where('store_id', $store->id)
             ->where('category', $category->name)
             ->latest()
-            ->paginate(7)
+            ->paginate(8)
             ->withQueryString();
 
         return view('store_category', array_merge($this->storefrontNavigationPayload($store), [

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Store;
 use App\Models\StoreBanner;
+use App\Services\AdminUpdateService;
 use App\Services\PublicFileService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,8 +13,10 @@ use Illuminate\View\View;
 
 class AdminBannerController extends Controller
 {
-    public function __construct(private PublicFileService $publicFileService)
-    {
+    public function __construct(
+        private PublicFileService $publicFileService,
+        private AdminUpdateService $adminUpdateService,
+    ) {
     }
 
     public function index(): View
@@ -87,6 +90,13 @@ class AdminBannerController extends Controller
             ]);
         }
 
+        $this->adminUpdateService->record(
+            'Banner creado',
+            $request->store_id === 'all' ? 'Aplicado a todas las tiendas' : 'Aplicado a una tienda',
+            'banner',
+            '/admin/banners'
+        );
+
         return redirect('/admin/banners')->with(
             'success',
             $request->store_id === 'all' ? 'Banner creado para todas las tiendas.' : 'Banner creado.'
@@ -149,6 +159,8 @@ class AdminBannerController extends Controller
             }
         });
 
+        $this->adminUpdateService->record('Banner actualizado', $banner->title ?: 'Banner sin titulo', 'banner', route('admin.banners.edit', $banner));
+
         return redirect('/admin/banners')->with('success', 'Banner actualizado.');
     }
 
@@ -161,6 +173,13 @@ class AdminBannerController extends Controller
         $this->bannerGroupQuery($banner)->update([
             'is_active' => $nextState,
         ]);
+
+        $this->adminUpdateService->record(
+            $nextState ? 'Banner activado' : 'Banner desactivado',
+            $banner->title ?: 'Banner sin titulo',
+            'banner',
+            route('admin.banners.edit', $banner)
+        );
 
         return redirect('/admin/banners')->with(
             'success',
@@ -178,7 +197,10 @@ class AdminBannerController extends Controller
             $this->publicFileService->delete($bannerItem->image);
         }
 
+        $bannerTitle = $banner->title ?: 'Banner sin titulo';
         $this->bannerGroupQuery($banner)->delete();
+
+        $this->adminUpdateService->record('Banner eliminado', $bannerTitle, 'banner');
 
         return redirect('/admin/banners')->with('success', 'Banner eliminado.');
     }

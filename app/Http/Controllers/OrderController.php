@@ -4,9 +4,14 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Order;
+use App\Services\AdminUpdateService;
 
 class OrderController extends Controller
 {
+    public function __construct(private AdminUpdateService $adminUpdateService)
+    {
+    }
+
     public function index()
     {
         $this->authorize('viewAny', Order::class);
@@ -52,6 +57,13 @@ class OrderController extends Controller
         $order->update([
             'status' => $validated['status'],
         ]);
+
+        $this->adminUpdateService->record(
+            'Pedido actualizado',
+            'Pedido #' . $order->id . ' ahora esta ' . Order::statusOptions()[$validated['status']],
+            'pedido',
+            '/admin/orders'
+        );
 
         return redirect('/admin/orders')->with('success', 'Estado del pedido actualizado.');
     }

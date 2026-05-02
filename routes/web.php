@@ -78,6 +78,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/stores', [StoreController::class, 'index']);
     Route::get('/admin/stores/create', [StoreController::class, 'create']);
     Route::post('/admin/stores', [StoreController::class, 'store']);
+    Route::get('/admin/stores/visits', [StoreController::class, 'visits'])->name('admin.stores.visits');
     Route::get('/admin/stores/{store}/products', [ProductController::class, 'index'])->name('admin.stores.products.index');
     Route::get('/admin/stores/{store}/categories', [StoreCategoryController::class, 'index'])->name('admin.stores.categories.index');
     Route::get('/admin/stores/{store}/edit', [StoreController::class, 'edit'])->name('admin.stores.edit');

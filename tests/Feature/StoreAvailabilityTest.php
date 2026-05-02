@@ -1,12 +1,14 @@
 <?php
 
 use App\Models\Store;
+use App\Models\AdminUpdate;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\StoreBanner;
 use App\Models\StoreCategory;
 use App\Models\User;
+use App\Services\AdminUpdateService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
@@ -245,6 +247,39 @@ test('hero products action is disabled by default and can be enabled from the pa
         ->assertOk()
         ->assertSee('store-hero-products-action', false)
         ->assertSee('Texto visible cuando el hero esta activo.');
+});
+
+test('admin dashboard shows the latest ten updates and removes older ones', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $updates = app(AdminUpdateService::class);
+
+    foreach (range(1, 12) as $index) {
+        $updates->record('Actualizacion ' . $index, 'Detalle ' . $index, 'sistema');
+    }
+
+    expect(AdminUpdate::count())->toBe(10);
+
+    $this->assertDatabaseMissing('admin_updates', ['title' => 'Actualizacion 1']);
+    $this->assertDatabaseMissing('admin_updates', ['title' => 'Actualizacion 2']);
+
+    $this->actingAs($admin)
+        ->get('/dashboard')
+        ->assertOk()
+        ->assertSee('Nuevas actualizaciones')
+        ->assertSee('Actualizacion 12')
+        ->assertDontSee('Actualizacion 1</strong>', false);
+});
+
+test('validation messages are shown in spanish', function () {
+    $this->post('/login', [
+        'email' => 'correo-mal-escrito',
+        'password' => '',
+    ])->assertSessionHasErrors(['email', 'password']);
+
+    $errors = session('errors')->getBag('default');
+
+    expect($errors->first('email'))->toBe('El campo correo electronico debe ser una direccion de correo valida.');
+    expect($errors->first('password'))->toBe('El campo contrasena es obligatorio.');
 });
 
 test('admin cannot create a second store for the same user', function () {
@@ -718,6 +753,56 @@ test('admin can browse stores before managing categories for one store', functio
     $this->assertDatabaseMissing('store_categories', ['id' => $category->id]);
 });
 
+test('admin can view store visits from the stores menu', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $storeUser = User::factory()->create();
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda con visitas',
+        'slug' => 'tienda-con-visitas',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+        'views_count' => 99,
+    ]);
+    Store::create([
+        'user_id' => User::factory()->create()->id,
+        'name' => 'Tienda sin visitas',
+        'slug' => 'tienda-sin-visitas',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+        'views_count' => 0,
+    ]);
+
+    foreach (range(1, 11) as $index) {
+        Store::create([
+            'user_id' => User::factory()->create()->id,
+            'name' => 'Tienda visita extra ' . $index,
+            'slug' => 'tienda-visita-extra-' . $index,
+            'whatsapp' => '573001112233',
+            'is_active' => true,
+            'views_count' => 20 + $index,
+        ]);
+    }
+
+    $this->actingAs($admin)
+        ->get('/admin/stores')
+        ->assertOk()
+        ->assertSee(route('admin.stores.visits'), false);
+
+    $this->actingAs($admin)
+        ->get(route('admin.stores.visits'))
+        ->assertOk()
+        ->assertSee('Visitas por tienda')
+        ->assertSee('Tienda con visitas')
+        ->assertSee('/' . $store->slug)
+        ->assertSee('99')
+        ->assertDontSee('Tienda sin visitas')
+        ->assertDontSee('Tienda visita extra 1</strong>', false)
+        ->assertDontSee('pagination.previous')
+        ->assertDontSee('pagination.next')
+        ->assertSee('pagination', false);
+});
+
 test('product social preview includes product name description and image', function () {
     Storage::fake('public');
 
@@ -1124,6 +1209,44 @@ test('store home groups products by three categories and category pages show the
         ->assertSee('/tienda-categorias/categorias/audio', false)
         ->assertDontSee('href="#destacado"', false)
         ->assertDontSee('href="#novedades"', false);
+});
+
+test('category pages use compact storefront pagination after eight products', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Paginacion',
+        'slug' => 'tienda-paginacion',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    StoreCategory::create([
+        'store_id' => $store->id,
+        'name' => 'Audio',
+        'slug' => 'audio',
+        'is_active' => true,
+    ]);
+
+    foreach (range(1, 9) as $index) {
+        Product::create([
+            'user_id' => $user->id,
+            'store_id' => $store->id,
+            'name' => 'Audio Producto ' . $index,
+            'category' => 'Audio',
+            'price' => 10000 + $index,
+        ]);
+    }
+
+    $this->get('/tienda-paginacion/categorias/audio')
+        ->assertOk()
+        ->assertSee('store-pagination-nav', false)
+        ->assertSee('store-pagination-link--control', false)
+        ->assertSee('Siguiente');
 });
 
 test('admin panel routes use admin tokens instead of numeric ids', function () {

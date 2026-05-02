@@ -55,6 +55,33 @@
         <p>Desde aqui puedes crear usuarios de tienda, asignar tiendas y publicar banners/noticias.</p>
     </div>
 
+    <div class="list-card dashboard-updates-card">
+        <div class="dashboard-users-head">
+            <strong>Nuevas actualizaciones</strong>
+            <span>Ultimas 10</span>
+        </div>
+
+        @if (!empty($adminUpdates) && $adminUpdates->isNotEmpty())
+            <div class="dashboard-updates-list">
+                @foreach ($adminUpdates as $adminUpdate)
+                    <a
+                        href="{{ $adminUpdate->url ?: '#' }}"
+                        class="dashboard-update-item {{ $adminUpdate->url ? '' : 'is-static' }}"
+                    >
+                        <span class="dashboard-update-type">{{ ucfirst($adminUpdate->type) }}</span>
+                        <strong>{{ $adminUpdate->title }}</strong>
+                        @if ($adminUpdate->body)
+                            <p>{{ $adminUpdate->body }}</p>
+                        @endif
+                        <small>{{ $adminUpdate->created_at?->diffForHumans() }}</small>
+                    </a>
+                @endforeach
+            </div>
+        @else
+            <p>No hay actualizaciones recientes.</p>
+        @endif
+    </div>
+
     <div class="list-card dashboard-users-card">
         <div class="dashboard-users-head">
             <strong>Tiempo activo de usuarios</strong>

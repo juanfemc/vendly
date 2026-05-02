@@ -197,6 +197,8 @@
     color: var(--muted);
     font-size: 15px;
     line-height: 1.8;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 .product-detail-description {
