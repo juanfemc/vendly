@@ -2,6 +2,7 @@
 
 use App\Models\Store;
 use App\Models\AdminUpdate;
+use App\Models\LandingTestimonial;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -27,6 +28,138 @@ test('public store is hidden when owner account is expired', function () {
     ]);
 
     $this->get('/tienda-vencida')->assertNotFound();
+});
+
+test('landing page renders without compiled assets', function () {
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('Vendly | Tiendas online listas para vender')
+        ->assertSee('css/landing.css', false)
+        ->assertSee('Quiero mi tienda')
+        ->assertSee('Testimonios')
+        ->assertSee('Negocios que ya se ven mas profesionales online.')
+        ->assertSee(route('login'), false);
+});
+
+test('landing page shows the three most visited public stores as portfolio', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    foreach ([
+        ['Tienda Uno', 'tienda-uno', 40],
+        ['Tienda Dos', 'tienda-dos', 30],
+        ['Tienda Tres', 'tienda-tres', 20],
+        ['Tienda Cuatro', 'tienda-cuatro', 10],
+    ] as [$name, $slug, $views]) {
+        Store::create([
+            'user_id' => $user->id,
+            'name' => $name,
+            'slug' => $slug,
+            'whatsapp' => '573001112233',
+            'is_active' => true,
+            'views_count' => $views,
+        ]);
+    }
+
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('Portafolio')
+        ->assertSee('Tiendas reales que ya venden con presencia propia.')
+        ->assertSee('Tienda Uno')
+        ->assertSee('Tienda Dos')
+        ->assertSee('Tienda Tres')
+        ->assertDontSee('visitas')
+        ->assertDontSee('40 visitas')
+        ->assertDontSee('Tienda Cuatro');
+});
+
+test('landing page only shows active testimonials', function () {
+    LandingTestimonial::query()->delete();
+
+    LandingTestimonial::create([
+        'name' => 'Cliente Activo',
+        'role' => 'Moda',
+        'initials' => 'CA',
+        'quote' => 'Mi tienda se ve mas profesional.',
+        'is_active' => true,
+        'sort_order' => 1,
+    ]);
+
+    LandingTestimonial::create([
+        'name' => 'Cliente Inactivo',
+        'role' => 'Belleza',
+        'initials' => 'CI',
+        'quote' => 'Este testimonio no debe salir.',
+        'is_active' => false,
+        'sort_order' => 2,
+    ]);
+
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('Testimonios')
+        ->assertSee('Cliente Activo')
+        ->assertSee('Mi tienda se ve mas profesional.')
+        ->assertDontSee('Cliente Inactivo')
+        ->assertDontSee('Este testimonio no debe salir.');
+});
+
+test('admin can create edit toggle and delete landing testimonials', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $this->actingAs($admin)
+        ->get(route('admin.testimonials.index'))
+        ->assertOk()
+        ->assertSee('Testimonios')
+        ->assertSee('Crear testimonio');
+
+    $this->actingAs($admin)
+        ->post(route('admin.testimonials.store'), [
+            'name' => 'Maria Gomez',
+            'role' => 'Hogar',
+            'initials' => 'MG',
+            'quote' => 'Ahora puedo compartir mi catalogo mas facil.',
+            'sort_order' => 9,
+            'is_active' => '1',
+        ])
+        ->assertRedirect('/admin/testimonials');
+
+    $testimonial = LandingTestimonial::where('name', 'Maria Gomez')->firstOrFail();
+
+    $this->assertDatabaseHas('landing_testimonials', [
+        'id' => $testimonial->id,
+        'quote' => 'Ahora puedo compartir mi catalogo mas facil.',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->put(route('admin.testimonials.update', $testimonial), [
+            'name' => 'Maria Gomez Editada',
+            'role' => 'Hogar',
+            'initials' => 'MG',
+            'quote' => 'Mis clientes entienden mejor lo que vendo.',
+            'sort_order' => 3,
+            'is_active' => '1',
+        ])
+        ->assertRedirect('/admin/testimonials');
+
+    $testimonial->refresh();
+
+    $this->assertSame('Maria Gomez Editada', $testimonial->name);
+    $this->assertSame(3, $testimonial->sort_order);
+
+    $this->actingAs($admin)
+        ->patch(route('admin.testimonials.toggle', $testimonial))
+        ->assertRedirect('/admin/testimonials');
+
+    $this->assertFalse($testimonial->refresh()->is_active);
+
+    $this->actingAs($admin)
+        ->delete(route('admin.testimonials.destroy', $testimonial))
+        ->assertRedirect('/admin/testimonials');
+
+    $this->assertDatabaseMissing('landing_testimonials', ['id' => $testimonial->id]);
 });
 
 test('public store is visible when store and owner are active', function () {

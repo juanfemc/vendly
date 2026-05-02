@@ -1,12 +1,16 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
+use App\Models\Store;
+use App\Models\LandingTestimonial;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminBannerController;
+use App\Http\Controllers\LandingTestimonialController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StoreCategoryController;
@@ -75,6 +79,14 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::patch('/admin/banners/{banner}/toggle', [AdminBannerController::class, 'toggle'])->name('admin.banners.toggle');
     Route::delete('/admin/banners/{banner}', [AdminBannerController::class, 'destroy'])->name('admin.banners.destroy');
 
+    Route::get('/admin/testimonials', [LandingTestimonialController::class, 'index'])->name('admin.testimonials.index');
+    Route::get('/admin/testimonials/create', [LandingTestimonialController::class, 'create'])->name('admin.testimonials.create');
+    Route::post('/admin/testimonials', [LandingTestimonialController::class, 'store'])->name('admin.testimonials.store');
+    Route::get('/admin/testimonials/{testimonial}/edit', [LandingTestimonialController::class, 'edit'])->name('admin.testimonials.edit');
+    Route::put('/admin/testimonials/{testimonial}', [LandingTestimonialController::class, 'update'])->name('admin.testimonials.update');
+    Route::patch('/admin/testimonials/{testimonial}/toggle', [LandingTestimonialController::class, 'toggle'])->name('admin.testimonials.toggle');
+    Route::delete('/admin/testimonials/{testimonial}', [LandingTestimonialController::class, 'destroy'])->name('admin.testimonials.destroy');
+
     Route::get('/admin/stores', [StoreController::class, 'index']);
     Route::get('/admin/stores/create', [StoreController::class, 'create']);
     Route::post('/admin/stores', [StoreController::class, 'store']);
@@ -93,7 +105,21 @@ Route::middleware(['auth', 'admin'])->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::get('/', function () {
-    return view('landing');
+    $portfolioStores = Store::publiclyAvailable()
+        ->where('views_count', '>', 0)
+        ->orderByDesc('views_count')
+        ->orderBy('name')
+        ->take(3)
+        ->get();
+
+    $testimonials = Schema::hasTable('landing_testimonials')
+        ? LandingTestimonial::where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get()
+        : collect();
+
+    return view('landing', compact('portfolioStores', 'testimonials'));
 });
 require __DIR__.'/auth.php';
 Route::get('/{slug}/categorias/{category}', [ProductController::class, 'category'])->name('store.category.show');

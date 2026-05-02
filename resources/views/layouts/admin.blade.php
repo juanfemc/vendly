@@ -657,6 +657,14 @@
                     </div>
                 </details>
 
+                <details class="sidebar-menu-group" {{ request()->is('admin/testimonials*') ? 'open' : '' }}>
+                    <summary>Testimonios</summary>
+                    <div class="sidebar-submenu">
+                        <a href="{{ route('admin.testimonials.index') }}">Ver testimonios</a>
+                        <a href="{{ route('admin.testimonials.create') }}">Crear testimonio</a>
+                    </div>
+                </details>
+
                 <details class="sidebar-menu-group" {{ request()->is('admin/stores*') ? 'open' : '' }}>
                     <summary>Tiendas</summary>
                     <div class="sidebar-submenu">
