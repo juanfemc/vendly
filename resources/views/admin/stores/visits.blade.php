@@ -19,7 +19,11 @@
 </div>
 
 <div class="list-card">
-    @if($stores->isNotEmpty())
+    @if($needsMigration ?? false)
+        <div class="flash error" style="margin-bottom:0;">
+            La columna de visitas todavia no existe. Ejecuta <strong>php artisan migrate</strong> para habilitar esta seccion.
+        </div>
+    @elseif($stores->isNotEmpty())
         <div style="width:100%; overflow-x:auto;">
             <table style="width:100%; min-width:720px; border-collapse:collapse;">
                 <thead>

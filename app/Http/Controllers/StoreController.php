@@ -9,6 +9,8 @@ use App\Models\Store;
 use App\Models\User;
 use App\Services\AdminUpdateService;
 use App\Services\StoreFileService;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Schema;
 
 class StoreController extends Controller
 {
@@ -43,6 +45,16 @@ class StoreController extends Controller
     {
         $this->authorize('create', Store::class);
 
+        if (! Schema::hasColumn('stores', 'views_count')) {
+            $stores = new LengthAwarePaginator([], 0, 10);
+
+            return view('admin.stores.visits', [
+                'stores' => $stores,
+                'totalVisits' => 0,
+                'needsMigration' => true,
+            ]);
+        }
+
         $stores = Store::with('user')
             ->where('views_count', '>', 0)
             ->orderByDesc('views_count')
@@ -50,7 +62,11 @@ class StoreController extends Controller
             ->paginate(10);
         $totalVisits = (int) Store::where('views_count', '>', 0)->sum('views_count');
 
-        return view('admin.stores.visits', compact('stores', 'totalVisits'));
+        return view('admin.stores.visits', [
+            'stores' => $stores,
+            'totalVisits' => $totalVisits,
+            'needsMigration' => false,
+        ]);
     }
 
     public function store(StoreRequest $request)

@@ -908,6 +908,69 @@ body.storefront-page {
     cursor: not-allowed;
 }
 
+.store-pagination-nav {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.store-pagination-list {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    flex-wrap: wrap;
+}
+
+.store-pagination-list li {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.store-pagination-link {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #ffffff;
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.store-pagination-link:hover {
+    border-color: var(--brand-color, #111);
+    color: var(--brand-color, #111);
+}
+
+.store-pagination-link.is-active {
+    border-color: var(--brand-color, #111);
+    background: var(--brand-color, #111);
+    color: var(--brand-contrast, #fff);
+}
+
+.store-pagination-link.is-disabled,
+.store-pagination-link--dots {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.store-pagination-link--control {
+    min-width: 92px;
+}
+
 .store-about {
     padding: 56px 0;
     scroll-margin-top: 128px;
@@ -1123,6 +1186,8 @@ body.storefront-page {
         gap: 22px;
         padding: 18px;
         border-radius: 0;
+        background: #ffffff;
+        box-shadow: 18px 0 42px rgba(15, 23, 42, 0.18);
         overflow-y: auto;
         transform: translateX(-104%);
         transition: transform .24s ease;
@@ -1151,7 +1216,9 @@ body.storefront-page {
         position: relative;
         width: 42px;
         height: 42px;
+        border: 1px solid var(--line);
         border-radius: 14px;
+        background: #ffffff;
         cursor: pointer;
         flex: 0 0 auto;
     }
@@ -1179,6 +1246,7 @@ body.storefront-page {
         inset: 0;
         z-index: 80;
         display: block !important;
+        background: rgba(15, 23, 42, 0.38);
         opacity: 0;
         pointer-events: none;
         transition: opacity .2s ease;
