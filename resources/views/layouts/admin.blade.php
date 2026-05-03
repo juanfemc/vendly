@@ -3,7 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>@yield('meta_title', 'Venly Panel')</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@yield('meta_title', 'Vendly Panel')</title>
     <link rel="icon" type="image/svg+xml" href="{{ asset('images/vendly-logo.svg') }}">
     <link rel="shortcut icon" href="{{ asset('images/vendly-logo.svg') }}">
     <style>
@@ -11,6 +12,15 @@
             margin: 0;
             font-family: Arial, sans-serif;
             background: #f5f6fa;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        img,
+        table {
+            max-width: 100%;
         }
 
         .container {
@@ -151,7 +161,7 @@
         }
 
         .sidebar-menu-group summary::after {
-            content: "⌄";
+            content: "v";
             font-size: 16px;
             line-height: 1;
             transition: transform .2s ease;
@@ -220,7 +230,10 @@
         }
 
         .btn {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
             padding: 10px 14px;
             background: #4f46e5;
             color: white;
@@ -228,6 +241,8 @@
             text-decoration: none;
             border: none;
             cursor: pointer;
+            line-height: 1.2;
+            min-height: 40px;
         }
 
         .btn-secondary {
@@ -435,12 +450,17 @@
         }
 
         @media (max-width: 900px) {
+            html {
+                overflow-x: hidden;
+            }
+
             .mobile-topbar {
                 display: flex;
             }
 
             .container {
                 display: block;
+                min-width: 0;
             }
 
             .sidebar {
@@ -453,6 +473,7 @@
                 transform: translateX(-100%);
                 transition: transform .22s ease;
                 overflow-y: auto;
+                overscroll-behavior: contain;
                 box-shadow: 14px 0 32px rgba(17, 24, 39, 0.14);
             }
 
@@ -462,6 +483,8 @@
 
             .main {
                 padding: 18px 16px 28px;
+                width: 100%;
+                overflow-x: hidden;
             }
 
             body.sidebar-open {
@@ -497,6 +520,32 @@
             .btn {
                 width: 100%;
                 text-align: center;
+            }
+
+            .header .btn,
+            .list-card .btn {
+                width: 100%;
+            }
+
+            .list-card form[style*="display:inline-block"],
+            .list-card a.btn[style*="display:inline-block"] {
+                display: block !important;
+                width: 100%;
+                margin: 8px 0 0 !important;
+            }
+
+            .list-card form[style*="display:inline-block"] .btn {
+                width: 100%;
+            }
+
+            .admin-pagination nav {
+                justify-content: flex-start;
+            }
+
+            .admin-pagination .pagination {
+                justify-content: flex-start;
+                flex-wrap: nowrap;
+                min-width: max-content;
             }
         }
 
@@ -541,6 +590,8 @@
             }
 
             .header {
+                align-items: stretch;
+                flex-direction: column;
                 margin-bottom: 16px;
                 gap: 10px;
             }
@@ -559,6 +610,7 @@
             input,
             textarea,
             select {
+                width: 100%;
                 padding: 12px 10px;
                 font-size: 16px;
             }
@@ -572,6 +624,11 @@
                 height: auto;
                 max-height: 240px;
                 margin-bottom: 12px;
+            }
+
+            input[type="file"]::file-selector-button {
+                width: 100%;
+                margin: 0 0 10px;
             }
         }
 

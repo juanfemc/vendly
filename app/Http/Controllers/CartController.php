@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\CheckoutRequest;
 use App\Models\Product;
+use App\Services\AdminUpdateService;
 use App\Services\CartService;
 use App\Services\CheckoutService;
 use App\Services\WhatsAppOrderMessageBuilder;
@@ -15,6 +16,7 @@ class CartController extends Controller
         private CartService $cartService,
         private CheckoutService $checkoutService,
         private WhatsAppOrderMessageBuilder $whatsAppOrderMessageBuilder,
+        private AdminUpdateService $adminUpdateService,
     ) {
     }
 
@@ -151,6 +153,13 @@ class CartController extends Controller
 
         $order = $this->checkoutService->createOrder($store, $cart, $validated);
         $order->load(['items.product', 'store']);
+
+        $this->adminUpdateService->record(
+            'Pedido nuevo',
+            'Pedido #' . $order->id . ' en ' . $store->name . ' por ' . $order->customer_name,
+            'pedido',
+            '/admin/orders'
+        );
 
         $url = $this->whatsAppOrderMessageBuilder->url($order);
 

@@ -16,6 +16,7 @@ class DashboardController extends Controller
     public function index(): View
     {
         $user = auth()->user();
+        $hasVisitsColumn = Schema::hasColumn('stores', 'views_count');
 
         if ($user?->isAdmin()) {
             $storeUsersCount = User::where('role', 'store')->count();
@@ -28,7 +29,7 @@ class DashboardController extends Controller
                 ->orderBy('active_ends_at')
                 ->get();
             $totalSales = (float) Order::whereIn('status', ['pagado', 'enviado'])->sum('total');
-            $totalVisits = (int) Store::sum('views_count');
+            $totalVisits = $hasVisitsColumn ? (int) Store::sum('views_count') : 0;
             $adminUpdates = Schema::hasTable('admin_updates')
                 ? AdminUpdate::orderByDesc('id')->take(10)->get()
                 : collect();
@@ -55,7 +56,7 @@ class DashboardController extends Controller
         $totalSales = $store
             ? (float) $store->orders()->whereIn('status', ['pagado', 'enviado'])->sum('total')
             : 0;
-        $totalVisits = $store ? (int) $store->views_count : 0;
+        $totalVisits = $store && $hasVisitsColumn ? (int) $store->views_count : 0;
         $accountExpiresSoon = $user?->active_ends_at
             && $user->is_active
             && $user->active_ends_at->toDateString() >= now()->toDateString()

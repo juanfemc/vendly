@@ -1521,6 +1521,15 @@ test('checkout clears the store cart without reviving the legacy cart', function
         'total' => 30000,
     ]);
 
+    $order = Order::where('store_id', $store->id)->latest('id')->first();
+
+    $this->assertDatabaseHas('admin_updates', [
+        'title' => 'Pedido nuevo',
+        'body' => 'Pedido #' . $order->id . ' en Tienda Checkout por Cliente Prueba',
+        'type' => 'pedido',
+        'url' => '/admin/orders',
+    ]);
+
     expect(session()->has('cart'))->toBeFalse();
     expect(session()->has('carts.' . $store->id))->toBeFalse();
 

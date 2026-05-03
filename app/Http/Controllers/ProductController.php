@@ -10,6 +10,7 @@ use App\Services\AdminUpdateService;
 use App\Services\ProductContentService;
 use App\Services\ProductFileService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ProductController extends Controller
 {
@@ -35,7 +36,9 @@ class ProductController extends Controller
             return;
         }
 
-        $store->increment('views_count');
+        if (Schema::hasColumn('stores', 'views_count')) {
+            $store->increment('views_count');
+        }
     }
 
     public function index(?Store $store = null)

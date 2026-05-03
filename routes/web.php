@@ -105,12 +105,14 @@ Route::middleware(['auth', 'admin'])->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::get('/', function () {
-    $portfolioStores = Store::publiclyAvailable()
-        ->where('views_count', '>', 0)
-        ->orderByDesc('views_count')
-        ->orderBy('name')
-        ->take(3)
-        ->get();
+    $portfolioStores = Schema::hasColumn('stores', 'views_count')
+        ? Store::publiclyAvailable()
+            ->where('views_count', '>', 0)
+            ->orderByDesc('views_count')
+            ->orderBy('name')
+            ->take(3)
+            ->get()
+        : collect();
 
     $testimonials = Schema::hasTable('landing_testimonials')
         ? LandingTestimonial::where('is_active', true)
