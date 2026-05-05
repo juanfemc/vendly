@@ -43,6 +43,29 @@
         border: 3px solid #111827;
     }
 
+    .theme-color-row {
+        display: grid;
+        grid-template-columns: 58px minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .theme-color-picker {
+        width: 58px;
+        height: 44px;
+        margin: 0;
+        padding: 4px;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        background: #ffffff;
+        cursor: pointer;
+    }
+
+    .theme-color-row input[type="text"] {
+        margin-bottom: 0;
+    }
+
     .font-preview-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -80,6 +103,14 @@
     }
 
     @media (max-width: 720px) {
+        .theme-color-row {
+            grid-template-columns: 1fr;
+        }
+
+        .theme-color-picker {
+            width: 100%;
+        }
+
         .font-preview-grid {
             grid-template-columns: 1fr;
         }
@@ -102,7 +133,10 @@
             ></button>
         @endforeach
     </div>
-    <input id="brand_color" type="text" name="brand_color" value="{{ $selectedBrandColor }}" placeholder="Color principal (#111111)">
+    <div class="theme-color-row">
+        <input class="theme-color-picker" type="color" value="{{ $selectedBrandColor }}" data-theme-picker="brand_color" aria-label="Elegir cualquier color principal">
+        <input id="brand_color" type="text" name="brand_color" value="{{ $selectedBrandColor }}" placeholder="Color principal (#111111)" data-theme-text="brand_color">
+    </div>
 
     <label class="field-label" for="background_color">Color de fondo</label>
     <div class="theme-palette" aria-label="Paleta de color de fondo">
@@ -117,7 +151,10 @@
             ></button>
         @endforeach
     </div>
-    <input id="background_color" type="text" name="background_color" value="{{ $selectedBackgroundColor }}" placeholder="Color de fondo (#ffffff)">
+    <div class="theme-color-row">
+        <input class="theme-color-picker" type="color" value="{{ $selectedBackgroundColor }}" data-theme-picker="background_color" aria-label="Elegir cualquier color de fondo">
+        <input id="background_color" type="text" name="background_color" value="{{ $selectedBackgroundColor }}" placeholder="Color de fondo (#ffffff)" data-theme-text="background_color">
+    </div>
 
     <label class="field-label" for="text_color">Color de letras</label>
     <div class="theme-palette" aria-label="Paleta de color de letras">
@@ -132,7 +169,10 @@
             ></button>
         @endforeach
     </div>
-    <input id="text_color" type="text" name="text_color" value="{{ $selectedTextColor }}" placeholder="Color de letras (#171717)">
+    <div class="theme-color-row">
+        <input class="theme-color-picker" type="color" value="{{ $selectedTextColor }}" data-theme-picker="text_color" aria-label="Elegir cualquier color de letras">
+        <input id="text_color" type="text" name="text_color" value="{{ $selectedTextColor }}" placeholder="Color de letras (#171717)" data-theme-text="text_color">
+    </div>
 
     <label class="field-label" for="font_family">Fuente</label>
     <div class="font-preview-grid" aria-label="Ejemplos de fuente">
@@ -161,20 +201,58 @@
             const panels = document.querySelectorAll('[data-theme-panel]');
 
             panels.forEach((panel) => {
+                const normalizeHex = (value) => {
+                    const color = String(value || '').trim();
+
+                    if (/^#[0-9a-fA-F]{6}$/.test(color)) {
+                        return color;
+                    }
+
+                    if (/^#[0-9a-fA-F]{3}$/.test(color)) {
+                        return '#' + color.slice(1).split('').map((char) => char + char).join('');
+                    }
+
+                    return null;
+                };
+
+                const syncColorControls = (target, value) => {
+                    const normalizedColor = normalizeHex(value);
+                    const textInput = panel.querySelector(`[data-theme-text="${target}"]`);
+                    const pickerInput = panel.querySelector(`[data-theme-picker="${target}"]`);
+
+                    if (textInput && normalizedColor) {
+                        textInput.value = normalizedColor;
+                    }
+
+                    if (pickerInput && normalizedColor) {
+                        pickerInput.value = normalizedColor;
+                    }
+
+                    panel
+                        .querySelectorAll(`[data-theme-target="${target}"]`)
+                        .forEach((item) => item.classList.toggle('is-selected', normalizedColor && item.dataset.themeColor.toLowerCase() === normalizedColor.toLowerCase()));
+                };
+
                 panel.querySelectorAll('[data-theme-color]').forEach((swatch) => {
                     swatch.addEventListener('click', () => {
-                        const input = panel.querySelector(`#${swatch.dataset.themeTarget}`);
-
-                        if (! input) {
-                            return;
-                        }
-
-                        input.value = swatch.dataset.themeColor;
-
-                        panel
-                            .querySelectorAll(`[data-theme-target="${swatch.dataset.themeTarget}"]`)
-                            .forEach((item) => item.classList.toggle('is-selected', item === swatch));
+                        syncColorControls(swatch.dataset.themeTarget, swatch.dataset.themeColor);
                     });
+                });
+
+                panel.querySelectorAll('[data-theme-picker]').forEach((picker) => {
+                    picker.addEventListener('input', () => {
+                        syncColorControls(picker.dataset.themePicker, picker.value);
+                    });
+                });
+
+                panel.querySelectorAll('[data-theme-text]').forEach((input) => {
+                    input.addEventListener('input', () => {
+                        syncColorControls(input.dataset.themeText, input.value);
+                    });
+                });
+
+                panel.querySelectorAll('[data-theme-text]').forEach((input) => {
+                    syncColorControls(input.dataset.themeText, input.value);
                 });
 
                 const fontSelect = panel.querySelector('#font_family');

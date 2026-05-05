@@ -180,7 +180,7 @@ test('public store is visible when store and owner are active', function () {
     $this->get('/tienda-activa')
         ->assertOk()
         ->assertSee('https://wa.me/573001112233', false)
-        ->assertSee('Mas informacion')
+        ->assertSee('Mas información')
         ->assertSee('vendlysuite.com');
 });
 
@@ -292,6 +292,10 @@ test('store settings save optional location for about page', function () {
         ->assertSee('Paleta de color de fondo')
         ->assertSee('Paleta de color de letras')
         ->assertSee('Ejemplos de fuente')
+        ->assertSee('type="color"', false)
+        ->assertSee('data-theme-picker="brand_color"', false)
+        ->assertSee('data-theme-picker="background_color"', false)
+        ->assertSee('data-theme-picker="text_color"', false)
         ->assertSee('NovaShop vende facil');
 
     $this->actingAs($storeUser)
