@@ -286,6 +286,15 @@ test('store settings save optional location for about page', function () {
     ]);
 
     $this->actingAs($storeUser)
+        ->get('/admin/store-settings')
+        ->assertOk()
+        ->assertSee('Paleta de color principal')
+        ->assertSee('Paleta de color de fondo')
+        ->assertSee('Paleta de color de letras')
+        ->assertSee('Ejemplos de fuente')
+        ->assertSee('NovaShop vende facil');
+
+    $this->actingAs($storeUser)
         ->post('/admin/store-settings', [
             'name' => $store->name,
             'business_type' => $store->business_type,
