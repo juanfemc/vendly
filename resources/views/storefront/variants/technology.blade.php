@@ -17,6 +17,8 @@
     </div>
 </section>
 
+@include('storefront.partials.product-search', ['productSearchId' => 'home'])
+
 <section class="tech-promo-grid" id="promos">
     @foreach($allProducts->take(5)->values() as $index => $product)
         <article class="tech-promo-card tech-promo-card-{{ $index + 1 }}">
@@ -87,8 +89,6 @@
         </section>
     @endif
 @endif
-
-@include('storefront.partials.about')
 
 <section class="tech-news-section" id="novedades">
     <div class="catalog-head tech-section-head">

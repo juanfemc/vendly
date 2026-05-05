@@ -4,16 +4,39 @@ namespace App\Models;
 
 use App\Models\Concerns\HasAdminRouteKey;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Store extends Model
 {
     use HasAdminRouteKey;
+
+    public const PRODUCT_SEARCH_THRESHOLD = 20;
+
+    public const FONT_FAMILIES = [
+        'system' => [
+            'label' => 'Sistema moderna',
+            'css' => 'Arial, sans-serif',
+        ],
+        'serif' => [
+            'label' => 'Editorial serif',
+            'css' => 'Georgia, "Times New Roman", serif',
+        ],
+        'rounded' => [
+            'label' => 'Redondeada',
+            'css' => '"Trebuchet MS", Arial, sans-serif',
+        ],
+        'mono' => [
+            'label' => 'Monoespaciada',
+            'css' => '"Courier New", monospace',
+        ],
+    ];
 
     public const BUSINESS_TYPES = [
         'store' => 'Tienda',
         'restaurant' => 'Restaurante',
         'technology' => 'Tecnologia',
         'supplements' => 'Suplementos',
+        'reservations' => 'Reservas',
     ];
 
     protected $fillable = [
@@ -25,12 +48,17 @@ class Store extends Model
         'business_type',
         'slug',
         'whatsapp',
+        'location',
+        'business_hours',
         'shop_copy',
         'mission',
         'vision',
         'cover_image',
         'logo_image',
         'brand_color',
+        'background_color',
+        'text_color',
+        'font_family',
         'responsive_product_columns',
         'show_hero_products_action',
         'instagram_url',
@@ -51,6 +79,11 @@ class Store extends Model
         return $this->business_type === 'restaurant';
     }
 
+    public function visits(): HasMany
+    {
+        return $this->hasMany(StoreVisit::class);
+    }
+
     public function isTechnologyStore(): bool
     {
         return $this->business_type === 'technology';
@@ -61,9 +94,46 @@ class Store extends Model
         return $this->business_type === 'supplements';
     }
 
+    public function isReservationStore(): bool
+    {
+        return $this->business_type === 'reservations';
+    }
+
     public function businessTypeLabel(): string
     {
         return self::BUSINESS_TYPES[$this->business_type] ?? 'Tienda';
+    }
+
+    public function hasAboutContent(): bool
+    {
+        return trim((string) $this->mission) !== '' && trim((string) $this->vision) !== '';
+    }
+
+    public function hasProductSearch(): bool
+    {
+        if (! $this->exists) {
+            return false;
+        }
+
+        return $this->products()->count() > self::PRODUCT_SEARCH_THRESHOLD;
+    }
+
+    public function whatsappNumber(): string
+    {
+        return preg_replace('/\D+/', '', (string) $this->whatsapp);
+    }
+
+    public function whatsappInfoUrl(): ?string
+    {
+        $number = $this->whatsappNumber();
+
+        if ($number === '') {
+            return null;
+        }
+
+        $message = rawurlencode('Hola, quiero mas informacion sobre ' . $this->name);
+
+        return "https://wa.me/{$number}?text={$message}";
     }
 
     public function isAvailable(): bool
@@ -98,6 +168,47 @@ class Store extends Model
         return self::BUSINESS_TYPES;
     }
 
+    public static function fontFamilyOptions(): array
+    {
+        return collect(self::FONT_FAMILIES)
+            ->mapWithKeys(fn (array $font, string $value) => [$value => $font['label']])
+            ->all();
+    }
+
+    public function themeBackgroundColor(): string
+    {
+        return $this->themeColor($this->background_color, '#ffffff');
+    }
+
+    public function themeTextColor(): string
+    {
+        return $this->themeColor($this->text_color, '#171717');
+    }
+
+    public function themeFontFamily(): string
+    {
+        return self::FONT_FAMILIES[$this->font_family]['css'] ?? self::FONT_FAMILIES['system']['css'];
+    }
+
+    public function storefrontCssVariables($brandTheme, int $responsiveProductColumns): string
+    {
+        return implode('; ', [
+            '--brand-color: ' . $brandTheme->color,
+            '--brand-contrast: ' . $brandTheme->contrast,
+            '--responsive-product-columns: ' . $responsiveProductColumns,
+            '--store-bg: ' . $this->themeBackgroundColor(),
+            '--store-text: ' . $this->themeTextColor(),
+            '--store-font: ' . $this->themeFontFamily(),
+        ]) . ';';
+    }
+
+    private function themeColor(?string $color, string $fallback): string
+    {
+        $color = trim((string) $color);
+
+        return preg_match('/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $color) ? $color : $fallback;
+    }
+
     public function defaultProductCategoryOptions(): array
     {
         if ($this->isRestaurant()) {
@@ -130,6 +241,17 @@ class Store extends Model
                 'Bienestar',
                 'Recuperacion',
                 'Accesorios fitness',
+            ];
+        }
+
+        if ($this->isReservationStore()) {
+            return [
+                'Consultas',
+                'Citas',
+                'Servicios',
+                'Experiencias',
+                'Paquetes',
+                'Eventos',
             ];
         }
 

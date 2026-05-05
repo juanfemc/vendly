@@ -67,4 +67,23 @@ class OrderController extends Controller
 
         return redirect('/admin/orders')->with('success', 'Estado del pedido actualizado.');
     }
+
+    public function destroy(Order $order)
+    {
+        $this->authorize('delete', $order);
+
+        $orderId = $order->id;
+        $storeName = $order->store?->name;
+
+        $order->delete();
+
+        $this->adminUpdateService->record(
+            'Pedido eliminado',
+            'Pedido #' . $orderId . ($storeName ? ' en ' . $storeName : ''),
+            'pedido',
+            '/admin/orders'
+        );
+
+        return redirect('/admin/orders')->with('success', 'Pedido eliminado.');
+    }
 }

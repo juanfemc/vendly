@@ -1,3 +1,7 @@
+@php
+    $storeWhatsappUrl = $store->whatsappInfoUrl();
+@endphp
+
 <footer class="footer">
     <div class="shell">
         <div class="socials">
@@ -19,5 +23,25 @@
                 </svg>
             </a>
         </div>
+
+        <p class="store-footer-credit">
+            Disenado y desarrollado por <a href="https://vendlysuite.com" target="_blank" rel="noopener noreferrer">vendlysuite.com</a>
+        </p>
     </div>
 </footer>
+
+@if($storeWhatsappUrl)
+    <a
+        href="{{ $storeWhatsappUrl }}"
+        class="store-whatsapp-float"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Pedir mas informacion por WhatsApp"
+    >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20.5 11.8a8.5 8.5 0 0 1-12.7 7.4L4 20.2l1-3.7a8.5 8.5 0 1 1 15.5-4.7Z"></path>
+            <path d="M8.9 8.6c.2-.5.4-.5.7-.5h.5c.2 0 .4 0 .6.4l.8 1.9c.1.3.1.5-.1.7l-.4.5c-.2.2-.2.4 0 .7.4.7 1 1.3 1.6 1.8.7.5 1.2.7 1.5.5l.7-.8c.2-.2.4-.2.7-.1l1.8.9c.3.1.4.4.4.6 0 .5-.2 1.2-.6 1.5-.4.4-1.3.7-2.7.3-1.5-.4-3.1-1.3-4.4-2.6-1.4-1.4-2.2-3-2.5-4.3-.2-.8.1-1.3.4-1.7Z"></path>
+        </svg>
+        <span>Mas informacion</span>
+    </a>
+@endif

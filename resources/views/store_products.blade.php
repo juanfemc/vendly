@@ -12,20 +12,21 @@
         $isRestaurant = $store->isRestaurant();
         $isTechnologyStore = $store->isTechnologyStore();
         $isSupplementStore = $store->isSupplementStore();
+        $isReservationStore = $store->isReservationStore();
         $cartCount = $page->cartCount;
         $instagramUrl = $page->instagramUrl;
         $facebookUrl = $page->facebookUrl;
         $tiktokUrl = $page->tiktokUrl;
         $canManageStore = $page->canManageStore;
-        $businessLabel = $isRestaurant ? 'Restaurante' : 'Tienda';
-        $cartLabel = $isRestaurant ? 'Pedido' : 'Carrito';
-        $collectionLabelTitle = $isRestaurant ? 'Menu' : 'Catalogo';
-        $itemsLabel = $isRestaurant ? 'platos' : 'productos';
-        $addLabel = $isRestaurant ? 'Agregar al pedido' : 'Agregar al carrito';
+        $businessLabel = $isRestaurant ? 'Restaurante' : ($isReservationStore ? 'Reservas' : 'Tienda');
+        $cartLabel = $isRestaurant ? 'Pedido' : ($isReservationStore ? 'Reserva' : 'Carrito');
+        $collectionLabelTitle = $isRestaurant ? 'Menu' : ($isReservationStore ? 'Servicios' : 'Catalogo');
+        $itemsLabel = $isRestaurant ? 'platos' : ($isReservationStore ? 'servicios' : 'productos');
+        $addLabel = $isRestaurant ? 'Agregar al pedido' : ($isReservationStore ? 'Agregar a la reserva' : 'Agregar al carrito');
         $showStorefrontSectionLinks = false;
         $productDescriptionFallback = $isRestaurant
             ? 'Plato recomendado del restaurante.'
-            : ($isTechnologyStore ? 'Producto de tecnologia.' : ($isSupplementStore ? 'Suplemento de la tienda.' : 'Producto de la tienda.'));
+            : ($isTechnologyStore ? 'Producto de tecnologia.' : ($isSupplementStore ? 'Suplemento de la tienda.' : ($isReservationStore ? 'Servicio disponible para reservar.' : 'Producto de la tienda.')));
         $storefrontVariant = $isTechnologyStore ? 'technology' : ($isRestaurant ? 'restaurant' : ($isSupplementStore ? 'supplements' : 'default'));
         $variantStylesheets = [
             'technology' => 'css/storefront-technology.css',
@@ -37,7 +38,9 @@
         $faviconImage = $storageAssetUrl($store->logo_image) ?: asset('images/vendly-logo.svg');
         $seoImage = $absoluteStorageUrl($store->cover_image) ?: $absoluteStorageUrl($store->logo_image);
         $metaUrl = $publicBaseUrl . '/' . $store->slug . '/productos';
-        $fallbackDescription = 'Explora todos los ' . $itemsLabel . ' de ' . $store->name . ' y compra por WhatsApp.';
+        $fallbackDescription = $isReservationStore
+            ? 'Explora todos los servicios de ' . $store->name . ' y solicita tu reserva por WhatsApp.'
+            : 'Explora todos los ' . $itemsLabel . ' de ' . $store->name . ' y compra por WhatsApp.';
         $seo = \App\Support\SeoMeta::category($store, $collectionLabelTitle, null, $metaUrl, $seoImage, $fallbackDescription, $faviconImage);
         $brandTheme = \App\Support\BrandTheme::from($store->brand_color);
         $responsiveProductColumns = in_array((int) $store->responsive_product_columns, [1, 2, 3], true) ? (int) $store->responsive_product_columns : 2;
@@ -50,10 +53,10 @@
 <body
     class="storefront-page storefront-page--{{ $storefrontVariant }}"
     data-csrf="{{ csrf_token() }}"
-    data-adding-text="{{ $isRestaurant ? 'Agregando al pedido...' : 'Agregando...' }}"
-    data-feedback-added="{{ $isRestaurant ? 'Plato agregado al pedido' : 'Producto agregado al carrito' }}"
-    data-feedback-error="{{ $isRestaurant ? 'No pudimos agregar el plato' : 'No pudimos agregar el producto' }}"
-    style="--brand-color: {{ $brandTheme->color }}; --brand-contrast: {{ $brandTheme->contrast }}; --responsive-product-columns: {{ $responsiveProductColumns }};"
+    data-adding-text="{{ $isRestaurant ? 'Agregando al pedido...' : ($isReservationStore ? 'Agregando a la reserva...' : 'Agregando...') }}"
+    data-feedback-added="{{ $isRestaurant ? 'Plato agregado al pedido' : ($isReservationStore ? 'Servicio agregado a la reserva' : 'Producto agregado al carrito') }}"
+    data-feedback-error="{{ $isRestaurant ? 'No pudimos agregar el plato' : ($isReservationStore ? 'No pudimos agregar el servicio' : 'No pudimos agregar el producto') }}"
+    style="{{ $store->storefrontCssVariables($brandTheme, $responsiveProductColumns) }}"
 >
     @include('storefront.partials.header')
 
@@ -69,8 +72,16 @@
         <section class="catalog-section" id="catalogo">
             <div class="catalog-head">
                 <h2>{{ $products->total() }} {{ $itemsLabel }}</h2>
-                <p>{{ $fallbackDescription }}</p>
+                <p>
+                    @if(($searchQuery ?? '') !== '')
+                        Resultados para "{{ $searchQuery }}".
+                    @else
+                        {{ $fallbackDescription }}
+                    @endif
+                </p>
             </div>
+
+            @include('storefront.partials.product-search', ['productSearchId' => 'catalog'])
 
             @if($products->isNotEmpty())
                 <div class="products-grid">
@@ -85,14 +96,20 @@
                     </div>
                 @endif
             @else
-                <div class="empty-state">Aun no hay {{ $itemsLabel }} publicados.</div>
+                <div class="empty-state">
+                    @if(($searchQuery ?? '') !== '')
+                        No encontramos {{ $itemsLabel }} para esa busqueda.
+                    @else
+                        Aun no hay {{ $itemsLabel }} publicados.
+                    @endif
+                </div>
             @endif
         </section>
 
         @include('storefront.partials.footer')
     </main>
 
-    <div class="cart-feedback" id="cartFeedback" aria-live="polite">{{ $isRestaurant ? 'Plato agregado al pedido' : 'Producto agregado al carrito' }}</div>
+    <div class="cart-feedback" id="cartFeedback" aria-live="polite">{{ $isRestaurant ? 'Plato agregado al pedido' : ($isReservationStore ? 'Servicio agregado a la reserva' : 'Producto agregado al carrito') }}</div>
 
     <script src="{{ asset('js/storefront.js') }}?v={{ filemtime(public_path('js/storefront.js')) }}" defer></script>
 </body>

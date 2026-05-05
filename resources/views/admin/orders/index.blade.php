@@ -29,6 +29,10 @@
         @endif
         Total: ${{ $order->total }}<br>
         Estado: {{ $order->statusLabel() }}<br>
+        @if ($order->store?->isReservationStore())
+            Fecha deseada: {{ $order->reservation_date?->format('Y-m-d') ?: 'Sin fecha' }}<br>
+            Hora deseada: {{ $order->reservation_time ?: 'Sin hora' }}<br>
+        @endif
         @if ($order->notes)
             Notas: {{ $order->notes }}<br>
         @endif
@@ -60,6 +64,12 @@
                 @endforeach
             </select>
             <button type="submit" class="btn">Guardar</button>
+        </form>
+
+        <form method="POST" action="{{ route('admin.orders.destroy', $order) }}" style="margin-top:10px;" onsubmit="return confirm('¿Eliminar este pedido? Esta accion no se puede deshacer.');">
+            @csrf
+            @method('DELETE')
+            <button type="submit" class="btn btn-danger">Eliminar pedido</button>
         </form>
     </div>
 @endforeach

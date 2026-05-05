@@ -145,6 +145,10 @@ class CartController extends Controller
             return redirect()->route('cart.index', ['store' => $store->slug])->with('error', 'El carrito contiene productos de otra tienda. Vacialo e intenta de nuevo.');
         }
 
+        if ($store->isReservationStore()) {
+            $validated = array_merge($validated, $request->validate(CheckoutRequest::reservationRules()));
+        }
+
         [$cartIsAvailable, $cartAvailabilityMessage] = $this->cartService->productsAreAvailable($cart, $store);
 
         if (! $cartIsAvailable) {
@@ -155,8 +159,8 @@ class CartController extends Controller
         $order->load(['items.product', 'store']);
 
         $this->adminUpdateService->record(
-            'Pedido nuevo',
-            'Pedido #' . $order->id . ' en ' . $store->name . ' por ' . $order->customer_name,
+            $store->isReservationStore() ? 'Reserva nueva' : 'Pedido nuevo',
+            ($store->isReservationStore() ? 'Reserva #' : 'Pedido #') . $order->id . ' en ' . $store->name . ' por ' . $order->customer_name,
             'pedido',
             '/admin/orders'
         );

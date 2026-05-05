@@ -25,24 +25,27 @@
         $canManageStore = $page->canManageStore;
         $isTechnologyStore = $store->isTechnologyStore();
         $isSupplementStore = $store->isSupplementStore();
-        $businessLabel = $isRestaurant ? 'Restaurante' : 'Tienda';
-        $cartLabel = $isRestaurant ? 'Pedido' : 'Carrito';
-        $collectionLabel = $isRestaurant ? 'menu' : 'catalogo';
-        $collectionLabelTitle = $isRestaurant ? 'Menu' : 'Catalogo';
-        $itemsLabel = $isRestaurant ? 'platos' : 'productos';
+        $isReservationStore = $store->isReservationStore();
+        $businessLabel = $isRestaurant ? 'Restaurante' : ($isReservationStore ? 'Reservas' : 'Tienda');
+        $cartLabel = $isRestaurant ? 'Pedido' : ($isReservationStore ? 'Reserva' : 'Carrito');
+        $collectionLabel = $isRestaurant ? 'menu' : ($isReservationStore ? 'servicios' : 'catalogo');
+        $collectionLabelTitle = $isRestaurant ? 'Menu' : ($isReservationStore ? 'Servicios' : 'Catalogo');
+        $itemsLabel = $isRestaurant ? 'platos' : ($isReservationStore ? 'servicios' : 'productos');
         $productsTotal = method_exists($catalogProducts, 'total') ? $catalogProducts->total() : $allProducts->count();
-        $buyNowLabel = $isRestaurant ? 'Pedir ahora' : 'Comprar ahora';
-        $addLabel = $isRestaurant ? 'Agregar al pedido' : 'Agregar al carrito';
+        $buyNowLabel = $isRestaurant ? 'Pedir ahora' : ($isReservationStore ? 'Reservar ahora' : 'Comprar ahora');
+        $addLabel = $isRestaurant ? 'Agregar al pedido' : ($isReservationStore ? 'Agregar a la reserva' : 'Agregar al carrito');
         $heroEyebrow = $isRestaurant
             ? 'Menu recomendado'
-            : ($isTechnologyStore ? 'Lo ultimo en tecnologia' : ($isSupplementStore ? 'Bienestar y rendimiento' : 'Nueva coleccion'));
+            : ($isTechnologyStore ? 'Lo ultimo en tecnologia' : ($isSupplementStore ? 'Bienestar y rendimiento' : ($isReservationStore ? 'Servicios disponibles' : 'Nueva coleccion')));
         $defaultHeroCopy = $isRestaurant
             ? 'Explora nuestro menu y haz tu pedido rapido desde una experiencia pensada para cerrar pedidos por WhatsApp.'
             : ($isTechnologyStore
                 ? 'Descubre tecnologia seleccionada para tu dia a dia, con una vitrina pensada para resolver compras rapido por WhatsApp.'
                 : ($isSupplementStore
                     ? 'Encuentra suplementos para energia, fuerza y bienestar en una experiencia pensada para cerrar pedidos por WhatsApp.'
-                    : 'Descubre nuestros productos y compra rapido desde una experiencia pensada para cerrar pedidos por WhatsApp.'));
+                    : ($isReservationStore
+                        ? 'Explora nuestros servicios y solicita tu reserva rapido por WhatsApp.'
+                        : 'Descubre nuestros productos y compra rapido desde una experiencia pensada para cerrar pedidos por WhatsApp.')));
         $heroShortCopy = trim((string) $store->shop_copy) !== '' ? trim((string) $store->shop_copy) : $defaultHeroCopy;
         $defaultShopCopy = $isRestaurant
             ? 'Explora el menu actual de ' . ($store->name ?? 'el restaurante') . ' y agrega tus favoritos al pedido para enviarlo por WhatsApp.'
@@ -50,10 +53,12 @@
                 ? 'Explora la seleccion actual de tecnologia de ' . ($store->name ?? 'la tienda') . ' y agrega tus favoritos al carrito para cerrar tu compra por WhatsApp.'
                 : ($isSupplementStore
                     ? 'Explora la linea actual de suplementos de ' . ($store->name ?? 'la tienda') . ' y agrega tus favoritos al carrito para cerrar tu pedido por WhatsApp.'
-                    : 'Explora la coleccion actual de ' . ($store->name ?? 'la tienda') . ' y agrega tus favoritos al carrito para finalizar tu pedido por WhatsApp.'));
+                    : ($isReservationStore
+                        ? 'Explora los servicios disponibles de ' . ($store->name ?? 'la tienda') . ' y solicita tu reserva por WhatsApp.'
+                        : 'Explora la coleccion actual de ' . ($store->name ?? 'la tienda') . ' y agrega tus favoritos al carrito para finalizar tu pedido por WhatsApp.')));
         $productDescriptionFallback = $isRestaurant
             ? 'Plato recomendado del restaurante.'
-            : ($isTechnologyStore ? 'Producto de tecnologia.' : ($isSupplementStore ? 'Suplemento de la tienda.' : 'Producto de la tienda.'));
+            : ($isTechnologyStore ? 'Producto de tecnologia.' : ($isSupplementStore ? 'Suplemento de la tienda.' : ($isReservationStore ? 'Servicio disponible para reservar.' : 'Producto de la tienda.')));
         $storefrontVariant = $isTechnologyStore ? 'technology' : ($isRestaurant ? 'restaurant' : ($isSupplementStore ? 'supplements' : 'default'));
         $variantStylesheets = [
             'technology' => 'css/storefront-technology.css',
@@ -76,10 +81,10 @@
 <body
     class="storefront-page storefront-page--{{ $storefrontVariant }}"
     data-csrf="{{ csrf_token() }}"
-    data-adding-text="{{ $isRestaurant ? 'Agregando al pedido...' : 'Agregando...' }}"
-    data-feedback-added="{{ $isRestaurant ? 'Plato agregado al pedido' : 'Producto agregado al carrito' }}"
-    data-feedback-error="{{ $isRestaurant ? 'No pudimos agregar el plato' : 'No pudimos agregar el producto' }}"
-    style="--brand-color: {{ $brandTheme->color }}; --brand-contrast: {{ $brandTheme->contrast }}; --responsive-product-columns: {{ $responsiveProductColumns }};"
+    data-adding-text="{{ $isRestaurant ? 'Agregando al pedido...' : ($isReservationStore ? 'Agregando a la reserva...' : 'Agregando...') }}"
+    data-feedback-added="{{ $isRestaurant ? 'Plato agregado al pedido' : ($isReservationStore ? 'Servicio agregado a la reserva' : 'Producto agregado al carrito') }}"
+    data-feedback-error="{{ $isRestaurant ? 'No pudimos agregar el plato' : ($isReservationStore ? 'No pudimos agregar el servicio' : 'No pudimos agregar el producto') }}"
+    style="{{ $store->storefrontCssVariables($brandTheme, $responsiveProductColumns) }}"
 >
     @include('storefront.partials.header')
 
@@ -87,7 +92,7 @@
         @include('storefront.variants.' . $storefrontVariant)
     </main>
 
-    <div class="cart-feedback" id="cartFeedback" aria-live="polite">{{ $isRestaurant ? 'Plato agregado al pedido' : 'Producto agregado al carrito' }}</div>
+    <div class="cart-feedback" id="cartFeedback" aria-live="polite">{{ $isRestaurant ? 'Plato agregado al pedido' : ($isReservationStore ? 'Servicio agregado a la reserva' : 'Producto agregado al carrito') }}</div>
 
     <script src="{{ asset('js/storefront.js') }}?v={{ filemtime(public_path('js/storefront.js')) }}" defer></script>
 </body>

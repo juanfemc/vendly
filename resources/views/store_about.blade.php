@@ -35,10 +35,10 @@
             'default' => 'css/storefront-default.css',
         ];
         $faviconImage = $storageAssetUrl($store->logo_image) ?: asset('images/vendly-logo.svg');
-        $seoImage = $absoluteStorageUrl($category->image) ?: $absoluteStorageUrl($store->cover_image) ?: $absoluteStorageUrl($store->logo_image);
-        $metaUrl = $publicBaseUrl . '/' . $store->slug . '/categorias/' . $category->slug;
-        $fallbackDescription = 'Explora ' . $category->name . ' de ' . $store->name . ' y compra por WhatsApp.';
-        $seo = \App\Support\SeoMeta::category($store, $category->name, $category->description, $metaUrl, $seoImage, $fallbackDescription, $faviconImage);
+        $seoImage = $absoluteStorageUrl($store->cover_image) ?: $absoluteStorageUrl($store->logo_image);
+        $metaUrl = $publicBaseUrl . '/' . $store->slug . '/nosotros';
+        $fallbackDescription = 'Conoce la mision y vision de ' . $store->name . '.';
+        $seo = \App\Support\SeoMeta::category($store, 'Nosotros', null, $metaUrl, $seoImage, $fallbackDescription, $faviconImage);
         $brandTheme = \App\Support\BrandTheme::from($store->brand_color);
         $responsiveProductColumns = in_array((int) $store->responsive_product_columns, [1, 2, 3], true) ? (int) $store->responsive_product_columns : 2;
     @endphp
@@ -58,59 +58,15 @@
     @include('storefront.partials.header')
 
     <main class="shell">
-        <section class="category-page-hero">
+        <section class="category-page-hero category-page-hero--catalog store-about-page-hero">
             <div class="category-page-copy">
                 <span class="eyebrow">{{ $businessLabel }}</span>
-                <h1>{{ $category->name }}</h1>
-                <p>{{ $category->description ?: $fallbackDescription }}</p>
+                <h1>Nosotros</h1>
+                <p>Conoce mejor la esencia de {{ $store->name }}.</p>
             </div>
-
-            @if($category->image)
-                <div class="category-page-media">
-                    <img src="{{ asset('storage/' . $category->image) }}" alt="{{ $category->name }}" loading="eager" fetchpriority="high" decoding="async">
-                </div>
-            @endif
         </section>
 
-        <section class="catalog-section" id="catalogo">
-            <div class="catalog-head">
-                <h2>{{ $products->total() }} {{ $itemsLabel }}</h2>
-                <p>
-                    @if(($searchQuery ?? '') !== '')
-                        Resultados en {{ $category->name }} para "{{ $searchQuery }}".
-                    @else
-                        {{ $category->description ?: $fallbackDescription }}
-                    @endif
-                </p>
-            </div>
-
-            @include('storefront.partials.product-search', [
-                'productSearchId' => 'category',
-                'productSearchAction' => route('store.category.show', ['slug' => $store->slug, 'category' => $category->slug]),
-            ])
-
-            @if($products->isNotEmpty())
-                <div class="products-grid">
-                    @foreach($products as $product)
-                        @include('storefront.partials.product-card')
-                    @endforeach
-                </div>
-
-                @if($products->hasPages())
-                    <div class="store-pagination">
-                        {{ $products->fragment('catalogo')->links('storefront.partials.pagination') }}
-                    </div>
-                @endif
-            @else
-                <div class="empty-state">
-                    @if(($searchQuery ?? '') !== '')
-                        No encontramos {{ $itemsLabel }} en esta categoria para esa busqueda.
-                    @else
-                        Aun no hay {{ $itemsLabel }} en esta categoria.
-                    @endif
-                </div>
-            @endif
-        </section>
+        @include('storefront.partials.about')
 
         @include('storefront.partials.footer')
     </main>

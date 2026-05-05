@@ -8,18 +8,19 @@
 </head>
 @php
     $isRestaurant = $store?->isRestaurant() ?? false;
-    $businessLabel = $isRestaurant ? 'restaurante' : 'tienda';
-    $cartLabel = $isRestaurant ? 'pedido' : 'carrito';
-    $itemsLabel = $isRestaurant ? 'platos' : 'productos';
-    $itemLabel = $isRestaurant ? 'plato' : 'producto';
+    $isReservationStore = $store?->isReservationStore() ?? false;
+    $businessLabel = $isRestaurant ? 'restaurante' : ($isReservationStore ? 'negocio de reservas' : 'tienda');
+    $cartLabel = $isRestaurant ? 'pedido' : ($isReservationStore ? 'reserva' : 'carrito');
+    $itemsLabel = $isRestaurant ? 'platos' : ($isReservationStore ? 'servicios' : 'productos');
+    $itemLabel = $isRestaurant ? 'plato' : ($isReservationStore ? 'servicio' : 'producto');
     $brandTheme = \App\Support\BrandTheme::from($store?->brand_color);
 @endphp
 <body
     class="cart-page"
     data-csrf="{{ csrf_token() }}"
-    data-feedback-updated="{{ $isRestaurant ? 'Pedido actualizado' : 'Carrito actualizado' }}"
-    data-feedback-update-error="{{ $isRestaurant ? 'No se pudo actualizar el pedido.' : 'No se pudo actualizar el carrito.' }}"
-    data-feedback-empty-error="{{ $isRestaurant ? 'No se pudo vaciar el pedido.' : 'No se pudo vaciar el carrito.' }}"
+    data-feedback-updated="{{ $isRestaurant ? 'Pedido actualizado' : ($isReservationStore ? 'Reserva actualizada' : 'Carrito actualizado') }}"
+    data-feedback-update-error="{{ $isRestaurant ? 'No se pudo actualizar el pedido.' : ($isReservationStore ? 'No se pudo actualizar la reserva.' : 'No se pudo actualizar el carrito.') }}"
+    data-feedback-empty-error="{{ $isRestaurant ? 'No se pudo vaciar el pedido.' : ($isReservationStore ? 'No se pudo vaciar la reserva.' : 'No se pudo vaciar el carrito.') }}"
     data-store-slug="{{ $store?->slug }}"
     style="--accent: {{ $brandTheme->color }};"
 >
@@ -53,7 +54,7 @@
                         @csrf
 
                         <section>
-                            <h2 class="section-title" style="margin-bottom: 16px;">{{ $isRestaurant ? 'Datos del pedido' : 'Entrega' }}</h2>
+                            <h2 class="section-title" style="margin-bottom: 16px;">{{ $isRestaurant ? 'Datos del pedido' : ($isReservationStore ? 'Datos de la reserva' : 'Entrega') }}</h2>
 
                             <div class="grid-two field-wrap">
                                 <input class="field" type="text" name="name" placeholder="Nombre" value="{{ old('name') }}" required>
@@ -82,11 +83,26 @@
                                 <input class="field" type="text" name="region" placeholder="Provincia / Estado (opcional)" value="{{ old('region') }}">
                             </div>
 
+                            @if($isReservationStore)
+                                @if(trim((string) $store?->business_hours) !== '')
+                                    <div class="field-wrap">
+                                        <div class="flash-error" style="background:#f8fafc; color:#475569; border-color:#e2e8f0;">
+                                            Horario de atencion:<br>{{ $store->business_hours }}
+                                        </div>
+                                    </div>
+                                @endif
+
+                                <div class="grid-two field-wrap">
+                                    <input class="field" type="date" name="reservation_date" value="{{ old('reservation_date') }}" min="{{ now()->toDateString() }}" required>
+                                    <input class="field" type="time" name="reservation_time" value="{{ old('reservation_time') }}" required>
+                                </div>
+                            @endif
+
                             <div class="field-wrap">
-                                <textarea class="textarea" name="notes" placeholder="{{ $isRestaurant ? 'Instrucciones del pedido (opcional)' : 'Notas del pedido (opcional)' }}">{{ old('notes') }}</textarea>
+                                <textarea class="textarea" name="notes" placeholder="{{ $isRestaurant ? 'Instrucciones del pedido (opcional)' : ($isReservationStore ? 'Fecha, hora o detalles de la reserva (opcional)' : 'Notas del pedido (opcional)') }}">{{ old('notes') }}</textarea>
                             </div>
 
-                            <button class="primary-btn" type="submit">{{ $isRestaurant ? 'Enviar pedido por WhatsApp' : 'Finalizar pedido por WhatsApp' }}</button>
+                            <button class="primary-btn" type="submit">{{ $isRestaurant ? 'Enviar pedido por WhatsApp' : ($isReservationStore ? 'Solicitar reserva por WhatsApp' : 'Finalizar pedido por WhatsApp') }}</button>
                         </section>
                     </form>
                 </div>
@@ -105,7 +121,7 @@
                             </div>
 
                             <div>
-                                <div class="cart-store-label">Tienda</div>
+                                <div class="cart-store-label">{{ $isReservationStore ? 'Reservas' : 'Tienda' }}</div>
                                 <div class="cart-store-name">{{ $store->name }}</div>
                             </div>
                         </div>
@@ -125,7 +141,7 @@
 
                         <div>
                             <div class="item-title">{{ $item['name'] }}</div>
-                            <div class="item-meta">{{ $store->name ?? ($isRestaurant ? 'Restaurante' : 'Tienda') }}</div>
+                            <div class="item-meta">{{ $store->name ?? ($isRestaurant ? 'Restaurante' : ($isReservationStore ? 'Reservas' : 'Tienda')) }}</div>
                             @if (!empty($item['size']) || !empty($item['color']))
                                 <div class="item-meta">
                                     @if (!empty($item['size']))

@@ -19,12 +19,22 @@ class WhatsAppOrderMessageBuilder
 
     public function message(Order $order): string
     {
-        $message = "Nuevo pedido\n";
+        $isReservationStore = $order->store?->isReservationStore() ?? false;
+        $message = ($isReservationStore ? "Nueva reserva\n" : "Nuevo pedido\n");
         $message .= "Cliente: {$order->customer_name}\n";
         $message .= "Tel: {$order->customer_phone}\n";
-        $message .= "Direccion: {$order->customer_address}\n";
+        $message .= ($isReservationStore ? "Direccion o referencia: " : "Direccion: ") . "{$order->customer_address}\n";
         $message .= "Ciudad: {$order->customer_city}\n";
         $message .= "Cedula: {$order->customer_document}\n";
+
+        if ($isReservationStore) {
+            $message .= 'Fecha deseada: ' . optional($order->reservation_date)->format('Y-m-d') . "\n";
+            $message .= "Hora deseada: {$order->reservation_time}\n";
+
+            if ($order->store?->business_hours) {
+                $message .= "Horario de atencion: {$order->store->business_hours}\n";
+            }
+        }
 
         if ($order->notes) {
             $message .= "Notas: {$order->notes}\n";
@@ -43,7 +53,7 @@ class WhatsAppOrderMessageBuilder
                 $variantText .= " - Color: {$item->color}";
             }
 
-            $message .= "- {$item->displayName()}{$variantText} x{$item->quantity}\n";
+            $message .= ($isReservationStore ? "Servicio: " : "- ") . "{$item->displayName()}{$variantText} x{$item->quantity}\n";
         }
 
         return $message;

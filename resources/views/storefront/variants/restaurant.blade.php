@@ -17,8 +17,8 @@
     </div>
 </section>
 
-@include('storefront.partials.category-sections', ['cardClass' => 'restaurant-product-card'])
+@include('storefront.partials.product-search', ['productSearchId' => 'home'])
 
-@include('storefront.partials.about')
+@include('storefront.partials.category-sections', ['cardClass' => 'restaurant-product-card'])
 
 @include('storefront.partials.footer')

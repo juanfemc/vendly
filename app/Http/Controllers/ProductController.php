@@ -9,8 +9,8 @@ use App\Models\StoreCategory;
 use App\Services\AdminUpdateService;
 use App\Services\ProductContentService;
 use App\Services\ProductFileService;
+use App\Services\StoreVisitService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class ProductController extends Controller
 {
@@ -18,6 +18,7 @@ class ProductController extends Controller
         private ProductContentService $productContentService,
         private ProductFileService $productFileService,
         private AdminUpdateService $adminUpdateService,
+        private StoreVisitService $storeVisitService,
     ) {
     }
 
@@ -36,9 +37,7 @@ class ProductController extends Controller
             return;
         }
 
-        if (Schema::hasColumn('stores', 'views_count')) {
-            $store->increment('views_count');
-        }
+        $this->storeVisitService->record($store, request());
     }
 
     public function index(?Store $store = null)
@@ -203,6 +202,19 @@ class ProductController extends Controller
         return view('store_shop', $this->storefrontPayload($store));
     }
 
+    public function about($slug)
+    {
+        $store = Store::publiclyAvailable()
+            ->where('slug', $slug)
+            ->firstOrFail();
+
+        abort_unless($store->hasAboutContent(), 404);
+
+        $this->countStoreVisit($store);
+
+        return view('store_about', $this->storefrontNavigationPayload($store));
+    }
+
     public function category($slug, string $category)
     {
         $store = Store::publiclyAvailable()
@@ -216,8 +228,12 @@ class ProductController extends Controller
 
         $this->countStoreVisit($store);
 
+        $productSearchEnabled = $store->hasProductSearch();
+        $searchQuery = $productSearchEnabled ? $this->searchQuery() : '';
+
         $products = Product::where('store_id', $store->id)
             ->where('category', $category->name)
+            ->when($searchQuery !== '', fn ($query) => $this->applyProductSearch($query, $searchQuery))
             ->latest()
             ->paginate(8)
             ->withQueryString();
@@ -225,6 +241,8 @@ class ProductController extends Controller
         return view('store_category', array_merge($this->storefrontNavigationPayload($store), [
             'category' => $category,
             'products' => $products,
+            'productSearchEnabled' => $productSearchEnabled,
+            'searchQuery' => $searchQuery,
         ]));
     }
 
@@ -236,13 +254,19 @@ class ProductController extends Controller
 
         $this->countStoreVisit($store);
 
+        $productSearchEnabled = $store->hasProductSearch();
+        $searchQuery = $productSearchEnabled ? $this->searchQuery() : '';
+
         $products = Product::where('store_id', $store->id)
+            ->when($searchQuery !== '', fn ($query) => $this->applyProductSearch($query, $searchQuery))
             ->latest()
             ->paginate(24)
             ->withQueryString();
 
         return view('store_products', array_merge($this->storefrontNavigationPayload($store), [
             'products' => $products,
+            'productSearchEnabled' => $productSearchEnabled,
+            'searchQuery' => $searchQuery,
         ]));
     }
 
@@ -323,6 +347,7 @@ class ProductController extends Controller
             ->latest()
             ->take(12)
             ->get();
+        $productSearchEnabled = $store->hasProductSearch();
 
         return compact(
             'store',
@@ -331,7 +356,8 @@ class ProductController extends Controller
             'activeCategories',
             'categorySections',
             'visibleCategorySections',
-            'otherProducts'
+            'otherProducts',
+            'productSearchEnabled'
         );
     }
 
@@ -340,7 +366,23 @@ class ProductController extends Controller
         return [
             'store' => $store,
             'activeCategories' => $this->activeCategories($store),
+            'showAboutSection' => $store->hasAboutContent(),
+            'productSearchEnabled' => $store->hasProductSearch(),
         ];
+    }
+
+    private function searchQuery(): string
+    {
+        return trim((string) request('q', ''));
+    }
+
+    private function applyProductSearch($query, string $searchQuery)
+    {
+        $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $searchQuery) . '%';
+
+        return $query->where(function ($query) use ($like) {
+            $query->where('name', 'like', $like);
+        });
     }
 
     private function activeCategories(Store $store)

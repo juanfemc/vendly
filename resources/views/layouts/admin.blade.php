@@ -250,6 +250,11 @@
             color: #ffffff;
         }
 
+        .btn-danger {
+            background: #dc2626;
+            color: #ffffff;
+        }
+
         .admin-pagination {
             overflow-x: auto;
         }

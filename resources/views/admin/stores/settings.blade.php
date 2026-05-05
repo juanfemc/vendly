@@ -18,11 +18,6 @@
 @endif
 
 <div class="list-card">
-    @php
-        $selectedBrandColor = old('brand_color', $store->brand_color ?: '#111111');
-        $brandPalette = ['#111111', '#ff6a00', '#4f46e5', '#0f766e', '#be123c', '#ca8a04', '#7c3aed', '#1d4ed8'];
-    @endphp
-
     <form method="POST" action="/admin/store-settings" enctype="multipart/form-data">
         @csrf
 
@@ -34,22 +29,11 @@
             <div style="margin-top:8px; color:#6b7280; font-size:13px;">El slug no se puede cambiar desde esta pantalla.</div>
         </div>
         <input type="text" name="whatsapp" value="{{ old('whatsapp', $store->whatsapp) }}" placeholder="WhatsApp">
+        <input type="text" name="location" value="{{ old('location', $store->location) }}" placeholder="Ubicacion o direccion (opcional)">
+        <label class="field-label" for="business_hours">Horario de atencion</label>
+        <textarea id="business_hours" name="business_hours" placeholder="Ej: Lunes a viernes 8:00 AM - 6:00 PM">{{ old('business_hours', $store->business_hours) }}</textarea>
 
-        <div style="margin-bottom:12px;">
-            <div style="font-weight:600; margin-bottom:10px;">Color principal</div>
-            <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
-                @foreach ($brandPalette as $color)
-                    <button
-                        type="button"
-                        class="brand-swatch"
-                        data-color="{{ $color }}"
-                        aria-label="Elegir color {{ $color }}"
-                        style="width:34px; height:34px; border-radius:999px; border:{{ strtolower($selectedBrandColor) === strtolower($color) ? '3px solid #111827' : '1px solid #d1d5db' }}; background:{{ $color }}; cursor:pointer;"
-                    ></button>
-                @endforeach
-            </div>
-            <input id="brand_color" type="text" name="brand_color" value="{{ $selectedBrandColor }}" placeholder="Color principal (#111111)">
-        </div>
+        @include('admin.stores.partials.theme-fields', ['store' => $store])
 
         <input type="url" name="instagram_url" value="{{ old('instagram_url', $store->instagram_url) }}" placeholder="Instagram URL">
         <input type="url" name="facebook_url" value="{{ old('facebook_url', $store->facebook_url) }}" placeholder="Facebook URL">
@@ -89,27 +73,4 @@
     </form>
 </div>
 
-<script>
-    (() => {
-        const input = document.getElementById('brand_color');
-        const swatches = document.querySelectorAll('.brand-swatch');
-
-        const paintSelection = (value) => {
-            swatches.forEach((swatch) => {
-                swatch.style.border = swatch.dataset.color.toLowerCase() === value.toLowerCase()
-                    ? '3px solid #111827'
-                    : '1px solid #d1d5db';
-            });
-        };
-
-        swatches.forEach((swatch) => {
-            swatch.addEventListener('click', () => {
-                input.value = swatch.dataset.color;
-                paintSelection(swatch.dataset.color);
-            });
-        });
-
-        input.addEventListener('input', () => paintSelection(input.value));
-    })();
-</script>
 @endsection

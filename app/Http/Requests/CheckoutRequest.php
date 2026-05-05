@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Store;
 use Illuminate\Foundation\Http\FormRequest;
 
 class CheckoutRequest extends FormRequest
@@ -13,6 +14,8 @@ class CheckoutRequest extends FormRequest
 
     public function rules(): array
     {
+        $isReservationStore = $this->checkoutStore()?->isReservationStore() ?? false;
+
         return [
             'email' => ['nullable', 'email', 'max:255'],
             'name' => ['required', 'string', 'max:255'],
@@ -23,7 +26,29 @@ class CheckoutRequest extends FormRequest
             'city' => ['required', 'string', 'max:255'],
             'region' => ['nullable', 'string', 'max:255'],
             'document' => ['required', 'string', 'max:255'],
+            ...self::reservationRules($isReservationStore),
             'notes' => ['nullable', 'string', 'max:1000'],
         ];
+    }
+
+    public static function reservationRules(bool $required = true): array
+    {
+        $presenceRule = $required ? 'required' : 'nullable';
+
+        return [
+            'reservation_date' => [$presenceRule, 'date', 'after_or_equal:today'],
+            'reservation_time' => [$presenceRule, 'date_format:H:i'],
+        ];
+    }
+
+    private function checkoutStore(): ?Store
+    {
+        $slug = $this->input('store') ?: $this->query('store');
+
+        if (! $slug) {
+            return null;
+        }
+
+        return Store::where('slug', $slug)->first();
     }
 }

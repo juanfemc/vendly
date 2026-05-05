@@ -22,13 +22,13 @@ use App\Http\Controllers\StoreCategoryController;
 */
 
 
-Route::post('/cart/add/{id}', [CartController::class, 'add'])->name('cart.add');
-Route::post('/cart/buy-now/{id}', [CartController::class, 'buyNow'])->name('cart.buy_now');
+Route::post('/cart/add/{id}', [CartController::class, 'add'])->middleware('throttle:30,1')->name('cart.add');
+Route::post('/cart/buy-now/{id}', [CartController::class, 'buyNow'])->middleware('throttle:20,1')->name('cart.buy_now');
 Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
 Route::patch('/cart/item/{id}', [CartController::class, 'updateItem'])->name('cart.item.update');
 Route::delete('/cart/item/{id}', [CartController::class, 'removeItem'])->name('cart.item.remove');
 Route::delete('/cart', [CartController::class, 'clear'])->name('cart.clear');
-Route::post('/cart/whatsapp', [CartController::class, 'whatsappFromCart'])->name('cart.whatsapp');
+Route::post('/cart/whatsapp', [CartController::class, 'whatsappFromCart'])->middleware('throttle:10,1')->name('cart.whatsapp');
 
 
 
@@ -53,6 +53,7 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::get('/admin/orders', [OrderController::class, 'index']);
     Route::patch('/admin/orders/{order}/status', [OrderController::class, 'updateStatus'])->name('admin.orders.status');
+    Route::delete('/admin/orders/{order}', [OrderController::class, 'destroy'])->name('admin.orders.destroy');
     Route::get('/admin/store-settings', [StoreController::class, 'settings']);
     Route::post('/admin/store-settings', [StoreController::class, 'updateSettings']);
     Route::get('/admin/categories', [StoreCategoryController::class, 'index'])->name('admin.categories.index');
@@ -125,6 +126,7 @@ Route::get('/', function () {
 });
 require __DIR__.'/auth.php';
 Route::get('/{slug}/categorias/{category}', [ProductController::class, 'category'])->name('store.category.show');
+Route::get('/{slug}/nosotros', [ProductController::class, 'about'])->name('store.about');
 Route::get('/{slug}/productos', [ProductController::class, 'allProducts'])->name('store.products.index');
 Route::get('/{slug}/productos/{product}', [ProductController::class, 'show'])->name('store.product.show');
 Route::get('/{slug}', [ProductController::class, 'storeBySlug'])->name('store.show');

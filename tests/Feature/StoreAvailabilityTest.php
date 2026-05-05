@@ -8,6 +8,7 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\StoreBanner;
 use App\Models\StoreCategory;
+use App\Models\StoreVisit;
 use App\Models\User;
 use App\Services\AdminUpdateService;
 use Illuminate\Http\UploadedFile;
@@ -176,7 +177,146 @@ test('public store is visible when store and owner are active', function () {
         'is_active' => true,
     ]);
 
-    $this->get('/tienda-activa')->assertOk();
+    $this->get('/tienda-activa')
+        ->assertOk()
+        ->assertSee('https://wa.me/573001112233', false)
+        ->assertSee('Mas informacion')
+        ->assertSee('vendlysuite.com');
+});
+
+test('public store visits are counted once per visitor each day', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda visitada',
+        'slug' => 'tienda-visitada',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+        'views_count' => 0,
+    ]);
+
+    $visitor = $this
+        ->withServerVariables(['REMOTE_ADDR' => '203.0.113.10'])
+        ->withHeaders(['User-Agent' => 'Vendly Test Browser']);
+
+    $visitor->get('/tienda-visitada')->assertOk();
+    $visitor->get('/tienda-visitada')->assertOk();
+
+    $this->assertDatabaseCount('store_visits', 1);
+    expect((int) $store->refresh()->views_count)->toBe(1);
+
+    StoreVisit::query()->update(['visited_on' => now()->subDay()->toDateString()]);
+
+    $visitor->get('/tienda-visitada')->assertOk();
+
+    $this->assertDatabaseCount('store_visits', 2);
+    expect((int) $store->refresh()->views_count)->toBe(2);
+});
+
+test('store about information is shown on its own page', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Nosotros',
+        'slug' => 'tienda-nosotros',
+        'whatsapp' => '573001112233',
+        'location' => 'Calle 10 #20-30, Bogota',
+        'business_hours' => "Lunes a viernes 8:00 AM - 6:00 PM\nSabado 9:00 AM - 1:00 PM",
+        'is_active' => true,
+        'mission' => 'Nuestra mision es vender con atencion cercana.',
+        'vision' => 'Nuestra vision es crecer con clientes felices.',
+    ]);
+
+    $this->get('/tienda-nosotros')
+        ->assertOk()
+        ->assertSee(route('store.about', 'tienda-nosotros'), false)
+        ->assertDontSee('Nuestra mision es vender con atencion cercana.')
+        ->assertDontSee('Nuestra vision es crecer con clientes felices.');
+
+    $this->get('/tienda-nosotros/nosotros')
+        ->assertOk()
+        ->assertSee('Nosotros')
+        ->assertSee('Nuestra mision es vender con atencion cercana.')
+        ->assertSee('Nuestra vision es crecer con clientes felices.')
+        ->assertSee('WhatsApp: 573001112233')
+        ->assertSee('Calle 10 #20-30, Bogota')
+        ->assertSee('Lunes a viernes 8:00 AM - 6:00 PM');
+});
+
+test('store about page is hidden when mission and vision are missing', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Sin Nosotros',
+        'slug' => 'tienda-sin-nosotros',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $this->get('/tienda-sin-nosotros')
+        ->assertOk()
+        ->assertDontSee('/tienda-sin-nosotros/nosotros');
+
+    $this->get('/tienda-sin-nosotros/nosotros')->assertNotFound();
+});
+
+test('store settings save optional location for about page', function () {
+    $storeUser = User::factory()->create();
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Ubicacion',
+        'slug' => 'tienda-ubicacion',
+        'whatsapp' => '573001112233',
+        'business_type' => 'store',
+        'is_active' => true,
+        'mission' => 'Mision inicial',
+        'vision' => 'Vision inicial',
+    ]);
+
+    $this->actingAs($storeUser)
+        ->post('/admin/store-settings', [
+            'name' => $store->name,
+            'business_type' => $store->business_type,
+            'whatsapp' => $store->whatsapp,
+            'location' => 'Local 5, Centro Comercial Central',
+            'business_hours' => 'Lunes a sabado 10:00 AM - 7:00 PM',
+            'brand_color' => '#0f766e',
+            'background_color' => '#f8fafc',
+            'text_color' => '#1f2937',
+            'font_family' => 'serif',
+            'mission' => $store->mission,
+            'vision' => $store->vision,
+            'responsive_product_columns' => 2,
+            'show_hero_products_action' => 0,
+        ])
+        ->assertRedirect('/admin/store-settings');
+
+    expect($store->refresh()->location)->toBe('Local 5, Centro Comercial Central');
+    expect($store->business_hours)->toBe('Lunes a sabado 10:00 AM - 7:00 PM');
+    expect($store->brand_color)->toBe('#0f766e');
+    expect($store->background_color)->toBe('#f8fafc');
+    expect($store->text_color)->toBe('#1f2937');
+    expect($store->font_family)->toBe('serif');
+
+    $this->get('/tienda-ubicacion/nosotros')
+        ->assertOk()
+        ->assertSee('--store-bg: #f8fafc', false)
+        ->assertSee('--store-text: #1f2937', false)
+        ->assertSee('--store-font: Georgia, &quot;Times New Roman&quot;, serif', false)
+        ->assertSee('Local 5, Centro Comercial Central')
+        ->assertSee('Lunes a sabado 10:00 AM - 7:00 PM');
 });
 
 test('cart rejects products from an expired owner account', function () {
@@ -277,6 +417,194 @@ test('technology storefront renders variant selectors before adding to cart', fu
         ->assertOk()
         ->assertSee('name="size"', false)
         ->assertSee('name="color"', false);
+});
+
+test('reservation stores use service and reservation language', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Agenda Spa',
+        'slug' => 'agenda-spa',
+        'business_type' => 'reservations',
+        'whatsapp' => '573001112233',
+        'business_hours' => 'Lunes a viernes 9:00 AM - 5:00 PM',
+        'is_active' => true,
+        'show_hero_products_action' => true,
+    ]);
+
+    $product = Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Masaje relajante',
+        'price' => 80000,
+        'category' => 'Servicios',
+    ]);
+
+    $this->get('/agenda-spa')
+        ->assertOk()
+        ->assertSee('Ver todos los servicios')
+        ->assertSee('Servicios');
+
+    $this->get('/agenda-spa/productos')
+        ->assertOk()
+        ->assertSee('Servicios')
+        ->assertSee('1 servicios')
+        ->assertSee('solicita tu reserva por WhatsApp');
+
+    $this->get(route('store.product.show', [
+        'slug' => $store->slug,
+        'product' => $product->publicRouteKey(),
+    ]))
+        ->assertOk()
+        ->assertSee('Vista previa del servicio')
+        ->assertSee('Agregar a la reserva')
+        ->assertSee('Reservar por WhatsApp');
+});
+
+test('reservation checkout asks for date and time and sends a reservation whatsapp message', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Agenda Medica',
+        'slug' => 'agenda-medica',
+        'business_type' => 'reservations',
+        'whatsapp' => '573001112233',
+        'business_hours' => 'Lunes a viernes 8:00 AM - 4:00 PM',
+        'is_active' => true,
+    ]);
+
+    $product = Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Consulta inicial',
+        'price' => 120000,
+        'category' => 'Consultas',
+    ]);
+
+    $this->post('/cart/add/' . $product->id, ['quantity' => 1])
+        ->assertRedirect();
+
+    $this->get(route('cart.index', ['store' => $store->slug]))
+        ->assertOk()
+        ->assertSee('Datos de la reserva')
+        ->assertSee('Horario de atencion')
+        ->assertSee('name="reservation_date"', false)
+        ->assertSee('name="reservation_time"', false);
+
+    $this->post(route('cart.whatsapp', ['store' => $store->slug]), [
+        'name' => 'Cliente',
+        'last_name' => 'Reserva',
+        'phone' => '3001234567',
+        'address' => 'Consulta online',
+        'city' => 'Bogota',
+        'document' => '123456',
+        'reservation_date' => '2026-05-20',
+        'reservation_time' => '14:30',
+        'notes' => 'Prefiere atencion virtual',
+    ])->assertRedirectContains('https://wa.me/573001112233');
+
+    $order = Order::where('store_id', $store->id)->latest('id')->firstOrFail();
+
+    expect($order->reservation_date->toDateString())->toBe('2026-05-20');
+    expect($order->reservation_time)->toBe('14:30');
+
+    $message = app(\App\Services\WhatsAppOrderMessageBuilder::class)->message($order->load(['items', 'store']));
+
+    expect($message)->toContain('Nueva reserva');
+    expect($message)->toContain('Fecha deseada: 2026-05-20');
+    expect($message)->toContain('Hora deseada: 14:30');
+    expect($message)->toContain('Horario de atencion: Lunes a viernes 8:00 AM - 4:00 PM');
+    expect($message)->toContain('Servicio: Consulta inicial x1');
+});
+
+test('reservation checkout requires date and time even without store query parameter', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Agenda Sin Query',
+        'slug' => 'agenda-sin-query',
+        'business_type' => 'reservations',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $product = Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Servicio sin query',
+        'price' => 90000,
+    ]);
+
+    $this->post('/cart/add/' . $product->id, ['quantity' => 1])
+        ->assertRedirect();
+
+    $this->post(route('cart.whatsapp'), [
+        'name' => 'Cliente',
+        'last_name' => 'Reserva',
+        'phone' => '3001234567',
+        'address' => 'Consulta online',
+        'city' => 'Bogota',
+        'document' => '123456',
+    ])->assertSessionHasErrors(['reservation_date', 'reservation_time']);
+
+    $this->assertDatabaseMissing('orders', [
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Reserva',
+    ]);
+});
+
+test('reservation checkout rejects past dates and invalid times', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Agenda Valida',
+        'slug' => 'agenda-valida',
+        'business_type' => 'reservations',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $product = Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Servicio validado',
+        'price' => 90000,
+    ]);
+
+    $this->post('/cart/add/' . $product->id, ['quantity' => 1])
+        ->assertRedirect();
+
+    $this->post(route('cart.whatsapp', ['store' => $store->slug]), [
+        'name' => 'Cliente',
+        'last_name' => 'Reserva',
+        'phone' => '3001234567',
+        'address' => 'Consulta online',
+        'city' => 'Bogota',
+        'document' => '123456',
+        'reservation_date' => now()->subDay()->toDateString(),
+        'reservation_time' => 'cuando pueda',
+    ])->assertSessionHasErrors(['reservation_date', 'reservation_time']);
+
+    $this->assertDatabaseMissing('orders', [
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Reserva',
+    ]);
 });
 
 test('brand color must be a hex value and is normalized', function () {
@@ -768,6 +1096,81 @@ test('admin can update order status from global orders list', function () {
         ->assertRedirect('/admin/orders');
 
     expect($order->refresh()->status)->toBe('pagado');
+});
+
+test('store user can delete an order from their panel', function () {
+    $storeUser = User::factory()->create();
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda elimina pedido',
+        'slug' => 'tienda-elimina-pedido',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Eliminar',
+        'customer_phone' => '3001234567',
+        'status' => 'pendiente',
+        'total' => 45000,
+    ]);
+
+    OrderItem::create([
+        'order_id' => $order->id,
+        'product_name' => 'Producto pedido',
+        'quantity' => 1,
+        'price' => 45000,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get('/admin/orders')
+        ->assertOk()
+        ->assertSee(route('admin.orders.destroy', $order), false)
+        ->assertSee('Eliminar pedido');
+
+    $this->actingAs($storeUser)
+        ->delete(route('admin.orders.destroy', $order))
+        ->assertRedirect('/admin/orders')
+        ->assertSessionHas('success', 'Pedido eliminado.');
+
+    $this->assertDatabaseMissing('orders', ['id' => $order->id]);
+    $this->assertDatabaseMissing('order_items', ['order_id' => $order->id]);
+});
+
+test('store user cannot delete an order from another store', function () {
+    $storeUser = User::factory()->create();
+    $otherStoreUser = User::factory()->create();
+
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda propia',
+        'slug' => 'tienda-propia',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $otherStore = Store::create([
+        'user_id' => $otherStoreUser->id,
+        'name' => 'Tienda ajena',
+        'slug' => 'tienda-ajena',
+        'whatsapp' => '573001112244',
+        'is_active' => true,
+    ]);
+
+    $order = Order::create([
+        'store_id' => $otherStore->id,
+        'customer_name' => 'Cliente Ajeno',
+        'customer_phone' => '3001234567',
+        'status' => 'pendiente',
+        'total' => 45000,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->delete(route('admin.orders.destroy', $order))
+        ->assertForbidden();
+
+    $this->assertDatabaseHas('orders', ['id' => $order->id]);
 });
 
 test('admin can create edit and delete products for any store', function () {
@@ -1342,6 +1745,149 @@ test('store home groups products by three categories and category pages show the
         ->assertSee('/tienda-categorias/categorias/audio', false)
         ->assertDontSee('href="#destacado"', false)
         ->assertDontSee('href="#novedades"', false);
+});
+
+test('customers can search products in the full catalog', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Busqueda',
+        'slug' => 'tienda-busqueda',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Camisa Premium',
+        'price' => 45000,
+        'description' => 'Tela azul para todos los dias.',
+    ]);
+
+    Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Zapatos Negros',
+        'price' => 90000,
+    ]);
+
+    foreach (range(1, 19) as $index) {
+        Product::create([
+            'user_id' => $user->id,
+            'store_id' => $store->id,
+            'name' => 'Producto Extra ' . $index,
+            'price' => 10000 + $index,
+        ]);
+    }
+
+    $this->get('/tienda-busqueda/productos?q=azul')
+        ->assertOk()
+        ->assertSee('Resultados para "azul".', false)
+        ->assertDontSee('Camisa Premium')
+        ->assertDontSee('Zapatos Negros');
+
+    $this->get('/tienda-busqueda/productos?q=premium')
+        ->assertOk()
+        ->assertSee('Camisa Premium')
+        ->assertDontSee('Zapatos Negros');
+});
+
+test('customers can search products inside a category', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Categoria Busqueda',
+        'slug' => 'tienda-categoria-busqueda',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    StoreCategory::create([
+        'store_id' => $store->id,
+        'name' => 'Ropa',
+        'slug' => 'ropa',
+        'is_active' => true,
+        'sort_order' => 1,
+    ]);
+
+    Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Vestido Floral',
+        'price' => 70000,
+        'category' => 'Ropa',
+    ]);
+
+    Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Chaqueta Lisa',
+        'price' => 120000,
+        'category' => 'Ropa',
+    ]);
+
+    foreach (range(1, 19) as $index) {
+        Product::create([
+            'user_id' => $user->id,
+            'store_id' => $store->id,
+            'name' => 'Ropa Extra ' . $index,
+            'price' => 10000 + $index,
+            'category' => 'Ropa',
+        ]);
+    }
+
+    $this->get('/tienda-categoria-busqueda/categorias/ropa?q=floral')
+        ->assertOk()
+        ->assertSee('Resultados en Ropa para "floral".', false)
+        ->assertSee('Vestido Floral')
+        ->assertDontSee('Chaqueta Lisa');
+});
+
+test('product search is hidden and ignored until the store has more than twenty products', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Sin Busqueda',
+        'slug' => 'tienda-sin-busqueda',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Producto Especial',
+        'price' => 30000,
+    ]);
+
+    foreach (range(1, 19) as $index) {
+        Product::create([
+            'user_id' => $user->id,
+            'store_id' => $store->id,
+            'name' => 'Producto Comun ' . $index,
+            'price' => 10000 + $index,
+        ]);
+    }
+
+    $this->get('/tienda-sin-busqueda/productos?q=especial')
+        ->assertOk()
+        ->assertDontSee('Buscar productos')
+        ->assertDontSee('Resultados para "especial".', false)
+        ->assertSee('Producto Especial')
+        ->assertSee('Producto Comun 1');
 });
 
 test('category pages use compact storefront pagination after eight products', function () {

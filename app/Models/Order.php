@@ -21,11 +21,17 @@ class Order extends Model
         'customer_address',
         'customer_city',
         'customer_document',
+        'reservation_date',
+        'reservation_time',
         'notes',
         'status',
         'total',
         'store_id',
         'admin_token',
+    ];
+
+    protected $casts = [
+        'reservation_date' => 'date',
     ];
 
     public function statusLabel(): string

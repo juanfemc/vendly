@@ -28,4 +28,9 @@ class OrderPolicy
     {
         return $this->view($user, $order);
     }
+
+    public function delete(User $user, Order $order): bool
+    {
+        return $this->view($user, $order);
+    }
 }

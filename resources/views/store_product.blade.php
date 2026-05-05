@@ -12,6 +12,7 @@
         $isRestaurant = $store->isRestaurant();
         $isTechnologyStore = $store->isTechnologyStore();
         $isSupplementStore = $store->isSupplementStore();
+        $isReservationStore = $store->isReservationStore();
         $logoImage = $absoluteStorageUrl($store->logo_image);
         $faviconImage = $storageAssetUrl($store->logo_image) ?: asset('images/vendly-logo.svg');
         $productImage = $absoluteStorageUrl($product->image);
@@ -26,8 +27,8 @@
         $facebookUrl = $page->facebookUrl;
         $tiktokUrl = $page->tiktokUrl;
         $canManageStore = $page->canManageStore;
-        $cartLabel = $isRestaurant ? 'Pedido' : 'Carrito';
-        $collectionLabelTitle = $isRestaurant ? 'Menu' : 'Catalogo';
+        $cartLabel = $isRestaurant ? 'Pedido' : ($isReservationStore ? 'Reserva' : 'Carrito');
+        $collectionLabelTitle = $isRestaurant ? 'Menu' : ($isReservationStore ? 'Servicios' : 'Catalogo');
         $showStorefrontSectionLinks = false;
         $storefrontVariant = $isTechnologyStore ? 'technology' : ($isRestaurant ? 'restaurant' : ($isSupplementStore ? 'supplements' : 'default'));
         $variantStylesheets = [
@@ -36,12 +37,14 @@
             'supplements' => 'css/storefront-supplements.css',
             'default' => 'css/storefront-default.css',
         ];
-        $previewTitle = $isSupplementStore ? 'Vista previa del suplemento' : ($isTechnologyStore ? 'Vista previa del producto' : 'Vista previa del producto');
+        $previewTitle = $isReservationStore ? 'Vista previa del servicio' : ($isSupplementStore ? 'Vista previa del suplemento' : ($isTechnologyStore ? 'Vista previa del producto' : 'Vista previa del producto'));
         $previewCopy = $isSupplementStore
             ? 'Revisa el detalle del suplemento, ajusta la cantidad y decide si quieres agregarlo al carrito o ir directo al flujo de compra por WhatsApp.'
             : ($isTechnologyStore
                 ? 'Explora el producto, ajusta la cantidad y decide si quieres agregarlo al carrito o pasar al flujo de compra por WhatsApp.'
-                : 'Explora el producto, ajusta la cantidad y decide si quieres agregarlo al carrito o pasar al flujo de compra por WhatsApp.');
+                : ($isReservationStore
+                    ? 'Explora el servicio, ajusta la cantidad y solicita tu reserva por WhatsApp.'
+                    : 'Explora el producto, ajusta la cantidad y decide si quieres agregarlo al carrito o pasar al flujo de compra por WhatsApp.'));
         $metaUrl = $publicBaseUrl . '/' . $store->slug . '/productos/' . $product->publicRouteKey();
         $seo = \App\Support\SeoMeta::product($store, $product, $metaUrl, $seoImage, $previewCopy, $faviconImage);
         $brandTheme = \App\Support\BrandTheme::from($store->brand_color);
@@ -56,10 +59,10 @@
 <body
     class="storefront-page storefront-page--{{ $storefrontVariant }}"
     data-csrf="{{ csrf_token() }}"
-    data-adding-text="Agregando..."
-    data-feedback-added="Producto agregado al carrito"
-    data-feedback-error="No pudimos agregar el producto"
-    style="--brand-color: {{ $brandTheme->color }}; --brand-contrast: {{ $brandTheme->contrast }}; --responsive-product-columns: {{ $responsiveProductColumns }};"
+    data-adding-text="{{ $isReservationStore ? 'Agregando a la reserva...' : 'Agregando...' }}"
+    data-feedback-added="{{ $isReservationStore ? 'Servicio agregado a la reserva' : 'Producto agregado al carrito' }}"
+    data-feedback-error="{{ $isReservationStore ? 'No pudimos agregar el servicio' : 'No pudimos agregar el producto' }}"
+    style="{{ $store->storefrontCssVariables($brandTheme, $responsiveProductColumns) }}"
 >
     @include('storefront.partials.header')
 
@@ -139,7 +142,7 @@
 
                 <div class="product-detail-description">
                     <h2>Descripción</h2>
-                    <p>{{ $product->description ?: 'Este producto aun no tiene una descripcion amplia configurada, pero ya esta listo para venderse desde la tienda.' }}</p>
+                    <p>{{ $product->description ?: ($isReservationStore ? 'Este servicio aun no tiene una descripcion amplia configurada, pero ya esta listo para reservarse desde la tienda.' : 'Este producto aun no tiene una descripcion amplia configurada, pero ya esta listo para venderse desde la tienda.') }}</p>
                 </div>
 
                 @if($product->features)
@@ -184,7 +187,7 @@
                         <input id="quantity" type="number" name="quantity" min="1" max="99" value="{{ old('quantity', 1) }}" class="product-quantity-input">
                     </div>
 
-                    <button type="submit" class="product-detail-primary">Agregar al carrito</button>
+                    <button type="submit" class="product-detail-primary">{{ $isReservationStore ? 'Agregar a la reserva' : 'Agregar al carrito' }}</button>
                 </form>
 
                 <form action="{{ route('cart.buy_now', $product->id) }}" method="POST" class="product-detail-form" data-role="buy-now-form">
@@ -192,7 +195,7 @@
                     <input type="hidden" name="quantity" value="{{ old('quantity', 1) }}" data-role="buy-now-quantity">
                     <input type="hidden" name="size" value="" data-role="buy-now-size">
                     <input type="hidden" name="color" value="" data-role="buy-now-color">
-                    <button type="submit" class="product-detail-secondary">Comprar por WhatsApp</button>
+                    <button type="submit" class="product-detail-secondary">{{ $isReservationStore ? 'Reservar por WhatsApp' : 'Comprar por WhatsApp' }}</button>
                 </form>
             </div>
         </section>
@@ -201,7 +204,7 @@
             <section class="product-related">
                 <div class="catalog-head">
                     <h2>Tambien te puede interesar</h2>
-                    <p>Otros productos disponibles en {{ $store->name }}.</p>
+                    <p>{{ $isReservationStore ? 'Otros servicios disponibles en ' . $store->name . '.' : 'Otros productos disponibles en ' . $store->name . '.' }}</p>
                 </div>
 
                 <div class="products-grid">
@@ -231,7 +234,7 @@
 
     @include('storefront.partials.footer')
 
-    <div class="cart-feedback" id="cartFeedback" aria-live="polite">Producto agregado al carrito</div>
+    <div class="cart-feedback" id="cartFeedback" aria-live="polite">{{ $isReservationStore ? 'Servicio agregado a la reserva' : 'Producto agregado al carrito' }}</div>
 
     <script src="{{ asset('js/storefront.js') }}?v={{ filemtime(public_path('js/storefront.js')) }}" defer></script>
     <script>
