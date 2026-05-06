@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Product;
 use App\Models\Store;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class CheckoutService
 {
@@ -41,9 +43,11 @@ class CheckoutService
             ]);
 
             foreach ($cart as $cartKey => $item) {
+                $product = $this->reserveStock($store, $cartKey, $item);
+
                 OrderItem::create([
                     'order_id' => $order->id,
-                    'product_id' => $item['product_id'] ?? (int) explode(':', (string) $cartKey)[0],
+                    'product_id' => $product?->id ?? ($item['product_id'] ?? (int) explode(':', (string) $cartKey)[0]),
                     'product_name' => $item['name'] ?? 'Producto',
                     'quantity' => $item['quantity'],
                     'price' => $item['price'],
@@ -54,6 +58,38 @@ class CheckoutService
 
             return $order;
         });
+    }
+
+    private function reserveStock(Store $store, string|int $cartKey, array $item): ?Product
+    {
+        if ($store->isReservationStore()) {
+            return null;
+        }
+
+        $productId = $item['product_id'] ?? (int) explode(':', (string) $cartKey)[0];
+        $product = Product::whereKey($productId)->lockForUpdate()->first();
+        $quantity = (int) ($item['quantity'] ?? 1);
+
+        if (! Product::supportsInventoryColumns()) {
+            return $product;
+        }
+
+        if (! $product || (int) $product->store_id !== (int) $store->id || ! $product->hasEnoughStock($quantity)) {
+            throw ValidationException::withMessages([
+                'cart' => 'Uno de los productos ya no tiene stock suficiente. Actualiza el carrito e intenta de nuevo.',
+            ]);
+        }
+
+        if ($product->stock_quantity !== null) {
+            $newStock = max(0, $product->stock_quantity - $quantity);
+
+            $product->forceFill([
+                'stock_quantity' => $newStock,
+                'is_sold_out' => $newStock === 0,
+            ])->save();
+        }
+
+        return $product;
     }
 
     private function notes(array $customerData): ?string

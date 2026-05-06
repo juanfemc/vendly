@@ -22,6 +22,8 @@ class ProductRequest extends FormRequest
             'price' => ['required', 'numeric'],
             'category' => ['nullable', 'string', 'max:255'],
             'material' => ['nullable', 'string', 'max:255'],
+            'stock_quantity' => ['nullable', 'integer', 'min:0', 'max:999999'],
+            'is_sold_out' => ['nullable', 'boolean'],
             'description' => ['nullable', 'string'],
             'features' => ['nullable', 'string'],
             'sizes' => ['nullable', 'string', 'max:1000'],
@@ -36,6 +38,9 @@ class ProductRequest extends FormRequest
 
     public function baseData(): array
     {
-        return $this->safe()->only(['name', 'category', 'material', 'price', 'description']);
+        $data = $this->safe()->only(['name', 'category', 'material', 'price', 'description', 'stock_quantity']);
+        $data['is_sold_out'] = $this->boolean('is_sold_out');
+
+        return $data;
     }
 }

@@ -4,11 +4,14 @@ namespace App\Models;
 
 use App\Models\Concerns\HasAdminRouteKey;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class Product extends Model
 {
     use HasAdminRouteKey;
+
+    private static ?bool $supportsInventoryColumns = null;
 
     protected $fillable = [
         'name',
@@ -16,6 +19,8 @@ class Product extends Model
         'category',
         'material',
         'price',
+        'stock_quantity',
+        'is_sold_out',
         'description',
         'features',
         'sizes',
@@ -31,6 +36,8 @@ class Product extends Model
         'sizes' => 'array',
         'colors' => 'array',
         'images' => 'array',
+        'stock_quantity' => 'integer',
+        'is_sold_out' => 'boolean',
     ];
 
     protected static function booted(): void
@@ -90,5 +97,60 @@ class Product extends Model
     public function hasVariants(): bool
     {
         return $this->hasSizes() || $this->hasColors();
+    }
+
+    public function usesInventory(): bool
+    {
+        return self::supportsInventoryColumns() && ! $this->store?->isReservationStore();
+    }
+
+    public static function supportsInventoryColumns(): bool
+    {
+        return self::$supportsInventoryColumns ??= Schema::hasColumn('products', 'stock_quantity')
+            && Schema::hasColumn('products', 'is_sold_out');
+    }
+
+    public function hasLimitedStock(): bool
+    {
+        return $this->usesInventory() && $this->stock_quantity !== null;
+    }
+
+    public function isSoldOut(): bool
+    {
+        if (! $this->usesInventory()) {
+            return false;
+        }
+
+        return (bool) $this->is_sold_out || ($this->stock_quantity !== null && $this->stock_quantity <= 0);
+    }
+
+    public function hasEnoughStock(int $quantity): bool
+    {
+        if (! $this->usesInventory()) {
+            return true;
+        }
+
+        if ($this->isSoldOut()) {
+            return false;
+        }
+
+        return $this->stock_quantity === null || $quantity <= $this->stock_quantity;
+    }
+
+    public function stockLabel(): ?string
+    {
+        if (! $this->usesInventory()) {
+            return null;
+        }
+
+        if ($this->isSoldOut()) {
+            return 'Agotado';
+        }
+
+        if ($this->stock_quantity !== null) {
+            return $this->stock_quantity . ' disponible' . ($this->stock_quantity === 1 ? '' : 's');
+        }
+
+        return null;
     }
 }

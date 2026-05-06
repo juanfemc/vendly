@@ -56,6 +56,9 @@
             Categoria: {{ $product->category ?: 'Sin categoria' }}<br>
             Material: {{ $product->material ?: 'Sin material' }}<br>
             Precio: ${{ $product->price }}<br><br>
+            @if(! ($product->store?->isReservationStore() ?? false))
+                Inventario: {{ $product->stockLabel() ?? 'Ilimitado' }}<br><br>
+            @endif
 
             <a href="{{ route('admin.products.edit', $product) }}" class="btn">Editar</a>
 

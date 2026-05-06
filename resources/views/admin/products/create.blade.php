@@ -51,6 +51,14 @@
         >
         <input type="text" name="material" value="{{ old('material') }}" placeholder="Material (ej: Algodon, Cuero, Acero)">
         <input type="number" step="0.01" name="price" value="{{ old('price') }}" placeholder="Precio" required>
+        @if(! ($store?->isReservationStore() ?? false))
+            <label class="field-label" for="stock_quantity">Stock disponible</label>
+            <input id="stock_quantity" type="number" name="stock_quantity" min="0" step="1" value="{{ old('stock_quantity') }}" placeholder="Cantidad disponible (vacio = ilimitado)">
+            <label style="display:flex; align-items:center; gap:8px; margin:0 0 12px; color:#374151; font-size:14px;">
+                <input type="checkbox" name="is_sold_out" value="1" @checked(old('is_sold_out')) style="width:auto; margin:0;">
+                Marcar como agotado
+            </label>
+        @endif
         <textarea name="description" class="long-textarea" rows="8" placeholder="Descripcion larga del producto">{{ old('description') }}</textarea>
         <label class="field-label" for="features_editor">Caracteristicas del producto</label>
         <div class="rich-editor" data-rich-editor>

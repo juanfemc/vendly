@@ -49,6 +49,8 @@
         $seo = \App\Support\SeoMeta::product($store, $product, $metaUrl, $seoImage, $previewCopy, $faviconImage);
         $brandTheme = \App\Support\BrandTheme::from($store->brand_color);
         $responsiveProductColumns = in_array((int) $store->responsive_product_columns, [1, 2, 3], true) ? (int) $store->responsive_product_columns : 2;
+        $isProductSoldOut = $product->isSoldOut();
+        $quantityMax = $product->stock_quantity !== null && ! $isReservationStore ? max(1, min(99, (int) $product->stock_quantity)) : 99;
     @endphp
     @include('storefront.partials.seo', ['seo' => $seo])
     <link rel="stylesheet" href="{{ asset('css/storefront.css') }}">
@@ -133,6 +135,10 @@
 
                 <div class="product-detail-price">${{ number_format($product->price, 0, ',', '.') }}</div>
 
+                @if($product->stockLabel())
+                    <div class="product-stock-state {{ $isProductSoldOut ? 'is-sold-out' : '' }}">{{ $product->stockLabel() }}</div>
+                @endif
+
                 @if($product->material)
                     <div class="product-detail-description">
                         <h2>Material</h2>
@@ -152,51 +158,55 @@
                     </div>
                 @endif
 
-                <form action="{{ route('cart.add', $product->id) }}" method="POST" class="product-detail-form add-to-cart-form">
-                    @csrf
-                    @if($product->hasSizes() || $product->hasColors())
-                        <div class="product-options product-options--detail">
-                            @if($product->hasSizes())
-                                <label>
-                                    <span>Talla</span>
-                                    <select name="size" data-role="selected-size" required>
-                                        <option value="">Selecciona talla</option>
-                                        @foreach($product->sizes as $size)
-                                            <option value="{{ $size }}">{{ $size }}</option>
-                                        @endforeach
-                                    </select>
-                                </label>
-                            @endif
+                @if($isProductSoldOut)
+                    <div class="product-unavailable-message">Este producto esta agotado por ahora.</div>
+                @else
+                    <form action="{{ route('cart.add', $product->id) }}" method="POST" class="product-detail-form add-to-cart-form">
+                        @csrf
+                        @if($product->hasSizes() || $product->hasColors())
+                            <div class="product-options product-options--detail">
+                                @if($product->hasSizes())
+                                    <label>
+                                        <span>Talla</span>
+                                        <select name="size" data-role="selected-size" required>
+                                            <option value="">Selecciona talla</option>
+                                            @foreach($product->sizes as $size)
+                                                <option value="{{ $size }}">{{ $size }}</option>
+                                            @endforeach
+                                        </select>
+                                    </label>
+                                @endif
 
-                            @if($product->hasColors())
-                                <label>
-                                    <span>Color</span>
-                                    <select name="color" data-role="selected-color" required>
-                                        <option value="">Selecciona color</option>
-                                        @foreach($product->colors as $color)
-                                            <option value="{{ $color }}">{{ $color }}</option>
-                                        @endforeach
-                                    </select>
-                                </label>
-                            @endif
+                                @if($product->hasColors())
+                                    <label>
+                                        <span>Color</span>
+                                        <select name="color" data-role="selected-color" required>
+                                            <option value="">Selecciona color</option>
+                                            @foreach($product->colors as $color)
+                                                <option value="{{ $color }}">{{ $color }}</option>
+                                            @endforeach
+                                        </select>
+                                    </label>
+                                @endif
+                            </div>
+                        @endif
+
+                        <div class="product-quantity-block">
+                            <label for="quantity">Cantidad</label>
+                            <input id="quantity" type="number" name="quantity" min="1" max="{{ $quantityMax }}" value="{{ old('quantity', 1) }}" class="product-quantity-input">
                         </div>
-                    @endif
 
-                    <div class="product-quantity-block">
-                        <label for="quantity">Cantidad</label>
-                        <input id="quantity" type="number" name="quantity" min="1" max="99" value="{{ old('quantity', 1) }}" class="product-quantity-input">
-                    </div>
+                        <button type="submit" class="product-detail-primary">{{ $isReservationStore ? 'Agregar a la reserva' : 'Agregar al carrito' }}</button>
+                    </form>
 
-                    <button type="submit" class="product-detail-primary">{{ $isReservationStore ? 'Agregar a la reserva' : 'Agregar al carrito' }}</button>
-                </form>
-
-                <form action="{{ route('cart.buy_now', $product->id) }}" method="POST" class="product-detail-form" data-role="buy-now-form">
-                    @csrf
-                    <input type="hidden" name="quantity" value="{{ old('quantity', 1) }}" data-role="buy-now-quantity">
-                    <input type="hidden" name="size" value="" data-role="buy-now-size">
-                    <input type="hidden" name="color" value="" data-role="buy-now-color">
-                    <button type="submit" class="product-detail-secondary">{{ $isReservationStore ? 'Reservar por WhatsApp' : 'Comprar por WhatsApp' }}</button>
-                </form>
+                    <form action="{{ route('cart.buy_now', $product->id) }}" method="POST" class="product-detail-form" data-role="buy-now-form">
+                        @csrf
+                        <input type="hidden" name="quantity" value="{{ old('quantity', 1) }}" data-role="buy-now-quantity">
+                        <input type="hidden" name="size" value="" data-role="buy-now-size">
+                        <input type="hidden" name="color" value="" data-role="buy-now-color">
+                        <button type="submit" class="product-detail-secondary">{{ $isReservationStore ? 'Reservar por WhatsApp' : 'Comprar por WhatsApp' }}</button>
+                    </form>
+                @endif
             </div>
         </section>
 

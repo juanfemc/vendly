@@ -49,9 +49,17 @@ class CartService
         }
 
         $cartKey = $this->cartKey($product, $options);
+        $currentQuantity = (int) ($cart[$cartKey]['quantity'] ?? 0);
+        $requestedQuantity = $currentQuantity + $quantity;
+
+        if (! $product->hasEnoughStock($requestedQuantity)) {
+            return [$cart, $product->isSoldOut()
+                ? 'Este producto esta agotado.'
+                : 'Solo quedan ' . $product->stock_quantity . ' unidades disponibles.'];
+        }
 
         if (isset($cart[$cartKey])) {
-            $cart[$cartKey]['quantity'] += $quantity;
+            $cart[$cartKey]['quantity'] = $requestedQuantity;
         } else {
             $cart[$cartKey] = [
                 'product_id' => $product->id,
@@ -132,18 +140,27 @@ class CartService
         return [null, []];
     }
 
-    public function updateItemQuantity(string $cartKey, int $quantity): ?array
+    public function updateItemQuantitySafely(string $cartKey, int $quantity): array
     {
         [$storeId, $cart] = $this->firstCartWithItem($cartKey);
 
         if (! isset($cart[$cartKey])) {
-            return null;
+            return [null, 'Producto no encontrado en el carrito.'];
+        }
+
+        $productId = $cart[$cartKey]['product_id'] ?? $this->productIdFromCartKey($cartKey);
+        $product = Product::with('store.user')->find($productId);
+
+        if (! $product || ! $product->hasEnoughStock($quantity)) {
+            return [$cart, $product?->isSoldOut()
+                ? 'Este producto esta agotado.'
+                : 'No hay suficiente stock disponible para esa cantidad.'];
         }
 
         $cart[$cartKey]['quantity'] = $quantity;
         $this->saveCart($storeId, $cart);
 
-        return $cart;
+        return [$cart, null];
     }
 
     public function removeItem(string $cartKey): ?array
@@ -252,6 +269,12 @@ class CartService
 
             if (! $product || (int) $product->store_id !== (int) $store->id || ! $product->store?->isAvailable()) {
                 return [false, 'Uno de los productos del carrito ya no esta disponible. Eliminalo e intenta de nuevo.'];
+            }
+
+            if (! $product->hasEnoughStock((int) ($item['quantity'] ?? 1))) {
+                return [false, $product->isSoldOut()
+                    ? $product->name . ' esta agotado. Eliminalo del carrito e intenta de nuevo.'
+                    : $product->name . ' no tiene stock suficiente para la cantidad seleccionada.'];
             }
 
             if (! empty($item['size']) && ! in_array($item['size'], $product->sizes ?? [], true)) {

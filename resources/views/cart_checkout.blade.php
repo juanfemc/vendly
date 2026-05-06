@@ -84,10 +84,20 @@
                             </div>
 
                             @if($isReservationStore)
-                                @if(trim((string) $store?->business_hours) !== '')
+                                @php
+                                    $scheduleSummary = $store?->reservationScheduleSummary();
+                                @endphp
+
+                                @if(trim((string) $store?->business_hours) !== '' || $scheduleSummary)
                                     <div class="field-wrap">
                                         <div class="flash-error" style="background:#f8fafc; color:#475569; border-color:#e2e8f0;">
-                                            Horario de atencion:<br>{{ $store->business_hours }}
+                                            @if(trim((string) $store?->business_hours) !== '')
+                                                Horario de atencion:<br>{{ $store->business_hours }}
+                                            @endif
+                                            @if($scheduleSummary)
+                                                @if(trim((string) $store?->business_hours) !== '')<br><br>@endif
+                                                {!! nl2br(e($scheduleSummary)) !!}
+                                            @endif
                                         </div>
                                     </div>
                                 @endif

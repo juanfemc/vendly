@@ -245,14 +245,14 @@
 
 .dashboard-slide-media {
     position: relative;
-    min-height: 260px;
-    background: #111;
+    min-height: 0;
+    background: transparent;
 }
 
 .dashboard-slide-media img {
     width: 100%;
-    height: 260px;
-    object-fit: cover;
+    height: auto;
+    object-fit: contain;
     display: block;
     opacity: 1;
 }

@@ -54,6 +54,13 @@ class StoreCategory extends Model
         return $slug;
     }
 
+    public function scopeOrderedForDisplay($query)
+    {
+        return $query
+            ->orderByRaw('CASE WHEN sort_order = 0 THEN 60 ELSE sort_order END')
+            ->orderBy('name');
+    }
+
     public function store()
     {
         return $this->belongsTo(Store::class);

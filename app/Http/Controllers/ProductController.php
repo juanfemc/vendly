@@ -104,7 +104,9 @@ class ProductController extends Controller
             $primaryImage = array_shift($galleryImages);
         }
 
-        $product = Product::create(array_merge($request->baseData(), [
+        $productData = $this->productDataForStore($request, $store);
+
+        $product = Product::create(array_merge($productData, [
             'slug' => Product::uniqueSlugFor((int) $store->id, $request->name),
             'features' => $this->productContentService->cleanRichText($request->features),
             'sizes' => $this->productContentService->optionList($request->sizes),
@@ -144,10 +146,10 @@ class ProductController extends Controller
     {
         $this->authorize('update', $product);
 
-        $data = $request->baseData();
         $store = auth()->user()?->isAdmin()
             ? Store::findOrFail($request->integer('store_id'))
             : $product->store;
+        $data = $this->productDataForStore($request, $store);
 
         if (auth()->user()?->isAdmin()) {
             $data['store_id'] = $store->id;
@@ -385,14 +387,31 @@ class ProductController extends Controller
         });
     }
 
+    private function productDataForStore(ProductRequest $request, Store $store): array
+    {
+        $data = $request->baseData();
+
+        if (! Product::supportsInventoryColumns()) {
+            unset($data['stock_quantity'], $data['is_sold_out']);
+
+            return $data;
+        }
+
+        if ($store->isReservationStore()) {
+            $data['stock_quantity'] = null;
+            $data['is_sold_out'] = false;
+        }
+
+        return $data;
+    }
+
     private function activeCategories(Store $store)
     {
         $store->ensureCategoryRecords();
 
         return $store->categories()
             ->where('is_active', true)
-            ->orderBy('sort_order')
-            ->orderBy('name')
+            ->orderedForDisplay()
             ->get();
     }
 }

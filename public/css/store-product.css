@@ -192,6 +192,20 @@
     font-weight: 700;
 }
 
+.product-stock-state,
+.product-unavailable-message {
+    width: 100%;
+    padding: 12px 0;
+    color: #166534;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.product-stock-state.is-sold-out,
+.product-unavailable-message {
+    color: #991b1b;
+}
+
 .product-detail-description p {
     margin: 0 0 18px;
     color: var(--muted);

@@ -17,8 +17,27 @@
     <div class="list-card">No hay pedidos todavia.</div>
 @endif
 
+@if ($orders->isNotEmpty())
+    <div class="list-card order-filter-panel">
+        <label class="field-label" for="orderStatusFilter">Filtrar por estado</label>
+        <select id="orderStatusFilter" data-order-status-filter>
+            <option value="all">Todos los estados</option>
+            @foreach($statusOptions as $value => $label)
+                <option value="{{ $value }}">{{ $label }}</option>
+            @endforeach
+        </select>
+        <div class="order-filter-count" data-order-filter-count>
+            Mostrando {{ $orders->count() }} de {{ $orders->count() }} pedidos
+        </div>
+    </div>
+
+    <div class="list-card" data-order-filter-empty hidden>
+        No hay pedidos con ese estado.
+    </div>
+@endif
+
 @foreach($orders as $order)
-    <div class="list-card">
+    <div class="list-card" data-order-card data-order-status="{{ $order->status }}">
         <strong>{{ $order->customer_name ?: 'Sin nombre' }}</strong><br>
         Tel: {{ $order->customer_phone ?: 'Sin telefono' }}<br>
         Ciudad: {{ $order->customer_city ?: 'Sin ciudad' }}<br>
@@ -73,4 +92,44 @@
         </form>
     </div>
 @endforeach
+
+@push('scripts')
+    <script>
+        (() => {
+            const filter = document.querySelector('[data-order-status-filter]');
+            const cards = Array.from(document.querySelectorAll('[data-order-card]'));
+            const emptyState = document.querySelector('[data-order-filter-empty]');
+            const count = document.querySelector('[data-order-filter-count]');
+
+            if (! filter || cards.length === 0) {
+                return;
+            }
+
+            const updateOrders = () => {
+                const selectedStatus = filter.value;
+                let visibleOrders = 0;
+
+                cards.forEach((card) => {
+                    const shouldShow = selectedStatus === 'all' || card.dataset.orderStatus === selectedStatus;
+                    card.hidden = ! shouldShow;
+
+                    if (shouldShow) {
+                        visibleOrders += 1;
+                    }
+                });
+
+                if (emptyState) {
+                    emptyState.hidden = visibleOrders !== 0;
+                }
+
+                if (count) {
+                    count.textContent = `Mostrando ${visibleOrders} de ${cards.length} pedidos`;
+                }
+            };
+
+            filter.addEventListener('change', updateOrders);
+            updateOrders();
+        })();
+    </script>
+@endpush
 @endsection

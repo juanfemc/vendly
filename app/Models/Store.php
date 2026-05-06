@@ -5,10 +5,13 @@ namespace App\Models;
 use App\Models\Concerns\HasAdminRouteKey;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Schema;
 
 class Store extends Model
 {
     use HasAdminRouteKey;
+
+    private static ?bool $supportsReservationScheduleColumns = null;
 
     public const PRODUCT_SEARCH_THRESHOLD = 20;
 
@@ -50,6 +53,9 @@ class Store extends Model
         'whatsapp',
         'location',
         'business_hours',
+        'reservation_available_days',
+        'reservation_time_start',
+        'reservation_time_end',
         'shop_copy',
         'mission',
         'vision',
@@ -70,6 +76,7 @@ class Store extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'views_count' => 'integer',
+        'reservation_available_days' => 'array',
         'responsive_product_columns' => 'integer',
         'show_hero_products_action' => 'boolean',
     ];
@@ -97,6 +104,70 @@ class Store extends Model
     public function isReservationStore(): bool
     {
         return $this->business_type === 'reservations';
+    }
+
+    public static function reservationDayOptions(): array
+    {
+        return [
+            'monday' => 'Lunes',
+            'tuesday' => 'Martes',
+            'wednesday' => 'Miercoles',
+            'thursday' => 'Jueves',
+            'friday' => 'Viernes',
+            'saturday' => 'Sabado',
+            'sunday' => 'Domingo',
+        ];
+    }
+
+    public static function supportsReservationScheduleColumns(): bool
+    {
+        return self::$supportsReservationScheduleColumns ??= Schema::hasColumn('stores', 'reservation_available_days')
+            && Schema::hasColumn('stores', 'reservation_time_start')
+            && Schema::hasColumn('stores', 'reservation_time_end');
+    }
+
+    public function reservationScheduleSummary(): ?string
+    {
+        if (! $this->isReservationStore() || ! self::supportsReservationScheduleColumns()) {
+            return null;
+        }
+
+        $parts = [];
+        $days = collect($this->reservation_available_days ?? [])
+            ->map(fn (string $day) => self::reservationDayOptions()[$day] ?? null)
+            ->filter()
+            ->values();
+
+        if ($days->isNotEmpty()) {
+            $parts[] = 'Dias disponibles: ' . $days->implode(', ');
+        }
+
+        if ($this->reservation_time_start && $this->reservation_time_end) {
+            $parts[] = 'Horario de reservas: ' . $this->reservation_time_start . ' - ' . $this->reservation_time_end;
+        }
+
+        return empty($parts) ? null : implode("\n", $parts);
+    }
+
+    public function allowsReservationDateTime(?string $date, ?string $time): bool
+    {
+        if (! $this->isReservationStore() || ! self::supportsReservationScheduleColumns()) {
+            return true;
+        }
+
+        if ($date && ! empty($this->reservation_available_days)) {
+            $day = strtolower(\Carbon\Carbon::parse($date)->englishDayOfWeek);
+
+            if (! in_array($day, $this->reservation_available_days ?? [], true)) {
+                return false;
+            }
+        }
+
+        if ($time && $this->reservation_time_start && $this->reservation_time_end) {
+            return $time >= $this->reservation_time_start && $time <= $this->reservation_time_end;
+        }
+
+        return true;
     }
 
     public function businessTypeLabel(): string
@@ -291,8 +362,7 @@ class Store extends Model
         $this->ensureCategoryRecords();
 
         $savedCategories = $this->categories()
-            ->orderBy('sort_order')
-            ->orderBy('name')
+            ->orderedForDisplay()
             ->pluck('name');
 
         $productCategories = $this->products()

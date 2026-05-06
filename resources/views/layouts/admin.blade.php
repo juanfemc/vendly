@@ -328,6 +328,29 @@
             color: #111827;
         }
 
+        .order-filter-panel {
+            display: grid;
+            grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+            gap: 10px 14px;
+            align-items: end;
+        }
+
+        .order-filter-panel .field-label {
+            grid-column: 1 / -1;
+            margin-bottom: 0;
+        }
+
+        .order-filter-panel select {
+            margin-bottom: 0;
+        }
+
+        .order-filter-count {
+            color: #6b7280;
+            font-size: 14px;
+            font-weight: 700;
+            padding-bottom: 11px;
+        }
+
         .rich-editor {
             margin-bottom: 12px;
             border: 1px solid #d1d5db;
@@ -618,6 +641,14 @@
                 width: 100%;
                 padding: 12px 10px;
                 font-size: 16px;
+            }
+
+            .order-filter-panel {
+                grid-template-columns: 1fr;
+            }
+
+            .order-filter-count {
+                padding-bottom: 0;
             }
 
             textarea.long-textarea {

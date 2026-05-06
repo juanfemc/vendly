@@ -12,6 +12,7 @@ use App\Models\StoreVisit;
 use App\Models\User;
 use App\Services\AdminUpdateService;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 
 test('public store is hidden when owner account is expired', function () {
@@ -179,6 +180,8 @@ test('public store is visible when store and owner are active', function () {
 
     $this->get('/tienda-activa')
         ->assertOk()
+        ->assertSee(route('store.products.index', 'tienda-activa'), false)
+        ->assertSee('Todos los productos')
         ->assertSee('https://wa.me/573001112233', false)
         ->assertSee('Mas información')
         ->assertSee('vendlysuite.com');
@@ -618,6 +621,114 @@ test('reservation checkout rejects past dates and invalid times', function () {
         'store_id' => $store->id,
         'customer_name' => 'Cliente Reserva',
     ]);
+});
+
+test('reservation checkout rejects dates and times outside the store schedule', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Agenda Controlada',
+        'slug' => 'agenda-controlada',
+        'business_type' => 'reservations',
+        'whatsapp' => '573001112233',
+        'reservation_available_days' => ['monday'],
+        'reservation_time_start' => '09:00',
+        'reservation_time_end' => '17:00',
+        'is_active' => true,
+    ]);
+
+    $product = Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Consulta con agenda',
+        'price' => 90000,
+    ]);
+
+    $this->post('/cart/add/' . $product->id, ['quantity' => 1])
+        ->assertRedirect();
+
+    $this->get(route('cart.index', ['store' => $store->slug]))
+        ->assertOk()
+        ->assertSee('Dias disponibles: Lunes')
+        ->assertSee('Horario de reservas: 09:00 - 17:00');
+
+    $unavailableDate = now()->addDay();
+
+    while ($unavailableDate->isMonday()) {
+        $unavailableDate->addDay();
+    }
+
+    $this->post(route('cart.whatsapp', ['store' => $store->slug]), [
+        'name' => 'Cliente',
+        'last_name' => 'Reserva',
+        'phone' => '3001234567',
+        'address' => 'Consulta online',
+        'city' => 'Bogota',
+        'document' => '123456',
+        'reservation_date' => $unavailableDate->toDateString(),
+        'reservation_time' => '18:00',
+    ])
+        ->assertRedirect(route('cart.index', ['store' => $store->slug]))
+        ->assertSessionHas('error', 'La fecha u hora seleccionada no esta dentro de la agenda disponible.');
+
+    $this->assertDatabaseMissing('orders', [
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Reserva',
+    ]);
+});
+
+test('non reservation products respect stock and are marked sold out after checkout', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Stock',
+        'slug' => 'tienda-stock',
+        'business_type' => 'store',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $product = Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Producto limitado',
+        'price' => 45000,
+        'stock_quantity' => 2,
+    ]);
+
+    $this->get(route('store.product.show', [
+        'slug' => $store->slug,
+        'product' => $product->publicRouteKey(),
+    ]))
+        ->assertOk()
+        ->assertSee('2 disponibles');
+
+    $this->post('/cart/add/' . $product->id, ['quantity' => 2])
+        ->assertRedirect()
+        ->assertSessionMissing('error');
+
+    $this->post('/cart/add/' . $product->id, ['quantity' => 1])
+        ->assertSessionHas('error', 'Solo quedan 2 unidades disponibles.');
+
+    $this->post(route('cart.whatsapp', ['store' => $store->slug]), [
+        'name' => 'Cliente',
+        'last_name' => 'Stock',
+        'phone' => '3001234567',
+        'address' => 'Calle 10',
+        'city' => 'Bogota',
+        'document' => '123456',
+    ])->assertRedirectContains('https://wa.me/573001112233');
+
+    expect($product->refresh()->stock_quantity)->toBe(0);
+    expect($product->is_sold_out)->toBeTrue();
 });
 
 test('brand color must be a hex value and is normalized', function () {
@@ -1076,6 +1187,11 @@ test('admin can see orders from all stores', function () {
     $this->actingAs($admin)
         ->get('/admin/orders')
         ->assertOk()
+        ->assertSee('Filtrar por estado')
+        ->assertSee('data-order-status-filter', false)
+        ->assertSee('data-order-status="pendiente"', false)
+        ->assertSee('Mostrando 1 de 1 pedidos')
+        ->assertSee('No hay pedidos con ese estado.')
         ->assertSee('Cliente Global')
         ->assertSee('Tienda visible admin');
 });
@@ -1758,6 +1874,46 @@ test('store home groups products by three categories and category pages show the
         ->assertSee('/tienda-categorias/categorias/audio', false)
         ->assertDontSee('href="#destacado"', false)
         ->assertDontSee('href="#novedades"', false);
+});
+
+test('category sort order places priority positions before normal categories', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Orden Categorias',
+        'slug' => 'tienda-orden-categorias',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    foreach ([
+        ['Normal Categoria', 0],
+        ['Primera Categoria', 10],
+        ['Final Categoria', 100],
+        ['Quinta Categoria', 50],
+    ] as [$name, $sortOrder]) {
+        StoreCategory::create([
+            'store_id' => $store->id,
+            'name' => $name,
+            'slug' => Str::slug($name),
+            'is_active' => true,
+            'sort_order' => $sortOrder,
+        ]);
+    }
+
+    $this->actingAs($user)
+        ->get('/admin/categories')
+        ->assertOk()
+        ->assertSeeInOrder([
+            'Primera Categoria',
+            'Quinta Categoria',
+            'Normal Categoria',
+            'Final Categoria',
+        ]);
 });
 
 test('customers can search products in the full catalog', function () {

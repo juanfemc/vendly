@@ -81,10 +81,10 @@ class CartController extends Controller
             'quantity' => ['required', 'integer', 'min:1', 'max:99'],
         ]);
 
-        $cart = $this->cartService->updateItemQuantity((string) $id, (int) $validated['quantity']);
+        [$cart, $message] = $this->cartService->updateItemQuantitySafely((string) $id, (int) $validated['quantity']);
 
-        if ($cart === null) {
-            return response()->json(['message' => 'Producto no encontrado en el carrito.'], 404);
+        if ($message) {
+            return response()->json(['message' => $message], $cart === null ? 404 : 422);
         }
 
         return response()->json($this->cartService->responsePayload($cart, (string) $id, 'Cantidad actualizada'));
@@ -147,6 +147,12 @@ class CartController extends Controller
 
         if ($store->isReservationStore()) {
             $validated = array_merge($validated, $request->validate(CheckoutRequest::reservationRules()));
+
+            if (! $store->allowsReservationDateTime($validated['reservation_date'] ?? null, $validated['reservation_time'] ?? null)) {
+                return redirect()->route('cart.index', ['store' => $store->slug])
+                    ->withInput()
+                    ->with('error', 'La fecha u hora seleccionada no esta dentro de la agenda disponible.');
+            }
         }
 
         [$cartIsAvailable, $cartAvailabilityMessage] = $this->cartService->productsAreAvailable($cart, $store);

@@ -33,6 +33,34 @@
         <label class="field-label" for="business_hours">Horario de atencion</label>
         <textarea id="business_hours" name="business_hours" placeholder="Ej: Lunes a viernes 8:00 AM - 6:00 PM">{{ old('business_hours', $store->business_hours) }}</textarea>
 
+        @if($store->isReservationStore())
+            @php
+                $selectedReservationDays = old('reservation_available_days', $store->reservation_available_days ?? []);
+            @endphp
+            <div style="margin-bottom:14px;">
+                <div class="field-label">Dias disponibles para reservas</div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:8px;">
+                    @foreach(\App\Models\Store::reservationDayOptions() as $dayValue => $dayLabel)
+                        <label style="display:flex; align-items:center; gap:8px; color:#374151; font-size:14px;">
+                            <input type="checkbox" name="reservation_available_days[]" value="{{ $dayValue }}" @checked(in_array($dayValue, $selectedReservationDays, true)) style="width:auto; margin:0;">
+                            {{ $dayLabel }}
+                        </label>
+                    @endforeach
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:12px;">
+                <div>
+                    <label class="field-label" for="reservation_time_start">Hora inicial de reservas</label>
+                    <input id="reservation_time_start" type="time" name="reservation_time_start" value="{{ old('reservation_time_start', $store->reservation_time_start) }}">
+                </div>
+                <div>
+                    <label class="field-label" for="reservation_time_end">Hora final de reservas</label>
+                    <input id="reservation_time_end" type="time" name="reservation_time_end" value="{{ old('reservation_time_end', $store->reservation_time_end) }}">
+                </div>
+            </div>
+        @endif
+
         @include('admin.stores.partials.theme-fields', ['store' => $store])
 
         <input type="url" name="instagram_url" value="{{ old('instagram_url', $store->instagram_url) }}" placeholder="Instagram URL">

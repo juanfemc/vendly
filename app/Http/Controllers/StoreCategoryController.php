@@ -41,8 +41,7 @@ class StoreCategoryController extends Controller
 
         $store = $selectedStore ?: $this->currentStore();
         $categories = $store->categories()
-            ->orderBy('sort_order')
-            ->orderBy('name')
+            ->orderedForDisplay()
             ->get();
 
         return view('admin.categories.index', compact('store', 'categories', 'selectedStore'));
