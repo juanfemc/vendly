@@ -175,15 +175,27 @@ test('public store is visible when store and owner are active', function () {
         'name' => 'Tienda activa',
         'slug' => 'tienda-activa',
         'whatsapp' => '573001112233',
+        'location' => 'Calle 45 #10-20, Bogota',
+        'shop_copy' => 'Tienda online con atencion cercana.',
         'is_active' => true,
     ]);
 
     $this->get('/tienda-activa')
         ->assertOk()
         ->assertSee(route('store.products.index', 'tienda-activa'), false)
-        ->assertSee('Todos los productos')
+        ->assertSee('Productos')
         ->assertSee('https://wa.me/573001112233', false)
-        ->assertSee('Mas información')
+        ->assertSee('images/icons/icon-whatsapp.png', false)
+        ->assertSee('Contactar por WhatsApp')
+        ->assertSee('Tienda online con atencion cercana.')
+        ->assertSee('Contacto')
+        ->assertSee('images/icons/icon-contacto.png', false)
+        ->assertSee('images/icons/icon-ubicacion.png', false)
+        ->assertSee('images/icons/icon-mail.png', false)
+        ->assertSee('573001112233')
+        ->assertSee('Calle 45 #10-20, Bogota')
+        ->assertSee($user->email)
+        ->assertDontSee('Mas información')
         ->assertSee('vendlysuite.com');
 });
 
@@ -291,14 +303,19 @@ test('store settings save optional location for about page', function () {
     $this->actingAs($storeUser)
         ->get('/admin/store-settings')
         ->assertOk()
+        ->assertSee('Vista previa en vivo')
+        ->assertSee('Producto destacado')
+        ->assertSee('Paletas prearmadas')
+        ->assertSee('Claro limpio')
+        ->assertSee('Boutique')
+        ->assertSee('Tecnologia')
         ->assertSee('Paleta de color principal')
         ->assertSee('Paleta de color de fondo')
-        ->assertSee('Paleta de color de letras')
+        ->assertSee('El color de letras se ajusta automaticamente')
         ->assertSee('Ejemplos de fuente')
         ->assertSee('type="color"', false)
         ->assertSee('data-theme-picker="brand_color"', false)
         ->assertSee('data-theme-picker="background_color"', false)
-        ->assertSee('data-theme-picker="text_color"', false)
         ->assertSee('NovaShop vende facil');
 
     $this->actingAs($storeUser)
@@ -309,8 +326,8 @@ test('store settings save optional location for about page', function () {
             'location' => 'Local 5, Centro Comercial Central',
             'business_hours' => 'Lunes a sabado 10:00 AM - 7:00 PM',
             'brand_color' => '#0f766e',
-            'background_color' => '#f8fafc',
-            'text_color' => '#1f2937',
+            'background_color' => '#111827',
+            'text_color' => '#111111',
             'font_family' => 'serif',
             'mission' => $store->mission,
             'vision' => $store->vision,
@@ -322,14 +339,14 @@ test('store settings save optional location for about page', function () {
     expect($store->refresh()->location)->toBe('Local 5, Centro Comercial Central');
     expect($store->business_hours)->toBe('Lunes a sabado 10:00 AM - 7:00 PM');
     expect($store->brand_color)->toBe('#0f766e');
-    expect($store->background_color)->toBe('#f8fafc');
-    expect($store->text_color)->toBe('#1f2937');
+    expect($store->background_color)->toBe('#111827');
+    expect($store->text_color)->toBe('#ffffff');
     expect($store->font_family)->toBe('serif');
 
     $this->get('/tienda-ubicacion/nosotros')
         ->assertOk()
-        ->assertSee('--store-bg: #f8fafc', false)
-        ->assertSee('--store-text: #1f2937', false)
+        ->assertSee('--store-bg: #111827', false)
+        ->assertSee('--store-text: #ffffff', false)
         ->assertSee('--store-font: Georgia, &quot;Times New Roman&quot;, serif', false)
         ->assertSee('Local 5, Centro Comercial Central')
         ->assertSee('Lunes a sabado 10:00 AM - 7:00 PM');
@@ -746,7 +763,7 @@ test('brand color must be a hex value and is normalized', function () {
         ])
         ->assertRedirect('/admin/stores');
 
-    expect(Store::where('slug', 'color-store')->first()->brand_color)->toBe('#abc');
+    expect(Store::where('slug', 'color-store')->first()->brand_color)->toBe('#aabbcc');
 
     $badColorUser = User::factory()->create();
 
@@ -760,6 +777,26 @@ test('brand color must be a hex value and is normalized', function () {
             'brand_color' => '#fff;background:red',
         ])
         ->assertSessionHasErrors('brand_color');
+});
+
+test('store menu text contrast follows the automatic branded menu background', function () {
+    $storeUser = User::factory()->create();
+
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Verde',
+        'slug' => 'tienda-verde',
+        'whatsapp' => '573001112233',
+        'business_type' => 'store',
+        'is_active' => true,
+        'brand_color' => '#008a29',
+        'background_color' => '#111827',
+    ]);
+
+    $this->get('/tienda-verde')
+        ->assertOk()
+        ->assertSee('--store-text: #ffffff', false)
+        ->assertSee('--store-nav-text: #111111', false);
 });
 
 test('store responsive product columns can be configured from the panel', function () {
@@ -1956,7 +1993,7 @@ test('customers can search products in the full catalog', function () {
 
     $this->get('/tienda-busqueda/productos?q=azul')
         ->assertOk()
-        ->assertSee('Resultados para "azul".', false)
+        ->assertSee('No encontramos productos para esa busqueda.')
         ->assertDontSee('Camisa Premium')
         ->assertDontSee('Zapatos Negros');
 
@@ -2016,7 +2053,6 @@ test('customers can search products inside a category', function () {
 
     $this->get('/tienda-categoria-busqueda/categorias/ropa?q=floral')
         ->assertOk()
-        ->assertSee('Resultados en Ropa para "floral".', false)
         ->assertSee('Vestido Floral')
         ->assertDontSee('Chaqueta Lisa');
 });

@@ -62,7 +62,7 @@
 
             <a href="{{ route('admin.products.edit', $product) }}" class="btn">Editar</a>
 
-            <form method="POST" action="{{ route('admin.products.destroy', $product) }}" style="margin-top:10px;">
+            <form method="POST" action="{{ route('admin.products.destroy', $product) }}" style="margin-top:10px;" data-confirm-delete data-confirm-message="Seguro que quieres eliminar este producto? Esta accion no se puede deshacer.">
                 @csrf
                 @method('DELETE')
                 <button class="btn btn-secondary">Eliminar</button>

@@ -255,6 +255,59 @@
             color: #ffffff;
         }
 
+        .delete-confirm-modal[hidden] {
+            display: none;
+        }
+
+        .delete-confirm-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+        }
+
+        body.delete-confirm-open {
+            overflow: hidden;
+        }
+
+        .delete-confirm-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(17, 24, 39, 0.58);
+        }
+
+        .delete-confirm-dialog {
+            position: relative;
+            width: min(100%, 420px);
+            padding: 22px;
+            border-radius: 14px;
+            background: #ffffff;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+        }
+
+        .delete-confirm-dialog h2 {
+            margin: 0 0 8px;
+            color: #111827;
+            font-size: 22px;
+            line-height: 1.15;
+        }
+
+        .delete-confirm-dialog p {
+            margin: 0;
+            color: #4b5563;
+            line-height: 1.55;
+        }
+
+        .delete-confirm-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
         .admin-pagination {
             overflow-x: auto;
         }
@@ -666,6 +719,14 @@
                 width: 100%;
                 margin: 0 0 10px;
             }
+
+            .delete-confirm-dialog {
+                padding: 18px;
+            }
+
+            .delete-confirm-actions {
+                flex-direction: column-reverse;
+            }
         }
 
         @media (max-width: 480px) {
@@ -819,6 +880,18 @@
         </main>
     </div>
 
+    <div class="delete-confirm-modal" data-delete-confirm-modal hidden>
+        <div class="delete-confirm-backdrop" data-delete-confirm-cancel></div>
+        <div class="delete-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle" aria-describedby="deleteConfirmMessage">
+            <h2 id="deleteConfirmTitle">Confirmar eliminacion</h2>
+            <p id="deleteConfirmMessage" data-delete-confirm-message>Esta accion no se puede deshacer.</p>
+            <div class="delete-confirm-actions">
+                <button type="button" class="btn btn-secondary" data-delete-confirm-cancel>Cancelar</button>
+                <button type="button" class="btn btn-danger" data-delete-confirm-submit>Eliminar</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         (() => {
             const toggle = document.getElementById('menuToggle');
@@ -844,6 +917,63 @@
             window.addEventListener('resize', () => {
                 if (window.innerWidth > 900) {
                     setOpen(false);
+                }
+            });
+        })();
+    </script>
+    <script>
+        (() => {
+            const modal = document.querySelector('[data-delete-confirm-modal]');
+            const message = document.querySelector('[data-delete-confirm-message]');
+            const submitButton = document.querySelector('[data-delete-confirm-submit]');
+            const cancelButtons = document.querySelectorAll('[data-delete-confirm-cancel]');
+            let pendingForm = null;
+
+            if (!modal || !message || !submitButton) {
+                return;
+            }
+
+            const closeModal = () => {
+                modal.hidden = true;
+                document.body.classList.remove('delete-confirm-open');
+                pendingForm = null;
+            };
+
+            const openModal = (form) => {
+                pendingForm = form;
+                message.textContent = form.dataset.confirmMessage || 'Esta accion no se puede deshacer.';
+                modal.hidden = false;
+                document.body.classList.add('delete-confirm-open');
+                submitButton.focus();
+            };
+
+            document.addEventListener('submit', (event) => {
+                const form = event.target.closest('form[data-confirm-delete]');
+
+                if (!form) {
+                    return;
+                }
+
+                event.preventDefault();
+                openModal(form);
+            });
+
+            submitButton.addEventListener('click', () => {
+                if (!pendingForm) {
+                    closeModal();
+                    return;
+                }
+
+                HTMLFormElement.prototype.submit.call(pendingForm);
+            });
+
+            cancelButtons.forEach((button) => {
+                button.addEventListener('click', closeModal);
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && !modal.hidden) {
+                    closeModal();
                 }
             });
         })();

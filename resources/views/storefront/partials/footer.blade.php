@@ -1,9 +1,52 @@
 @php
     $storeWhatsappUrl = $store->whatsappInfoUrl();
+    $storeFooterCopy = trim((string) $store->shop_copy);
+    $storeEmail = $store->user?->email;
 @endphp
 
 <footer class="footer">
     <div class="shell">
+        <div class="store-footer-main">
+            <div class="store-footer-brand">
+                <div class="store-footer-logo">
+                    @if($store->logo_image)
+                        <img src="{{ asset('storage/' . $store->logo_image) }}" alt="{{ $store->name }}">
+                    @else
+                        <span>{{ strtoupper(substr($store->name ?? 'T', 0, 1)) }}</span>
+                    @endif
+                </div>
+
+                <div>
+                    <strong>{{ $store->name }}</strong>
+                    @if($storeFooterCopy !== '')
+                        <p>{{ $storeFooterCopy }}</p>
+                    @endif
+                </div>
+            </div>
+
+            <div class="store-footer-contact">
+                <strong>Contacto</strong>
+                @if($store->whatsapp)
+                    <a href="{{ $storeWhatsappUrl ?: '#' }}" target="_blank" rel="noopener noreferrer" class="store-footer-contact-item">
+                        <img src="{{ asset('images/icons/icon-contacto.png') }}" alt="" aria-hidden="true">
+                        <span>{{ $store->whatsapp }}</span>
+                    </a>
+                @endif
+                @if($store->location)
+                    <span class="store-footer-contact-item">
+                        <img src="{{ asset('images/icons/icon-ubicacion.png') }}" alt="" aria-hidden="true">
+                        <span>{{ $store->location }}</span>
+                    </span>
+                @endif
+                @if($storeEmail)
+                    <a href="mailto:{{ $storeEmail }}" class="store-footer-contact-item">
+                        <img src="{{ asset('images/icons/icon-mail.png') }}" alt="" aria-hidden="true">
+                        <span>{{ $storeEmail }}</span>
+                    </a>
+                @endif
+            </div>
+        </div>
+
         <div class="socials">
             <a href="{{ $instagramUrl }}" class="social-link" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -25,7 +68,7 @@
         </div>
 
         <p class="store-footer-credit">
-            Diseñado y desarrollado por <a href="https://vendlysuite.com" target="_blank" rel="noopener noreferrer">vendlysuite.com</a>
+            Desarrollado por <a href="https://vendlysuite.com" target="_blank" rel="noopener noreferrer">vendlysuite.com</a>
         </p>
     </div>
 </footer>
@@ -36,12 +79,8 @@
         class="store-whatsapp-float"
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="Pedir mas información por WhatsApp"
+        aria-label="Contactar por WhatsApp"
     >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M20.5 11.8a8.5 8.5 0 0 1-12.7 7.4L4 20.2l1-3.7a8.5 8.5 0 1 1 15.5-4.7Z"></path>
-            <path d="M8.9 8.6c.2-.5.4-.5.7-.5h.5c.2 0 .4 0 .6.4l.8 1.9c.1.3.1.5-.1.7l-.4.5c-.2.2-.2.4 0 .7.4.7 1 1.3 1.6 1.8.7.5 1.2.7 1.5.5l.7-.8c.2-.2.4-.2.7-.1l1.8.9c.3.1.4.4.4.6 0 .5-.2 1.2-.6 1.5-.4.4-1.3.7-2.7.3-1.5-.4-3.1-1.3-4.4-2.6-1.4-1.4-2.2-3-2.5-4.3-.2-.8.1-1.3.4-1.7Z"></path>
-        </svg>
-        <span>Mas información</span>
+        <img src="{{ asset('images/icons/icon-whatsapp.png') }}" alt="" aria-hidden="true">
     </a>
 @endif

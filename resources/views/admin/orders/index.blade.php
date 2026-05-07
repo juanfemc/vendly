@@ -85,7 +85,7 @@
             <button type="submit" class="btn">Guardar</button>
         </form>
 
-        <form method="POST" action="{{ route('admin.orders.destroy', $order) }}" style="margin-top:10px;" onsubmit="return confirm('¿Eliminar este pedido? Esta accion no se puede deshacer.');">
+        <form method="POST" action="{{ route('admin.orders.destroy', $order) }}" style="margin-top:10px;" data-confirm-delete data-confirm-message="Eliminar este pedido? Esta accion no se puede deshacer.">
             @csrf
             @method('DELETE')
             <button type="submit" class="btn btn-danger">Eliminar pedido</button>

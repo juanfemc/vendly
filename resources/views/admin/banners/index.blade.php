@@ -33,7 +33,7 @@
             </button>
         </form>
 
-        <form method="POST" action="{{ route('admin.banners.destroy', $banner) }}" style="display:inline-block;" onsubmit="return confirm('¿Seguro que quieres eliminar este banner?');">
+        <form method="POST" action="{{ route('admin.banners.destroy', $banner) }}" style="display:inline-block;" data-confirm-delete data-confirm-message="Seguro que quieres eliminar este banner? Esta accion no se puede deshacer.">
             @csrf
             @method('DELETE')
             <button type="submit" class="btn btn-secondary">Eliminar</button>

@@ -7,8 +7,7 @@
     padding: 38px 0 26px;
 }
 
-.storefront-page--default .featured-description,
-.storefront-page--default .catalog-head p {
+.storefront-page--default .featured-description {
     font-size: 14px;
 }
 

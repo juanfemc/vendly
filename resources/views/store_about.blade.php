@@ -67,9 +67,9 @@
         </section>
 
         @include('storefront.partials.about')
-
-        @include('storefront.partials.footer')
     </main>
+
+    @include('storefront.partials.footer')
 
     <div class="cart-feedback" id="cartFeedback" aria-live="polite">{{ $isRestaurant ? 'Plato agregado al pedido' : ($isReservationStore ? 'Servicio agregado a la reserva' : 'Producto agregado al carrito') }}</div>
 

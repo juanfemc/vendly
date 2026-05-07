@@ -214,7 +214,6 @@
             <section class="product-related">
                 <div class="catalog-head">
                     <h2>Tambien te puede interesar</h2>
-                    <p>{{ $isReservationStore ? 'Otros servicios disponibles en ' . $store->name . '.' : 'Otros productos disponibles en ' . $store->name . '.' }}</p>
                 </div>
 
                 <div class="products-grid">

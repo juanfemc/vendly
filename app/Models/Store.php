@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasAdminRouteKey;
+use App\Support\BrandTheme;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Schema;
@@ -202,7 +203,7 @@ class Store extends Model
             return null;
         }
 
-        $message = rawurlencode('Hola, quiero mas informacion sobre ' . $this->name);
+        $message = rawurlencode('Hola, quiero contactar a ' . $this->name);
 
         return "https://wa.me/{$number}?text={$message}";
     }
@@ -253,7 +254,7 @@ class Store extends Model
 
     public function themeTextColor(): string
     {
-        return $this->themeColor($this->text_color, '#171717');
+        return $this->automaticTextColorFor($this->themeBackgroundColor());
     }
 
     public function themeFontFamily(): string
@@ -261,11 +262,14 @@ class Store extends Model
         return self::FONT_FAMILIES[$this->font_family]['css'] ?? self::FONT_FAMILIES['system']['css'];
     }
 
-    public function storefrontCssVariables($brandTheme, int $responsiveProductColumns): string
+    public function storefrontCssVariables(BrandTheme $brandTheme, int $responsiveProductColumns): string
     {
+        $navBackground = BrandTheme::mixWithWhite($brandTheme->color, 0.1);
+
         return implode('; ', [
             '--brand-color: ' . $brandTheme->color,
             '--brand-contrast: ' . $brandTheme->contrast,
+            '--store-nav-text: ' . BrandTheme::contrastFor($navBackground),
             '--responsive-product-columns: ' . $responsiveProductColumns,
             '--store-bg: ' . $this->themeBackgroundColor(),
             '--store-text: ' . $this->themeTextColor(),
@@ -275,9 +279,12 @@ class Store extends Model
 
     private function themeColor(?string $color, string $fallback): string
     {
-        $color = trim((string) $color);
+        return BrandTheme::normalizeColor($color, $fallback);
+    }
 
-        return preg_match('/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $color) ? $color : $fallback;
+    public static function automaticTextColorFor(?string $backgroundColor): string
+    {
+        return BrandTheme::contrastFor($backgroundColor, '#ffffff');
     }
 
     public function defaultProductCategoryOptions(): array

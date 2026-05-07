@@ -1,8 +1,173 @@
 @extends('layouts.admin')
 
 @section('content')
+<style>
+    .store-settings-form {
+        display: grid;
+        gap: 18px;
+    }
+
+    .settings-section {
+        display: grid;
+        gap: 14px;
+        padding: 18px;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        background: #ffffff;
+    }
+
+    .settings-section-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #eef2f7;
+    }
+
+    .settings-section-title {
+        margin: 0;
+        color: #111827;
+        font-size: 18px;
+        line-height: 1.2;
+    }
+
+    .settings-section-copy {
+        margin: 5px 0 0;
+        color: #6b7280;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    .settings-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .settings-grid--three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .settings-field {
+        min-width: 0;
+    }
+
+    .settings-field--full {
+        grid-column: 1 / -1;
+    }
+
+    .settings-field input,
+    .settings-field textarea,
+    .settings-field select {
+        margin-bottom: 0;
+    }
+
+    .settings-readonly-input {
+        background: #f9fafb;
+        color: #374151;
+    }
+
+    .settings-help {
+        margin: 8px 0 0;
+        color: #6b7280;
+        font-size: 13px;
+        line-height: 1.45;
+    }
+
+    .settings-check-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 8px;
+    }
+
+    .settings-check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        color: #374151;
+        font-size: 14px;
+    }
+
+    .settings-check input {
+        width: auto;
+        margin: 0;
+    }
+
+    .settings-media-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+    }
+
+    .settings-media-card {
+        display: grid;
+        gap: 10px;
+        min-width: 0;
+    }
+
+    .settings-media-preview {
+        width: 100%;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        background: #f9fafb;
+        object-fit: cover;
+        display: block;
+    }
+
+    .settings-media-preview--logo {
+        max-width: 120px;
+        aspect-ratio: 1;
+    }
+
+    .settings-media-preview--cover {
+        max-width: 520px;
+        aspect-ratio: 16 / 9;
+    }
+
+    .settings-actions {
+        position: sticky;
+        bottom: 0;
+        z-index: 20;
+        display: flex;
+        justify-content: flex-end;
+        padding: 14px 0 0;
+        background: linear-gradient(180deg, rgba(245, 246, 250, 0), #f5f6fa 34%);
+    }
+
+    .settings-actions .btn {
+        min-width: 180px;
+    }
+
+    @media (max-width: 720px) {
+        .settings-section {
+            padding: 14px;
+        }
+
+        .settings-section-head {
+            display: grid;
+        }
+
+        .settings-grid,
+        .settings-grid--three,
+        .settings-media-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .settings-actions .btn {
+            width: 100%;
+        }
+    }
+</style>
+
 <div class="header">
-    <h2>Configuración de tienda</h2>
+    <div>
+        <h2>Configuracion de tienda</h2>
+        <p style="margin:6px 0 0; color:#6b7280;">Actualiza la informacion, apariencia y contenido publico de tu tienda.</p>
+    </div>
 </div>
 
 @if (session('success'))
@@ -17,88 +182,200 @@
     </div>
 @endif
 
-<div class="list-card">
-    <form method="POST" action="/admin/store-settings" enctype="multipart/form-data">
-        @csrf
+<form method="POST" action="/admin/store-settings" enctype="multipart/form-data" class="store-settings-form">
+    @csrf
 
-        <input type="text" name="name" value="{{ old('name', $store->name) }}" placeholder="Nombre tienda">
-        <input type="hidden" name="business_type" value="{{ old('business_type', $store->business_type ?? 'store') }}">
-        <div style="margin-bottom:12px;">
-            <div style="font-weight:600; margin-bottom:10px;">URL de tu tienda</div>
-            <input type="text" value="{{ url('/' . $store->slug) }}" readonly style="background:#f9fafb; color:#374151;">
-            <div style="margin-top:8px; color:#6b7280; font-size:13px;">El slug no se puede cambiar desde esta pantalla.</div>
+    <section class="settings-section">
+        <div class="settings-section-head">
+            <div>
+                <h3 class="settings-section-title">Datos principales</h3>
+                <p class="settings-section-copy">Informacion basica que ayuda a tus clientes a identificar y contactar la tienda.</p>
+            </div>
         </div>
-        <input type="text" name="whatsapp" value="{{ old('whatsapp', $store->whatsapp) }}" placeholder="WhatsApp">
-        <input type="text" name="location" value="{{ old('location', $store->location) }}" placeholder="Ubicacion o direccion (opcional)">
-        <label class="field-label" for="business_hours">Horario de atencion</label>
-        <textarea id="business_hours" name="business_hours" placeholder="Ej: Lunes a viernes 8:00 AM - 6:00 PM">{{ old('business_hours', $store->business_hours) }}</textarea>
 
-        @if($store->isReservationStore())
-            @php
-                $selectedReservationDays = old('reservation_available_days', $store->reservation_available_days ?? []);
-            @endphp
-            <div style="margin-bottom:14px;">
-                <div class="field-label">Dias disponibles para reservas</div>
-                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:8px;">
+        <div class="settings-grid">
+            <div class="settings-field">
+                <label class="field-label" for="store_name">Nombre de la tienda</label>
+                <input id="store_name" type="text" name="name" value="{{ old('name', $store->name) }}" placeholder="Nombre tienda">
+            </div>
+
+            <input type="hidden" name="business_type" value="{{ old('business_type', $store->business_type ?? 'store') }}">
+
+            <div class="settings-field">
+                <label class="field-label" for="store_whatsapp">WhatsApp</label>
+                <input id="store_whatsapp" type="text" name="whatsapp" value="{{ old('whatsapp', $store->whatsapp) }}" placeholder="WhatsApp">
+            </div>
+
+            <div class="settings-field settings-field--full">
+                <label class="field-label" for="store_url">URL de tu tienda</label>
+                <input id="store_url" class="settings-readonly-input" type="text" value="{{ url('/' . $store->slug) }}" readonly>
+                <p class="settings-help">El slug no se puede cambiar desde esta pantalla.</p>
+            </div>
+
+            <div class="settings-field">
+                <label class="field-label" for="store_location">Ubicacion o direccion</label>
+                <input id="store_location" type="text" name="location" value="{{ old('location', $store->location) }}" placeholder="Ubicacion o direccion (opcional)">
+            </div>
+
+            <div class="settings-field">
+                <label class="field-label" for="business_hours">Horario de atencion</label>
+                <textarea id="business_hours" name="business_hours" placeholder="Ej: Lunes a viernes 8:00 AM - 6:00 PM">{{ old('business_hours', $store->business_hours) }}</textarea>
+            </div>
+        </div>
+    </section>
+
+    @if($store->isReservationStore())
+        @php
+            $selectedReservationDays = old('reservation_available_days', $store->reservation_available_days ?? []);
+        @endphp
+        <section class="settings-section">
+            <div class="settings-section-head">
+                <div>
+                    <h3 class="settings-section-title">Reservas</h3>
+                    <p class="settings-section-copy">Define los dias y horas en que tus clientes pueden solicitar una reserva.</p>
+                </div>
+            </div>
+
+            <div class="settings-field">
+                <div class="field-label">Dias disponibles</div>
+                <div class="settings-check-grid">
                     @foreach(\App\Models\Store::reservationDayOptions() as $dayValue => $dayLabel)
-                        <label style="display:flex; align-items:center; gap:8px; color:#374151; font-size:14px;">
-                            <input type="checkbox" name="reservation_available_days[]" value="{{ $dayValue }}" @checked(in_array($dayValue, $selectedReservationDays, true)) style="width:auto; margin:0;">
+                        <label class="settings-check">
+                            <input type="checkbox" name="reservation_available_days[]" value="{{ $dayValue }}" @checked(in_array($dayValue, $selectedReservationDays, true))>
                             {{ $dayLabel }}
                         </label>
                     @endforeach
                 </div>
             </div>
 
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:12px;">
-                <div>
-                    <label class="field-label" for="reservation_time_start">Hora inicial de reservas</label>
+            <div class="settings-grid">
+                <div class="settings-field">
+                    <label class="field-label" for="reservation_time_start">Hora inicial</label>
                     <input id="reservation_time_start" type="time" name="reservation_time_start" value="{{ old('reservation_time_start', $store->reservation_time_start) }}">
                 </div>
-                <div>
-                    <label class="field-label" for="reservation_time_end">Hora final de reservas</label>
+                <div class="settings-field">
+                    <label class="field-label" for="reservation_time_end">Hora final</label>
                     <input id="reservation_time_end" type="time" name="reservation_time_end" value="{{ old('reservation_time_end', $store->reservation_time_end) }}">
                 </div>
             </div>
-        @endif
+        </section>
+    @endif
 
+    <section class="settings-section">
+        <div class="settings-section-head">
+            <div>
+                <h3 class="settings-section-title">Apariencia</h3>
+                <p class="settings-section-copy">Configura paletas, colores y fuente de la experiencia publica.</p>
+            </div>
+        </div>
         @include('admin.stores.partials.theme-fields', ['store' => $store])
+    </section>
 
-        <input type="url" name="instagram_url" value="{{ old('instagram_url', $store->instagram_url) }}" placeholder="Instagram URL">
-        <input type="url" name="facebook_url" value="{{ old('facebook_url', $store->facebook_url) }}" placeholder="Facebook URL">
-        <input type="url" name="tiktok_url" value="{{ old('tiktok_url', $store->tiktok_url) }}" placeholder="TikTok URL">
-        <label class="field-label" for="shop_copy">Quienes somos</label>
-        <textarea id="shop_copy" name="shop_copy" placeholder="Cuenta brevemente que hace la tienda y que la diferencia">{{ old('shop_copy', $store->shop_copy) }}</textarea>
-        <label class="field-label" for="mission">Mision</label>
-        <textarea id="mission" name="mission" placeholder="Que hace hoy la tienda y para que existe">{{ old('mission', $store->mission) }}</textarea>
-        <label class="field-label" for="vision">Vision</label>
-        <textarea id="vision" name="vision" placeholder="Hacia donde quiere crecer la tienda">{{ old('vision', $store->vision) }}</textarea>
-        <label class="field-label" for="responsive_product_columns">Columnas de productos en responsive</label>
-        <select id="responsive_product_columns" name="responsive_product_columns">
-            <option value="1" @selected((int) old('responsive_product_columns', $store->responsive_product_columns ?? 2) === 1)>1 columna</option>
-            <option value="2" @selected((int) old('responsive_product_columns', $store->responsive_product_columns ?? 2) === 2)>2 columnas</option>
-            <option value="3" @selected((int) old('responsive_product_columns', $store->responsive_product_columns ?? 2) === 3)>3 columnas</option>
-        </select>
-        <label class="field-label" for="show_hero_products_action">Boton y texto sobre la portada</label>
-        <select id="show_hero_products_action" name="show_hero_products_action">
-            <option value="1" @selected((bool) old('show_hero_products_action', $store->show_hero_products_action ?? false))>Habilitado</option>
-            <option value="0" @selected(! (bool) old('show_hero_products_action', $store->show_hero_products_action ?? false))>Deshabilitado</option>
-        </select>
+    <section class="settings-section">
+        <div class="settings-section-head">
+            <div>
+                <h3 class="settings-section-title">Contenido</h3>
+                <p class="settings-section-copy">Textos que aparecen en la tienda y en la pagina de nosotros.</p>
+            </div>
+        </div>
 
-        @if ($store->logo_image)
-            <img src="{{ asset('storage/' . $store->logo_image) }}" alt="{{ $store->name }}" style="width:100px; height:100px; object-fit:cover; border-radius:14px; display:block; margin-bottom:12px;">
-        @endif
-        <label class="field-label" for="store_logo_image">Sube el logo de tu tienda</label>
-        <input id="store_logo_image" type="file" name="logo_image" accept="image/*" data-optimize-image data-max-width="720" data-max-height="720" data-quality="0.86" data-output="webp">
+        <div class="settings-grid">
+            <div class="settings-field settings-field--full">
+                <label class="field-label" for="shop_copy">Quienes somos</label>
+                <textarea id="shop_copy" name="shop_copy" placeholder="Cuenta brevemente que hace la tienda y que la diferencia">{{ old('shop_copy', $store->shop_copy) }}</textarea>
+            </div>
+            <div class="settings-field">
+                <label class="field-label" for="mission">Mision</label>
+                <textarea id="mission" name="mission" placeholder="Que hace hoy la tienda y para que existe">{{ old('mission', $store->mission) }}</textarea>
+            </div>
+            <div class="settings-field">
+                <label class="field-label" for="vision">Vision</label>
+                <textarea id="vision" name="vision" placeholder="Hacia donde quiere crecer la tienda">{{ old('vision', $store->vision) }}</textarea>
+            </div>
+        </div>
+    </section>
 
-        @if ($store->cover_image)
-            <img src="{{ asset('storage/' . $store->cover_image) }}" alt="{{ $store->name }}" style="width:100%; max-width:420px; max-height:220px; object-fit:cover; border-radius:10px; display:block; margin-bottom:12px;">
-        @endif
+    <section class="settings-section">
+        <div class="settings-section-head">
+            <div>
+                <h3 class="settings-section-title">Redes sociales</h3>
+                <p class="settings-section-copy">Enlaces opcionales para mostrar accesos sociales en la tienda.</p>
+            </div>
+        </div>
 
-        <label class="field-label" for="store_cover_image">Sube la portada de tu tienda</label>
-        <input id="store_cover_image" type="file" name="cover_image" accept="image/*" data-optimize-image data-max-width="1920" data-max-height="1080" data-quality="0.82" data-output="webp">
+        <div class="settings-grid settings-grid--three">
+            <div class="settings-field">
+                <label class="field-label" for="instagram_url">Instagram</label>
+                <input id="instagram_url" type="url" name="instagram_url" value="{{ old('instagram_url', $store->instagram_url) }}" placeholder="Instagram URL">
+            </div>
+            <div class="settings-field">
+                <label class="field-label" for="facebook_url">Facebook</label>
+                <input id="facebook_url" type="url" name="facebook_url" value="{{ old('facebook_url', $store->facebook_url) }}" placeholder="Facebook URL">
+            </div>
+            <div class="settings-field">
+                <label class="field-label" for="tiktok_url">TikTok</label>
+                <input id="tiktok_url" type="url" name="tiktok_url" value="{{ old('tiktok_url', $store->tiktok_url) }}" placeholder="TikTok URL">
+            </div>
+        </div>
+    </section>
 
+    <section class="settings-section">
+        <div class="settings-section-head">
+            <div>
+                <h3 class="settings-section-title">Catalogo y portada</h3>
+                <p class="settings-section-copy">Ajustes visuales de productos y acciones sobre la portada.</p>
+            </div>
+        </div>
+
+        <div class="settings-grid">
+            <div class="settings-field">
+                <label class="field-label" for="responsive_product_columns">Columnas de productos en responsive</label>
+                <select id="responsive_product_columns" name="responsive_product_columns">
+                    <option value="1" @selected((int) old('responsive_product_columns', $store->responsive_product_columns ?? 2) === 1)>1 columna</option>
+                    <option value="2" @selected((int) old('responsive_product_columns', $store->responsive_product_columns ?? 2) === 2)>2 columnas</option>
+                    <option value="3" @selected((int) old('responsive_product_columns', $store->responsive_product_columns ?? 2) === 3)>3 columnas</option>
+                </select>
+            </div>
+            <div class="settings-field">
+                <label class="field-label" for="show_hero_products_action">Boton y texto sobre la portada</label>
+                <select id="show_hero_products_action" name="show_hero_products_action">
+                    <option value="1" @selected((bool) old('show_hero_products_action', $store->show_hero_products_action ?? false))>Habilitado</option>
+                    <option value="0" @selected(! (bool) old('show_hero_products_action', $store->show_hero_products_action ?? false))>Deshabilitado</option>
+                </select>
+            </div>
+        </div>
+    </section>
+
+    <section class="settings-section">
+        <div class="settings-section-head">
+            <div>
+                <h3 class="settings-section-title">Imagenes de marca</h3>
+                <p class="settings-section-copy">Sube logo y portada optimizados para la vitrina publica.</p>
+            </div>
+        </div>
+
+        <div class="settings-media-grid">
+            <div class="settings-media-card">
+                <label class="field-label" for="store_logo_image">Logo de la tienda</label>
+                @if ($store->logo_image)
+                    <img class="settings-media-preview settings-media-preview--logo" src="{{ asset('storage/' . $store->logo_image) }}" alt="{{ $store->name }}">
+                @endif
+                <input id="store_logo_image" type="file" name="logo_image" accept="image/*" data-optimize-image data-max-width="720" data-max-height="720" data-quality="0.86" data-output="webp">
+            </div>
+
+            <div class="settings-media-card">
+                <label class="field-label" for="store_cover_image">Portada de la tienda</label>
+                @if ($store->cover_image)
+                    <img class="settings-media-preview settings-media-preview--cover" src="{{ asset('storage/' . $store->cover_image) }}" alt="{{ $store->name }}">
+                @endif
+                <input id="store_cover_image" type="file" name="cover_image" accept="image/*" data-optimize-image data-max-width="1920" data-max-height="1080" data-quality="0.82" data-output="webp">
+            </div>
+        </div>
+    </section>
+
+    <div class="settings-actions">
         <button class="btn">Guardar cambios</button>
-    </form>
-</div>
+    </div>
+</form>
 
 @endsection

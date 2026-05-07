@@ -110,5 +110,3 @@
         @endforeach
     </div>
 </section>
-
-@include('storefront.partials.footer')

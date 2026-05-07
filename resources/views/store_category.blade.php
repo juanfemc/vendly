@@ -62,7 +62,6 @@
             <div class="category-page-copy">
                 <span class="eyebrow">{{ $businessLabel }}</span>
                 <h1>{{ $category->name }}</h1>
-                <p>{{ $category->description ?: $fallbackDescription }}</p>
             </div>
 
             @if($category->image)
@@ -75,13 +74,6 @@
         <section class="catalog-section" id="catalogo">
             <div class="catalog-head">
                 <h2>{{ $products->total() }} {{ $itemsLabel }}</h2>
-                <p>
-                    @if(($searchQuery ?? '') !== '')
-                        Resultados en {{ $category->name }} para "{{ $searchQuery }}".
-                    @else
-                        {{ $category->description ?: $fallbackDescription }}
-                    @endif
-                </p>
             </div>
 
             @include('storefront.partials.product-search', [
@@ -112,8 +104,9 @@
             @endif
         </section>
 
-        @include('storefront.partials.footer')
     </main>
+
+    @include('storefront.partials.footer')
 
     <div class="cart-feedback" id="cartFeedback" aria-live="polite">{{ $isRestaurant ? 'Plato agregado al pedido' : ($isReservationStore ? 'Servicio agregado a la reserva' : 'Producto agregado al carrito') }}</div>
 

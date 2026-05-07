@@ -25,7 +25,7 @@
 
         <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
             <a href="{{ route('admin.stores.edit', $store) }}" class="btn">Editar</a>
-            <form method="POST" action="{{ route('admin.stores.destroy', $store) }}" onsubmit="return confirm('¿Seguro que quieres eliminar esta tienda?');">
+            <form method="POST" action="{{ route('admin.stores.destroy', $store) }}" data-confirm-delete data-confirm-message="Seguro que quieres eliminar esta tienda? Esta accion no se puede deshacer.">
                 @csrf
                 @method('DELETE')
                 <button type="submit" class="btn" style="background:#dc2626;">Eliminar</button>

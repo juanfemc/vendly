@@ -48,7 +48,7 @@
                 </button>
             </form>
 
-            <form method="POST" action="{{ route('admin.testimonials.destroy', $testimonial) }}" style="display:inline-block;" onsubmit="return confirm('Seguro que quieres eliminar este testimonio?');">
+            <form method="POST" action="{{ route('admin.testimonials.destroy', $testimonial) }}" style="display:inline-block;" data-confirm-delete data-confirm-message="Seguro que quieres eliminar este testimonio? Esta accion no se puede deshacer.">
                 @csrf
                 @method('DELETE')
                 <button type="submit" class="btn btn-secondary">Eliminar</button>

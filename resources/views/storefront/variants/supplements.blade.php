@@ -20,5 +20,3 @@
 @include('storefront.partials.product-search', ['productSearchId' => 'home'])
 
 @include('storefront.partials.category-sections', ['cardClass' => 'supplements-product-card'])
-
-@include('storefront.partials.footer')

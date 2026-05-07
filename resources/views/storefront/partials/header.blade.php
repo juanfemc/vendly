@@ -48,7 +48,7 @@
                 @if($showAboutSection ?? false)
                     <a href="{{ route('store.about', $store->slug) }}">Nosotros</a>
                 @endif
-                <a href="{{ route('store.products.index', $store->slug) }}">{{ $isReservationStore ? 'Todos los servicios' : 'Todos los productos' }}</a>
+                <a href="{{ route('store.products.index', $store->slug) }}">{{ $isReservationStore ? 'Todos los servicios' : 'Productos' }}</a>
                 @if(($activeCategories ?? collect())->isNotEmpty())
                     <div class="nav-dropdown">
                         <button type="button" class="nav-dropdown-button" aria-haspopup="true" aria-expanded="false" aria-controls="storefrontCategoryMenu">

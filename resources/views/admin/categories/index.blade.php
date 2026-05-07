@@ -108,7 +108,7 @@
             <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:14px;">
                 <a href="{{ route('admin.categories.edit', $category) }}" class="btn">Editar</a>
 
-                <form method="POST" action="{{ route('admin.categories.destroy', $category) }}" onsubmit="return confirm('Eliminar esta categoria? Los productos quedaran sin categoria.');">
+                <form method="POST" action="{{ route('admin.categories.destroy', $category) }}" data-confirm-delete data-confirm-message="Eliminar esta categoria? Los productos quedaran sin categoria.">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="btn btn-secondary">Eliminar</button>

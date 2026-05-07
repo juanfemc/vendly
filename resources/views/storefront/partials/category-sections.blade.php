@@ -5,9 +5,6 @@
             <div class="category-block-head">
                 <div class="category-block-copy">
                     <h2>{{ $sectionCategory->name }}</h2>
-                    @if($sectionCategory->description)
-                        <p>{{ $sectionCategory->description }}</p>
-                    @endif
                 </div>
 
                 @if($sectionCategory->image)

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Concerns;
 
 use App\Models\Store;
+use App\Support\BrandTheme;
 use Illuminate\Validation\Rule;
 
 trait ValidatesStoreProfile
@@ -42,7 +43,7 @@ trait ValidatesStoreProfile
 
         $data['brand_color'] = $this->normalizeBrandColor($data['brand_color'] ?? null);
         $data['background_color'] = $this->normalizeBrandColor($data['background_color'] ?? null);
-        $data['text_color'] = $this->normalizeBrandColor($data['text_color'] ?? null);
+        $data['text_color'] = Store::automaticTextColorFor($data['background_color']);
         $data['font_family'] = $data['font_family'] ?? 'system';
         $data['responsive_product_columns'] = (int) ($data['responsive_product_columns'] ?? 2);
         $data['show_hero_products_action'] = $this->boolean('show_hero_products_action', false);
@@ -70,6 +71,6 @@ trait ValidatesStoreProfile
     {
         $value = trim((string) $value);
 
-        return $value === '' ? null : '#' . ltrim($value, '#');
+        return $value === '' ? null : BrandTheme::normalizeColor($value);
     }
 }

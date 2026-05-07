@@ -1,12 +1,20 @@
 @php
     $store = $store ?? null;
-    $selectedBrandColor = old('brand_color', $store?->brand_color ?: '#111111');
-    $selectedBackgroundColor = old('background_color', $store?->background_color ?: '#ffffff');
-    $selectedTextColor = old('text_color', $store?->text_color ?: '#171717');
+    $selectedBrandColor = \App\Support\BrandTheme::normalizeColor(old('brand_color', $store?->brand_color), '#111111');
+    $selectedBackgroundColor = \App\Support\BrandTheme::normalizeColor(old('background_color', $store?->background_color), '#ffffff');
+    $selectedTextColor = \App\Models\Store::automaticTextColorFor($selectedBackgroundColor);
     $selectedFontFamily = old('font_family', $store?->font_family ?: 'system');
+    $selectedFontFamily = array_key_exists($selectedFontFamily, \App\Models\Store::FONT_FAMILIES) ? $selectedFontFamily : 'system';
     $brandPalette = ['#111111', '#7c3aed', '#4f46e5', '#1d4ed8', '#0f766e', '#ca8a04', '#ff6a00', '#be123c'];
     $backgroundPalette = ['#ffffff', '#f8fafc', '#f7f7f7', '#fff7ed', '#f0fdf4', '#eff6ff', '#f5f3ff', '#111827'];
-    $textPalette = ['#171717', '#1f2937', '#334155', '#0f172a', '#3f3f46', '#ffffff', '#f8fafc', '#111111'];
+    $themePresets = [
+        ['name' => 'Claro limpio', 'brand' => '#111111', 'background' => '#ffffff', 'font' => 'system'],
+        ['name' => 'Boutique', 'brand' => '#be123c', 'background' => '#fff7ed', 'font' => 'serif'],
+        ['name' => 'Natural', 'brand' => '#0f766e', 'background' => '#f0fdf4', 'font' => 'rounded'],
+        ['name' => 'Tecnologia', 'brand' => '#1d4ed8', 'background' => '#eff6ff', 'font' => 'system'],
+        ['name' => 'Elegante', 'brand' => '#111827', 'background' => '#f8fafc', 'font' => 'serif'],
+        ['name' => 'Energia', 'brand' => '#ff6a00', 'background' => '#fff7ed', 'font' => 'rounded'],
+    ];
 @endphp
 
 <style>
@@ -28,6 +36,49 @@
         flex-wrap: wrap;
         gap: 9px;
         margin: 0 0 12px;
+    }
+
+    .theme-presets {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+        margin: 0 0 18px;
+    }
+
+    .theme-preset {
+        display: grid;
+        gap: 10px;
+        padding: 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #111827;
+        cursor: pointer;
+        text-align: left;
+    }
+
+    .theme-preset:hover,
+    .theme-preset:focus {
+        border-color: #111827;
+        outline: none;
+    }
+
+    .theme-preset-samples {
+        display: grid;
+        grid-template-columns: 1.1fr 1fr;
+        gap: 6px;
+        height: 42px;
+    }
+
+    .theme-preset-brand,
+    .theme-preset-bg {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+    }
+
+    .theme-preset-name {
+        font-size: 13px;
+        font-weight: 800;
     }
 
     .theme-swatch {
@@ -64,6 +115,108 @@
 
     .theme-color-row input[type="text"] {
         margin-bottom: 0;
+    }
+
+    .theme-contrast-note {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: -2px 0 16px;
+        padding: 10px 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #4b5563;
+        font-size: 13px;
+        line-height: 1.45;
+    }
+
+    .theme-contrast-chip {
+        width: 34px;
+        height: 34px;
+        border: 1px solid #d1d5db;
+        border-radius: 999px;
+        flex-shrink: 0;
+    }
+
+    .theme-live-preview {
+        display: grid;
+        gap: 12px;
+        margin: 0 0 18px;
+        padding: 14px;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        background: {{ $selectedBackgroundColor }};
+        color: {{ $selectedTextColor }};
+        font-family: {{ \App\Models\Store::FONT_FAMILIES[$selectedFontFamily]['css'] ?? \App\Models\Store::FONT_FAMILIES['system']['css'] }};
+    }
+
+    .theme-live-preview-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--theme-preview-brand, {{ $selectedBrandColor }}) 10%, #ffffff);
+    }
+
+    .theme-live-preview-brand {
+        font-size: 16px;
+        font-weight: 900;
+    }
+
+    .theme-live-preview-link {
+        color: inherit;
+        font-size: 12px;
+        font-weight: 800;
+    }
+
+    .theme-live-preview-card {
+        display: grid;
+        grid-template-columns: 74px minmax(0, 1fr);
+        gap: 12px;
+        align-items: center;
+        padding: 12px;
+        border-radius: 12px;
+        background: #ffffff;
+        color: #111111;
+        box-shadow: 0 12px 30px rgba(17, 24, 39, 0.08);
+    }
+
+    .theme-live-preview-media {
+        width: 74px;
+        aspect-ratio: 1;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--theme-preview-brand, {{ $selectedBrandColor }}), #f7f7f7);
+    }
+
+    .theme-live-preview-copy {
+        min-width: 0;
+    }
+
+    .theme-live-preview-copy strong {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 14px;
+    }
+
+    .theme-live-preview-copy span {
+        display: block;
+        margin-bottom: 10px;
+        color: #4b5563;
+        font-size: 12px;
+    }
+
+    .theme-live-preview-button {
+        width: fit-content;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: var(--theme-preview-brand, {{ $selectedBrandColor }});
+        color: var(--theme-preview-brand-contrast, {{ \App\Support\BrandTheme::from($selectedBrandColor)->contrast }});
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
     }
 
     .font-preview-grid {
@@ -114,11 +267,60 @@
         .font-preview-grid {
             grid-template-columns: 1fr;
         }
+
+        .theme-live-preview-card {
+            grid-template-columns: 1fr;
+        }
+
+        .theme-live-preview-media {
+            width: 100%;
+            aspect-ratio: 1.8;
+        }
     }
 </style>
 
 <div class="theme-panel" data-theme-panel>
     <div class="theme-title">Tema de la tienda</div>
+
+    <label class="field-label">Vista previa en vivo</label>
+    <div
+        class="theme-live-preview"
+        data-theme-preview
+        style="--theme-preview-brand: {{ $selectedBrandColor }}; --theme-preview-brand-contrast: {{ \App\Support\BrandTheme::from($selectedBrandColor)->contrast }};"
+    >
+        <div class="theme-live-preview-nav">
+            <span class="theme-live-preview-brand">{{ $store?->name ?: 'NovaShop' }}</span>
+            <span class="theme-live-preview-link">Menu</span>
+        </div>
+        <div class="theme-live-preview-card">
+            <span class="theme-live-preview-media" aria-hidden="true"></span>
+            <div class="theme-live-preview-copy">
+                <strong>Producto destacado</strong>
+                <span>Tarjeta blanca sobre el fondo de la tienda.</span>
+                <span class="theme-live-preview-button">Comprar ahora</span>
+            </div>
+        </div>
+    </div>
+
+    <label class="field-label">Paletas prearmadas</label>
+    <div class="theme-presets" aria-label="Paletas prearmadas">
+        @foreach($themePresets as $preset)
+            <button
+                type="button"
+                class="theme-preset"
+                data-theme-preset
+                data-theme-preset-brand="{{ $preset['brand'] }}"
+                data-theme-preset-background="{{ $preset['background'] }}"
+                data-theme-preset-font="{{ $preset['font'] }}"
+            >
+                <span class="theme-preset-samples" aria-hidden="true">
+                    <span class="theme-preset-brand" style="background: {{ $preset['brand'] }};"></span>
+                    <span class="theme-preset-bg" style="background: {{ $preset['background'] }};"></span>
+                </span>
+                <span class="theme-preset-name">{{ $preset['name'] }}</span>
+            </button>
+        @endforeach
+    </div>
 
     <label class="field-label" for="brand_color">Color principal</label>
     <div class="theme-palette" aria-label="Paleta de color principal">
@@ -156,22 +358,10 @@
         <input id="background_color" type="text" name="background_color" value="{{ $selectedBackgroundColor }}" placeholder="Color de fondo (#ffffff)" data-theme-text="background_color">
     </div>
 
-    <label class="field-label" for="text_color">Color de letras</label>
-    <div class="theme-palette" aria-label="Paleta de color de letras">
-        @foreach($textPalette as $color)
-            <button
-                type="button"
-                class="theme-swatch @if(strtolower($selectedTextColor) === strtolower($color)) is-selected @endif"
-                data-theme-target="text_color"
-                data-theme-color="{{ $color }}"
-                style="background: {{ $color }};"
-                aria-label="Usar {{ $color }} como color de letras"
-            ></button>
-        @endforeach
-    </div>
-    <div class="theme-color-row">
-        <input class="theme-color-picker" type="color" value="{{ $selectedTextColor }}" data-theme-picker="text_color" aria-label="Elegir cualquier color de letras">
-        <input id="text_color" type="text" name="text_color" value="{{ $selectedTextColor }}" placeholder="Color de letras (#171717)" data-theme-text="text_color">
+    <input id="text_color" type="hidden" name="text_color" value="{{ $selectedTextColor }}" data-theme-text="text_color">
+    <div class="theme-contrast-note">
+        <span class="theme-contrast-chip" data-theme-contrast-chip style="background: {{ $selectedTextColor }};"></span>
+        <span>El color de letras se ajusta automaticamente para mantener buen contraste con el fondo.</span>
     </div>
 
     <label class="field-label" for="font_family">Fuente</label>
@@ -181,6 +371,7 @@
                 type="button"
                 class="font-preview-option @if($selectedFontFamily === $value) is-selected @endif"
                 data-font-value="{{ $value }}"
+                data-font-css="{{ $font['css'] }}"
                 style="font-family: {{ $font['css'] }};"
             >
                 <span class="font-preview-name">{{ $font['label'] }}</span>
@@ -215,6 +406,38 @@
                     return null;
                 };
 
+                const getContrastColor = (value) => {
+                    const normalizedColor = normalizeHex(value) || '#ffffff';
+                    const expandedColor = normalizedColor.length === 4
+                        ? '#' + normalizedColor.slice(1).split('').map((char) => char + char).join('')
+                        : normalizedColor;
+                    const red = parseInt(expandedColor.slice(1, 3), 16);
+                    const green = parseInt(expandedColor.slice(3, 5), 16);
+                    const blue = parseInt(expandedColor.slice(5, 7), 16);
+                    const luminance = ((0.299 * red) + (0.587 * green) + (0.114 * blue)) / 255;
+
+                    return luminance < 0.55 ? '#ffffff' : '#111111';
+                };
+
+                const updateLivePreview = () => {
+                    const preview = panel.querySelector('[data-theme-preview]');
+                    const brandColor = normalizeHex(panel.querySelector('[data-theme-text="brand_color"]')?.value) || '#111111';
+                    const backgroundColor = normalizeHex(panel.querySelector('[data-theme-text="background_color"]')?.value) || '#ffffff';
+                    const textColor = panel.querySelector('[data-theme-text="text_color"]')?.value || getContrastColor(backgroundColor);
+                    const selectedFont = panel.querySelector('[data-font-value].is-selected');
+                    const fontCss = selectedFont?.dataset.fontCss || 'Arial, sans-serif';
+
+                    if (! preview) {
+                        return;
+                    }
+
+                    preview.style.setProperty('--theme-preview-brand', brandColor);
+                    preview.style.setProperty('--theme-preview-brand-contrast', getContrastColor(brandColor));
+                    preview.style.background = backgroundColor;
+                    preview.style.color = textColor;
+                    preview.style.fontFamily = fontCss;
+                };
+
                 const syncColorControls = (target, value) => {
                     const normalizedColor = normalizeHex(value);
                     const textInput = panel.querySelector(`[data-theme-text="${target}"]`);
@@ -231,6 +454,22 @@
                     panel
                         .querySelectorAll(`[data-theme-target="${target}"]`)
                         .forEach((item) => item.classList.toggle('is-selected', normalizedColor && item.dataset.themeColor.toLowerCase() === normalizedColor.toLowerCase()));
+
+                    if (target === 'background_color' && normalizedColor) {
+                        const automaticTextColor = getContrastColor(normalizedColor);
+                        const textColorInput = panel.querySelector('[data-theme-text="text_color"]');
+                        const contrastChip = panel.querySelector('[data-theme-contrast-chip]');
+
+                        if (textColorInput) {
+                            textColorInput.value = automaticTextColor;
+                        }
+
+                        if (contrastChip) {
+                            contrastChip.style.background = automaticTextColor;
+                        }
+                    }
+
+                    updateLivePreview();
                 };
 
                 panel.querySelectorAll('[data-theme-color]').forEach((swatch) => {
@@ -257,19 +496,35 @@
 
                 const fontSelect = panel.querySelector('#font_family');
 
-                panel.querySelectorAll('[data-font-value]').forEach((option) => {
-                    option.addEventListener('click', () => {
-                        if (! fontSelect) {
-                            return;
-                        }
+                const syncFontControls = (value) => {
+                    if (! fontSelect) {
+                        return;
+                    }
 
-                        fontSelect.value = option.dataset.fontValue;
+                    fontSelect.value = value;
 
-                        panel
-                            .querySelectorAll('[data-font-value]')
-                            .forEach((item) => item.classList.toggle('is-selected', item === option));
+                    panel
+                        .querySelectorAll('[data-font-value]')
+                        .forEach((item) => item.classList.toggle('is-selected', item.dataset.fontValue === value));
+
+                    updateLivePreview();
+                };
+
+                panel.querySelectorAll('[data-theme-preset]').forEach((preset) => {
+                    preset.addEventListener('click', () => {
+                        syncColorControls('brand_color', preset.dataset.themePresetBrand);
+                        syncColorControls('background_color', preset.dataset.themePresetBackground);
+                        syncFontControls(preset.dataset.themePresetFont || 'system');
                     });
                 });
+
+                panel.querySelectorAll('[data-font-value]').forEach((option) => {
+                    option.addEventListener('click', () => {
+                        syncFontControls(option.dataset.fontValue);
+                    });
+                });
+
+                updateLivePreview();
             });
         })();
     </script>

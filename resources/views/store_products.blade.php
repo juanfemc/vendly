@@ -72,13 +72,6 @@
         <section class="catalog-section" id="catalogo">
             <div class="catalog-head">
                 <h2>{{ $products->total() }} {{ $itemsLabel }}</h2>
-                <p>
-                    @if(($searchQuery ?? '') !== '')
-                        Resultados para "{{ $searchQuery }}".
-                    @else
-                        {{ $fallbackDescription }}
-                    @endif
-                </p>
             </div>
 
             @include('storefront.partials.product-search', ['productSearchId' => 'catalog'])
@@ -106,8 +99,9 @@
             @endif
         </section>
 
-        @include('storefront.partials.footer')
     </main>
+
+    @include('storefront.partials.footer')
 
     <div class="cart-feedback" id="cartFeedback" aria-live="polite">{{ $isRestaurant ? 'Plato agregado al pedido' : ($isReservationStore ? 'Servicio agregado a la reserva' : 'Producto agregado al carrito') }}</div>
 
