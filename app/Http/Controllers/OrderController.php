@@ -12,30 +12,47 @@ class OrderController extends Controller
     {
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $this->authorize('viewAny', Order::class);
 
         $user = auth()->user();
+        $statusOptions = Order::statusOptions();
+        $selectedStatus = $request->query('status');
+        $selectedStatus = array_key_exists((string) $selectedStatus, $statusOptions)
+            ? (string) $selectedStatus
+            : null;
 
         if ($user?->isAdmin()) {
-            $orders = Order::with(['items.product', 'store'])->latest()->get();
-            $statusOptions = Order::statusOptions();
+            $ordersQuery = Order::with(['items.product', 'store']);
+            $totalOrders = (clone $ordersQuery)->count();
+            $orders = $ordersQuery
+                ->when($selectedStatus, fn ($query) => $query->where('status', $selectedStatus))
+                ->latest()
+                ->get();
 
-            return view('admin.orders.index', compact('orders', 'statusOptions'));
+            return view('admin.orders.index', compact('orders', 'statusOptions', 'selectedStatus', 'totalOrders'));
         }
 
         $store = $user?->store ?? $user?->stores()->first();
 
         if (! $store) {
-            return view('admin.orders.index', ['orders' => collect()]);
+            return view('admin.orders.index', [
+                'orders' => collect(),
+                'statusOptions' => $statusOptions,
+                'selectedStatus' => $selectedStatus,
+                'totalOrders' => 0,
+            ]);
         }
 
-        $orders = Order::with('items.product')->where('store_id', $store->id)->latest()->get();
+        $ordersQuery = Order::with('items.product')->where('store_id', $store->id);
+        $totalOrders = (clone $ordersQuery)->count();
+        $orders = $ordersQuery
+            ->when($selectedStatus, fn ($query) => $query->where('status', $selectedStatus))
+            ->latest()
+            ->get();
 
-        $statusOptions = Order::statusOptions();
-
-        return view('admin.orders.index', compact('orders', 'statusOptions'));
+        return view('admin.orders.index', compact('orders', 'statusOptions', 'selectedStatus', 'totalOrders'));
     }
 
     public function updateStatus(Request $request, Order $order)

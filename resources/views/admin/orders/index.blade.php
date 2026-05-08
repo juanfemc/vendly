@@ -13,30 +13,32 @@
     <div class="flash error">{{ $errors->first() }}</div>
 @endif
 
-@if ($orders->isEmpty())
+@if (($totalOrders ?? $orders->count()) === 0)
     <div class="panel-empty">
         <h3>No hay pedidos todavia</h3>
         <p>Cuando un cliente envie un carrito o reserva, aparecera aqui para gestionarlo.</p>
     </div>
 @endif
 
-@if ($orders->isNotEmpty())
-    <div class="list-card order-filter-panel">
+@if (($totalOrders ?? $orders->count()) > 0)
+    <form method="GET" action="{{ url('/admin/orders') }}" class="list-card order-filter-panel">
         <label class="field-label" for="orderStatusFilter">Filtrar por estado</label>
-        <select id="orderStatusFilter" data-order-status-filter>
-            <option value="all">Todos los estados</option>
+        <select id="orderStatusFilter" name="status" onchange="this.form.submit()">
+            <option value="">Todos los estados</option>
             @foreach($statusOptions as $value => $label)
-                <option value="{{ $value }}">{{ $label }}</option>
+                <option value="{{ $value }}" @selected(($selectedStatus ?? null) === $value)>{{ $label }}</option>
             @endforeach
         </select>
-        <div class="order-filter-count" data-order-filter-count>
-            Mostrando {{ $orders->count() }} de {{ $orders->count() }} pedidos
+        <div class="order-filter-count">
+            Mostrando {{ $orders->count() }} de {{ $totalOrders ?? $orders->count() }} pedidos
         </div>
-    </div>
+    </form>
 
-    <div class="list-card" data-order-filter-empty hidden>
-        No hay pedidos con ese estado.
-    </div>
+    @if ($orders->isEmpty())
+        <div class="list-card">
+            No hay pedidos con ese estado.
+        </div>
+    @endif
 @endif
 
 <div class="panel-list">
@@ -48,7 +50,7 @@
                 default => 'resource-badge--warning',
             };
         @endphp
-        <article class="list-card resource-card" data-order-card data-order-status="{{ $order->status }}">
+        <article class="list-card resource-card">
             <div class="resource-card__main">
                 <div class="resource-card__header">
                     <div>
@@ -138,43 +140,4 @@
     @endforeach
 </div>
 
-@push('scripts')
-    <script>
-        (() => {
-            const filter = document.querySelector('[data-order-status-filter]');
-            const cards = Array.from(document.querySelectorAll('[data-order-card]'));
-            const emptyState = document.querySelector('[data-order-filter-empty]');
-            const count = document.querySelector('[data-order-filter-count]');
-
-            if (! filter || cards.length === 0) {
-                return;
-            }
-
-            const updateOrders = () => {
-                const selectedStatus = filter.value;
-                let visibleOrders = 0;
-
-                cards.forEach((card) => {
-                    const shouldShow = selectedStatus === 'all' || card.dataset.orderStatus === selectedStatus;
-                    card.hidden = ! shouldShow;
-
-                    if (shouldShow) {
-                        visibleOrders += 1;
-                    }
-                });
-
-                if (emptyState) {
-                    emptyState.hidden = visibleOrders !== 0;
-                }
-
-                if (count) {
-                    count.textContent = `Mostrando ${visibleOrders} de ${cards.length} pedidos`;
-                }
-            };
-
-            filter.addEventListener('change', updateOrders);
-            updateOrders();
-        })();
-    </script>
-@endpush
 @endsection

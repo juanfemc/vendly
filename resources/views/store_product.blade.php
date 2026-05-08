@@ -177,7 +177,7 @@
                             rel="noopener noreferrer"
                             aria-label="Compartir en Facebook"
                         >
-                            <span aria-hidden="true">f</span>
+                            <img src="{{ asset('images/icons/icon-facebook.png') }}" alt="" aria-hidden="true">
                             <span class="product-share-label">Facebook</span>
                         </a>
                         <a
@@ -187,7 +187,7 @@
                             rel="noopener noreferrer"
                             aria-label="Compartir por WhatsApp"
                         >
-                            <span aria-hidden="true">WA</span>
+                            <img src="{{ asset('images/icons/icon-whatsapp.png') }}" alt="" aria-hidden="true">
                             <span class="product-share-label">WhatsApp</span>
                         </a>
                         <a
@@ -197,7 +197,7 @@
                             rel="noopener noreferrer"
                             aria-label="Compartir en X"
                         >
-                            <span aria-hidden="true">X</span>
+                            <img src="{{ asset('images/icons/icon-x.png') }}" alt="" aria-hidden="true">
                             <span class="product-share-label">X</span>
                         </a>
                         <button
@@ -206,7 +206,7 @@
                             data-copy-product-link="{{ $metaUrl }}"
                             aria-label="Copiar enlace del producto"
                         >
-                            <span aria-hidden="true">Link</span>
+                            <img src="{{ asset('images/icons/icon-copiar-enlace.png') }}" alt="" aria-hidden="true">
                             <span class="product-share-label">Copiar enlace</span>
                         </button>
                     </div>

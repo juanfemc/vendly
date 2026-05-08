@@ -2207,17 +2207,43 @@ test('admin can see orders from all stores', function () {
         'total' => 12000,
         'store_id' => $store->id,
     ]);
+    Order::create([
+        'customer_name' => 'Cliente Pagado',
+        'customer_phone' => '3001112234',
+        'customer_address' => 'Calle 2',
+        'customer_city' => 'Medellin',
+        'customer_document' => '654321',
+        'status' => 'pagado',
+        'total' => 18000,
+        'store_id' => $store->id,
+    ]);
 
     $this->actingAs($admin)
         ->get('/admin/orders')
         ->assertOk()
         ->assertSee('Filtrar por estado')
-        ->assertSee('data-order-status-filter', false)
-        ->assertSee('data-order-status="pendiente"', false)
-        ->assertSee('Mostrando 1 de 1 pedidos')
-        ->assertSee('No hay pedidos con ese estado.')
+        ->assertSee('name="status"', false)
+        ->assertSee('Mostrando 2 de 2 pedidos')
+        ->assertDontSee('No hay pedidos con ese estado.')
         ->assertSee('Cliente Global')
+        ->assertSee('Cliente Pagado')
         ->assertSee('Tienda visible admin');
+
+    $this->actingAs($admin)
+        ->get('/admin/orders?status=pagado')
+        ->assertOk()
+        ->assertSee('Mostrando 1 de 2 pedidos')
+        ->assertSee('Cliente Pagado')
+        ->assertDontSee('Cliente Global')
+        ->assertSee('value="pagado" selected', false);
+
+    $this->actingAs($admin)
+        ->get('/admin/orders?status=enviado')
+        ->assertOk()
+        ->assertSee('Mostrando 0 de 2 pedidos')
+        ->assertSee('No hay pedidos con ese estado.')
+        ->assertDontSee('Cliente Global')
+        ->assertDontSee('Cliente Pagado');
 });
 
 test('admin can update order status from global orders list', function () {
