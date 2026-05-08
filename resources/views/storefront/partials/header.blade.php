@@ -6,11 +6,14 @@
 
 <div class="storefront-topbar" data-storefront-topbar>
     @if(! empty($announcementMessages))
+        @php
+            $announcementStepSeconds = 22;
+        @endphp
         <section class="store-announcement-bar" aria-label="Avisos de la tienda" data-announcement-bar>
             <div class="shell store-announcement-shell">
-                <div class="store-announcement-viewport">
+                <div class="store-announcement-viewport" style="--announcement-step-duration: {{ $announcementStepSeconds }}s;">
                     @foreach($announcementMessages as $announcementIndex => $announcementMessage)
-                        <p class="store-announcement-message {{ $announcementIndex === 0 ? 'is-active' : '' }}" data-announcement-message>
+                        <p class="store-announcement-message {{ $announcementIndex === 0 ? 'is-marquee-active' : '' }}" data-announcement-message>
                             {{ $announcementMessage }}
                         </p>
                     @endforeach

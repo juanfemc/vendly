@@ -78,7 +78,7 @@ body.storefront-page .product-detail-copy h1 {
 }
 
 .store-announcement-shell {
-    min-height: 38px;
+    min-height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -89,8 +89,29 @@ body.storefront-page .product-detail-copy h1 {
 .store-announcement-viewport {
     position: relative;
     width: min(100%, 820px);
-    min-height: 20px;
+    height: 24px;
     overflow: hidden;
+}
+
+.store-announcement-viewport::before,
+.store-announcement-viewport::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 2;
+    width: 72px;
+    pointer-events: none;
+}
+
+.store-announcement-viewport::before {
+    left: 0;
+    background: linear-gradient(90deg, var(--brand-color, #111), transparent);
+}
+
+.store-announcement-viewport::after {
+    right: 0;
+    background: linear-gradient(270deg, var(--brand-color, #111), transparent);
 }
 
 .store-announcement-message {
@@ -101,20 +122,73 @@ body.storefront-page .product-detail-copy h1 {
     align-items: center;
     justify-content: center;
     color: inherit;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 800;
     line-height: 1.25;
     opacity: 0;
-    transform: translateY(8px);
-    transition: opacity .24s ease, transform .24s ease;
+    transform: translateX(105%);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    will-change: transform, opacity;
 }
 
-.store-announcement-message.is-active {
-    opacity: 1;
-    transform: translateY(0);
+.store-announcement-message::before {
+    content: "•";
+    margin-right: 9px;
+    color: currentColor;
+    opacity: 0.78;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.store-announcement-message.is-marquee-active {
+    animation: store-announcement-marquee var(--announcement-step-duration, 22s) linear 1 both;
+}
+
+@keyframes store-announcement-marquee {
+    0% {
+        opacity: 0;
+        transform: translateX(105%);
+    }
+
+    8% {
+        opacity: 1;
+        transform: translateX(36%);
+    }
+
+    34% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    54% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    76% {
+        opacity: 1;
+        transform: translateX(-36%);
+    }
+
+    90%,
+    100% {
+        opacity: 0;
+        transform: translateX(-105%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .store-announcement-message {
+        animation: none;
+        opacity: 0;
+        transform: none;
+    }
+
+    .store-announcement-message.is-marquee-active {
+        opacity: 1;
+    }
 }
 
 .navbar {

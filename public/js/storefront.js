@@ -42,7 +42,7 @@
     const navBackdrop = document.querySelector('.nav-backdrop');
     const navPanelLinks = document.querySelectorAll('.nav-panel a');
     const navDropdowns = document.querySelectorAll('.nav-dropdown');
-    const announcementMessages = document.querySelectorAll('[data-announcement-message]');
+    const announcementMessages = Array.from(document.querySelectorAll('[data-announcement-message]'));
     const storefrontTopbar = document.querySelector('[data-storefront-topbar]');
     const csrfToken = page.dataset.csrf || '';
     const addingText = page.dataset.addingText || 'Agregando...';
@@ -65,14 +65,27 @@
     window.addEventListener('load', syncTopbarHeight);
     window.addEventListener('resize', syncTopbarHeight);
 
-    if (announcementMessages.length > 1) {
+    if (announcementMessages.length > 1 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         let currentAnnouncement = 0;
 
-        window.setInterval(() => {
-            announcementMessages[currentAnnouncement].classList.remove('is-active');
-            currentAnnouncement = (currentAnnouncement + 1) % announcementMessages.length;
-            announcementMessages[currentAnnouncement].classList.add('is-active');
-        }, 3600);
+        const showAnnouncement = (index) => {
+            announcementMessages.forEach((message, messageIndex) => {
+                message.classList.toggle('is-marquee-active', messageIndex === index);
+            });
+        };
+
+        announcementMessages.forEach((message, index) => {
+            message.addEventListener('animationend', () => {
+                if (index !== currentAnnouncement) {
+                    return;
+                }
+
+                currentAnnouncement = (currentAnnouncement + 1) % announcementMessages.length;
+                showAnnouncement(currentAnnouncement);
+            });
+        });
+
+        showAnnouncement(currentAnnouncement);
     }
 
     const showFeedback = (message) => {
