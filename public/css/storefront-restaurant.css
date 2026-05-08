@@ -1,90 +1,242 @@
+.storefront-page--restaurant {
+    --restaurant-paper: #fffaf2;
+    --restaurant-ink: #24160f;
+    --restaurant-muted: #7a6756;
+    --restaurant-line: #ead8c3;
+}
+
+.storefront-page--restaurant .restaurant-hero {
+    padding-bottom: 18px;
+}
+
 .storefront-page--restaurant .restaurant-hero-media {
     background: linear-gradient(180deg, #fff4e1 0%, #f5e2bf 100%);
+    box-shadow: 0 18px 44px rgba(62, 39, 22, 0.12);
 }
 
-.storefront-page--restaurant .restaurant-products-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 22px;
+.storefront-page--restaurant .restaurant-menu {
+    display: grid;
+    gap: 30px;
+    padding: 12px 0 54px;
 }
 
-.storefront-page--restaurant .restaurant-product-card {
-    background: #fff9ef;
-    border: 0;
-    border-radius: 0;
-    padding: 0 0 18px;
-    overflow: hidden;
-    box-shadow: none;
+.storefront-page--restaurant .restaurant-menu-section {
+    padding: 28px;
+    border: 1px solid var(--restaurant-line);
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.38)),
+        var(--restaurant-paper);
+    color: var(--restaurant-ink);
 }
 
-.storefront-page--restaurant .restaurant-product-card .product-image {
-    aspect-ratio: 1 / 0.9;
-    background: linear-gradient(180deg, #fff4e1 0%, #f5e2bf 100%);
-    border-radius: 0;
-    margin-bottom: 0;
-    overflow: hidden;
+.storefront-page--restaurant .restaurant-menu-section-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 420px);
+    gap: 18px;
+    align-items: end;
+    padding-bottom: 18px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--restaurant-line);
 }
 
-.storefront-page--restaurant .restaurant-product-card .product-image img {
-    object-fit: cover;
+.storefront-page--restaurant .restaurant-menu-section-head span {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--restaurant-muted);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
 }
 
-.storefront-page--restaurant .restaurant-product-card h3 {
-    margin: 22px 20px 18px;
-    font-family: Arial, sans-serif;
-    font-size: 21px;
-    font-weight: 800;
-    line-height: 1;
-    letter-spacing: -0.04em;
+.storefront-page--restaurant .restaurant-menu-section-head h2 {
+    margin: 0;
+    color: var(--restaurant-ink);
+    font-size: clamp(30px, 4vw, 48px);
+    line-height: 0.95;
 }
 
-.storefront-page--restaurant .restaurant-price-row {
-    justify-content: flex-start;
-    gap: 8px;
-    margin: 0 20px 24px;
+.storefront-page--restaurant .restaurant-menu-section-head p {
+    margin: 0;
+    color: var(--restaurant-muted);
+    font-size: 14px;
+    line-height: 1.65;
+}
+
+.storefront-page--restaurant .restaurant-menu-items {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 28px;
+}
+
+.storefront-page--restaurant .restaurant-menu-item {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 14px;
     align-items: center;
+    padding: 16px 0;
+    border-bottom: 1px dashed var(--restaurant-line);
 }
 
-.storefront-page--restaurant .restaurant-price-row .price {
-    font-size: 18px;
-    color: #111;
+.storefront-page--restaurant .restaurant-menu-item-image {
+    width: 74px;
+    height: 74px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f4e5d1;
+    display: block;
 }
 
-.storefront-page--restaurant .restaurant-prep-label {
-    color: #8c7b68;
-    font-size: 12px;
-    font-weight: 600;
+.storefront-page--restaurant .restaurant-menu-item-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
-.storefront-page--restaurant .restaurant-product-card .product-preview-link {
-    width: calc(100% - 40px);
-    margin-inline: 20px;
+.storefront-page--restaurant .restaurant-menu-item-copy {
+    min-width: 0;
 }
 
-@media (max-width: 480px) {
-    .storefront-page--restaurant .restaurant-product-card h3 {
-        margin: 16px 12px 12px;
-        font-size: 16px;
-    }
+.storefront-page--restaurant .restaurant-menu-item-line {
+    display: grid;
+    grid-template-columns: auto minmax(20px, 1fr) auto;
+    gap: 10px;
+    align-items: baseline;
+}
 
-    .storefront-page--restaurant .restaurant-price-row {
-        margin: 0 12px 16px;
-    }
+.storefront-page--restaurant .restaurant-menu-item-line h3 {
+    margin: 0;
+    color: var(--restaurant-ink);
+    font-size: 17px;
+    font-weight: 900;
+    line-height: 1.2;
+}
 
-    .storefront-page--restaurant .restaurant-product-card .product-preview-link {
-        width: calc(100% - 24px);
-        margin-inline: 12px;
-    }
+.storefront-page--restaurant .restaurant-menu-item-line span {
+    border-bottom: 1px dotted color-mix(in srgb, var(--restaurant-muted) 42%, transparent);
+    transform: translateY(-3px);
+}
+
+.storefront-page--restaurant .restaurant-menu-item-line strong {
+    color: var(--restaurant-ink);
+    font-size: 16px;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.storefront-page--restaurant .restaurant-menu-item-copy p {
+    margin: 7px 0 0;
+    color: var(--restaurant-muted);
+    font-size: 13px;
+    line-height: 1.5;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.storefront-page--restaurant .restaurant-menu-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 9px;
+}
+
+.storefront-page--restaurant .restaurant-menu-tags span {
+    padding: 5px 8px;
+    border-radius: 999px;
+    background: #f4e5d1;
+    color: var(--restaurant-muted);
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.storefront-page--restaurant .restaurant-menu-order-link,
+.storefront-page--restaurant .restaurant-menu-more-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.storefront-page--restaurant .restaurant-menu-order-link {
+    min-height: 38px;
+    padding: 0 14px;
+    background: var(--brand-color, #111);
+    color: var(--brand-contrast, #fff);
+    white-space: nowrap;
+}
+
+.storefront-page--restaurant .restaurant-menu-order-link.is-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.storefront-page--restaurant .restaurant-menu-more-link {
+    width: fit-content;
+    min-height: 42px;
+    margin-top: 20px;
+    padding: 0 16px;
+    border: 1px solid var(--restaurant-line);
+    background: #ffffff;
+    color: var(--restaurant-ink);
 }
 
 @media (max-width: 1024px) {
-    .storefront-page--restaurant .restaurant-products-grid {
-        grid-template-columns: repeat(var(--responsive-product-columns, 2), minmax(0, 1fr));
+    .storefront-page--restaurant .restaurant-menu-items {
+        grid-template-columns: 1fr;
     }
 }
 
 @media (max-width: 720px) {
-    .storefront-page--restaurant .restaurant-products-grid {
-        grid-template-columns: repeat(var(--responsive-product-columns, 2), minmax(0, 1fr));
-        gap: 14px;
+    .storefront-page--restaurant .restaurant-menu-section {
+        padding: 18px;
+    }
+
+    .storefront-page--restaurant .restaurant-menu-section-head {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .storefront-page--restaurant .restaurant-menu-item {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
+    }
+
+    .storefront-page--restaurant .restaurant-menu-item-image {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 16 / 9;
+    }
+
+    .storefront-page--restaurant .restaurant-menu-order-link {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .storefront-page--restaurant .restaurant-menu {
+        gap: 22px;
+        padding-bottom: 38px;
+    }
+
+    .storefront-page--restaurant .restaurant-menu-section {
+        padding: 14px;
+    }
+
+    .storefront-page--restaurant .restaurant-menu-item-line {
+        grid-template-columns: 1fr auto;
+    }
+
+    .storefront-page--restaurant .restaurant-menu-item-line span {
+        display: none;
     }
 }

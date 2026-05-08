@@ -108,6 +108,47 @@ class AdminUserController extends Controller
         return redirect('/admin/users')->with('success', 'Usuario actualizado.');
     }
 
+    public function extendAccess(Request $request, User $user): RedirectResponse
+    {
+        abort_unless($user->role === 'store', 404);
+
+        $request->validate([
+            'extend_days' => ['required', 'integer', 'min:1', 'max:3650'],
+        ]);
+
+        $days = (int) $request->extend_days;
+        $today = now()->startOfDay();
+        $currentEndsAt = $user->active_ends_at?->copy()->startOfDay();
+        $baseDate = $currentEndsAt && $currentEndsAt->greaterThanOrEqualTo($today)
+            ? $currentEndsAt
+            : $today;
+        $startsAt = $user->active_starts_at?->copy()->startOfDay() ?? $today;
+        $newEndsAt = $baseDate->copy()->addDays($days);
+
+        $user->update([
+            'is_active' => true,
+            'active_starts_at' => $startsAt->toDateString(),
+            'active_duration_days' => (int) $startsAt->diffInDays($newEndsAt),
+            'active_ends_at' => $newEndsAt->toDateString(),
+        ]);
+
+        $user->stores()->update([
+            'is_active' => true,
+        ]);
+
+        $this->adminUpdateService->record(
+            'Acceso extendido',
+            $user->name . ' +' . $days . ' dia(s)',
+            'usuario',
+            route('admin.users.edit', $user)
+        );
+
+        return redirect('/admin/users')->with(
+            'success',
+            'Acceso extendido hasta el ' . $newEndsAt->format('d/m/Y') . '.'
+        );
+    }
+
     public function toggleActive(User $user): RedirectResponse
     {
         abort_unless($user->role === 'store', 404);

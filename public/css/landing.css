@@ -430,6 +430,141 @@ body.landing-page {
     font-size: 21px;
 }
 
+.plans-section {
+    background:
+        linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.plans-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 20px;
+}
+
+.plan-card {
+    position: relative;
+    overflow: hidden;
+    min-height: 100%;
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    align-content: start;
+    gap: 18px;
+    padding: 26px;
+    border-color: rgba(15, 23, 42, 0.1);
+    box-shadow: 0 22px 60px rgba(15, 23, 42, 0.08);
+    transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+
+.plan-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 4px;
+    background: linear-gradient(90deg, var(--brand), #111827);
+    opacity: 0.74;
+}
+
+.plan-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255, 106, 0, 0.32);
+    box-shadow: 0 30px 78px rgba(15, 23, 42, 0.13);
+}
+
+.plan-card--featured {
+    border-color: rgba(255, 106, 0, 0.42);
+    box-shadow: 0 34px 88px rgba(255, 106, 0, 0.16);
+}
+
+.plan-card--featured::before {
+    opacity: 1;
+}
+
+.plan-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.plan-eyebrow {
+    color: var(--brand);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.plan-card h3 {
+    margin: 14px 0 0;
+    color: #111827;
+    font-size: 38px;
+    line-height: 1;
+}
+
+.plan-badge {
+    flex: 0 0 auto;
+    max-width: 132px;
+    padding: 7px 10px;
+    border: 1px solid rgba(255, 106, 0, 0.2);
+    border-radius: 999px;
+    background: rgba(255, 106, 0, 0.08);
+    color: #9a3412;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1.15;
+    text-align: center;
+}
+
+.plan-summary {
+    margin: 0;
+    color: #475569;
+    font-size: 15px;
+    line-height: 1.55;
+}
+
+.plan-features {
+    display: grid;
+    align-content: start;
+    gap: 11px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.plan-features li,
+.plan-pending {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.plan-features li {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 9px;
+    align-items: start;
+}
+
+.plan-features li::before {
+    content: "✓";
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+    border-radius: 50%;
+    background: rgba(15, 118, 110, 0.1);
+    color: #0f766e;
+    font-size: 11px;
+    font-weight: 900;
+}
+
+.plan-pending {
+    margin: 0;
+}
+
 .testimonials-section {
     position: relative;
     overflow: hidden;
@@ -647,7 +782,8 @@ body.landing-page {
 
     .hero-layout,
     .section-head--row,
-    .process-grid {
+    .process-grid,
+    .plans-grid {
         grid-template-columns: 1fr;
     }
 

@@ -14,7 +14,10 @@
 @endif
 
 @if ($orders->isEmpty())
-    <div class="list-card">No hay pedidos todavia.</div>
+    <div class="panel-empty">
+        <h3>No hay pedidos todavia</h3>
+        <p>Cuando un cliente envie un carrito o reserva, aparecera aqui para gestionarlo.</p>
+    </div>
 @endif
 
 @if ($orders->isNotEmpty())
@@ -36,62 +39,104 @@
     </div>
 @endif
 
-@foreach($orders as $order)
-    <div class="list-card" data-order-card data-order-status="{{ $order->status }}">
-        <strong>{{ $order->customer_name ?: 'Sin nombre' }}</strong><br>
-        Tel: {{ $order->customer_phone ?: 'Sin telefono' }}<br>
-        Ciudad: {{ $order->customer_city ?: 'Sin ciudad' }}<br>
-        Direccion: {{ $order->customer_address ?: 'Sin direccion' }}<br>
-        Documento: {{ $order->customer_document ?: 'Sin documento' }}<br>
-        @if (auth()->user()->isAdmin())
-            Tienda: {{ $order->store?->name ?? 'Sin tienda' }}<br>
-        @endif
-        Total: ${{ $order->total }}<br>
-        Estado: {{ $order->statusLabel() }}<br>
-        @if ($order->store?->isReservationStore())
-            Fecha deseada: {{ $order->reservation_date?->format('Y-m-d') ?: 'Sin fecha' }}<br>
-            Hora deseada: {{ $order->reservation_time ?: 'Sin hora' }}<br>
-        @endif
-        @if ($order->notes)
-            Notas: {{ $order->notes }}<br>
-        @endif
-        @if ($order->items->isNotEmpty())
-            <br>
-            <strong>Productos:</strong>
-            <ul style="margin:8px 0 0; padding-left:18px;">
-                @foreach ($order->items as $item)
-                    <li>
-                        {{ $item->displayName() }} x{{ $item->quantity }}
-                        @if ($item->size)
-                            - Talla: {{ $item->size }}
-                        @endif
-                        @if ($item->color)
-                            - Color: {{ $item->color }}
-                        @endif
-                    </li>
-                @endforeach
-            </ul>
-        @endif
-        <br>
-        <form method="POST" action="{{ route('admin.orders.status', $order) }}" style="margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            @csrf
-            @method('PATCH')
-            <label for="status-{{ $order->id }}">Cambiar estado</label>
-            <select name="status" id="status-{{ $order->id }}">
-                @foreach($statusOptions as $value => $label)
-                    <option value="{{ $value }}" @selected($order->status === $value)>{{ $label }}</option>
-                @endforeach
-            </select>
-            <button type="submit" class="btn">Guardar</button>
-        </form>
+<div class="panel-list">
+    @foreach($orders as $order)
+        @php
+            $statusBadgeClass = match ($order->status) {
+                'pagado' => 'resource-badge--success',
+                'enviado' => 'resource-badge--active',
+                default => 'resource-badge--warning',
+            };
+        @endphp
+        <article class="list-card resource-card" data-order-card data-order-status="{{ $order->status }}">
+            <div class="resource-card__main">
+                <div class="resource-card__header">
+                    <div>
+                        <h3 class="resource-card__title">{{ $order->customer_name ?: 'Sin nombre' }}</h3>
+                        <p class="resource-card__subtitle">
+                            {{ $order->customer_phone ?: 'Sin telefono' }}
+                            @if (auth()->user()->isAdmin())
+                                · {{ $order->store?->name ?? 'Sin tienda' }}
+                            @endif
+                        </p>
+                    </div>
+                    <div class="resource-badges">
+                        <span class="resource-badge {{ $statusBadgeClass }}">{{ $order->statusLabel() }}</span>
+                        <span class="resource-badge">${{ number_format($order->total, 0, ',', '.') }}</span>
+                    </div>
+                </div>
 
-        <form method="POST" action="{{ route('admin.orders.destroy', $order) }}" style="margin-top:10px;" data-confirm-delete data-confirm-message="Eliminar este pedido? Esta accion no se puede deshacer.">
-            @csrf
-            @method('DELETE')
-            <button type="submit" class="btn btn-danger">Eliminar pedido</button>
-        </form>
-    </div>
-@endforeach
+                <div class="resource-metrics">
+                    <div class="resource-metric">
+                        <span class="resource-metric__label">Ciudad</span>
+                        <span class="resource-metric__value">{{ $order->customer_city ?: 'Sin ciudad' }}</span>
+                    </div>
+                    <div class="resource-metric">
+                        <span class="resource-metric__label">Direccion</span>
+                        <span class="resource-metric__value">{{ $order->customer_address ?: 'Sin direccion' }}</span>
+                    </div>
+                    <div class="resource-metric">
+                        <span class="resource-metric__label">Documento</span>
+                        <span class="resource-metric__value">{{ $order->customer_document ?: 'Sin documento' }}</span>
+                    </div>
+                    <div class="resource-metric">
+                        <span class="resource-metric__label">{{ $order->store?->isReservationStore() ? 'Reserva' : 'Items' }}</span>
+                        <span class="resource-metric__value">
+                            @if ($order->store?->isReservationStore())
+                                {{ $order->reservation_date?->format('Y-m-d') ?: 'Sin fecha' }} {{ $order->reservation_time ?: '' }}
+                            @else
+                                {{ $order->items->sum('quantity') }} item(s)
+                            @endif
+                        </span>
+                    </div>
+                </div>
+
+                @if ($order->items->isNotEmpty())
+                    <div class="resource-card__description">
+                        <strong>Productos:</strong>
+                        <ul style="margin:8px 0 0; padding-left:18px;">
+                            @foreach ($order->items as $item)
+                                <li>
+                                    {{ $item->displayName() }} x{{ $item->quantity }}
+                                    @if ($item->size)
+                                        - Talla: {{ $item->size }}
+                                    @endif
+                                    @if ($item->color)
+                                        - Color: {{ $item->color }}
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
+                @if ($order->notes)
+                    <p class="resource-card__description"><strong>Notas:</strong> {{ $order->notes }}</p>
+                @endif
+            </div>
+
+            <div class="resource-actions">
+                <form method="POST" action="{{ route('admin.orders.status', $order) }}">
+                    @csrf
+                    @method('PATCH')
+                    <label class="field-label" for="status-{{ $order->id }}">Estado</label>
+                    <select name="status" id="status-{{ $order->id }}">
+                        @foreach($statusOptions as $value => $label)
+                            <option value="{{ $value }}" @selected($order->status === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    <button type="submit" class="btn">Guardar estado</button>
+                </form>
+
+                <form method="POST" action="{{ route('admin.orders.destroy', $order) }}" data-confirm-delete data-confirm-message="Eliminar este pedido? Esta accion no se puede deshacer.">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-danger">Eliminar pedido</button>
+                </form>
+            </div>
+        </article>
+    @endforeach
+</div>
 
 @push('scripts')
     <script>

@@ -13,8 +13,17 @@ class Store extends Model
     use HasAdminRouteKey;
 
     private static ?bool $supportsReservationScheduleColumns = null;
+    private static ?bool $supportsCommercialNoticeColumns = null;
+    private static ?bool $supportsSubdomainColumn = null;
 
     public const PRODUCT_SEARCH_THRESHOLD = 20;
+
+    public const PLAN_BASIC = 'basic';
+    public const PLAN_PRO = 'pro';
+    public const PLAN_PREMIUM = 'premium';
+
+    public const BASIC_PRODUCT_LIMIT = 20;
+    public const PRO_PRODUCT_LIMIT = 100;
 
     public const FONT_FAMILIES = [
         'system' => [
@@ -50,10 +59,14 @@ class Store extends Model
         'views_count',
         'name',
         'business_type',
+        'plan',
         'slug',
+        'subdomain',
         'whatsapp',
         'location',
         'business_hours',
+        'announcement_items',
+        'free_shipping_minimum',
         'reservation_available_days',
         'reservation_time_start',
         'reservation_time_end',
@@ -77,6 +90,8 @@ class Store extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'views_count' => 'integer',
+        'announcement_items' => 'array',
+        'free_shipping_minimum' => 'decimal:2',
         'reservation_available_days' => 'array',
         'responsive_product_columns' => 'integer',
         'show_hero_products_action' => 'boolean',
@@ -85,6 +100,102 @@ class Store extends Model
     public function isRestaurant(): bool
     {
         return $this->business_type === 'restaurant';
+    }
+
+    public static function planOptions(): array
+    {
+        return [
+            self::PLAN_BASIC => 'Basico',
+            self::PLAN_PRO => 'Pro',
+            self::PLAN_PREMIUM => 'Premium',
+        ];
+    }
+
+    public function planLabel(): string
+    {
+        return self::planOptions()[$this->plan ?? self::PLAN_PRO] ?? 'Pro';
+    }
+
+    public function isBasicPlan(): bool
+    {
+        return ($this->plan ?? self::PLAN_PRO) === self::PLAN_BASIC;
+    }
+
+    public function productLimit(): ?int
+    {
+        return match ($this->plan ?? self::PLAN_PRO) {
+            self::PLAN_BASIC => self::BASIC_PRODUCT_LIMIT,
+            self::PLAN_PRO => self::PRO_PRODUCT_LIMIT,
+            default => null,
+        };
+    }
+
+    public function canCreateMoreProducts(): bool
+    {
+        $limit = $this->productLimit();
+
+        return $limit === null || $this->products()->count() < $limit;
+    }
+
+    public function allowsCategories(): bool
+    {
+        return ! $this->isBasicPlan();
+    }
+
+    public function allowsCommercialNotices(): bool
+    {
+        return ! $this->isBasicPlan();
+    }
+
+    public function allowsVisitStats(): bool
+    {
+        return ! $this->isBasicPlan();
+    }
+
+    public function allowsProductGallery(): bool
+    {
+        return ! $this->isBasicPlan();
+    }
+
+    public function allowsFullCustomization(): bool
+    {
+        return ! $this->isBasicPlan();
+    }
+
+    public function allowsSubdomain(): bool
+    {
+        return ! $this->isBasicPlan();
+    }
+
+    public static function reservedSubdomains(): array
+    {
+        return [
+            'admin',
+            'api',
+            'app',
+            'assets',
+            'blog',
+            'cdn',
+            'mail',
+            'panel',
+            'soporte',
+            'support',
+            'www',
+        ];
+    }
+
+    public static function normalizeSubdomain(?string $value): ?string
+    {
+        $value = strtolower(trim((string) $value));
+        $value = preg_replace('/[^a-z0-9-]+/', '-', $value) ?? '';
+        $value = trim(preg_replace('/-+/', '-', $value) ?? '', '-');
+
+        return $value === '' ? null : $value;
+    }
+
+    public static function supportsSubdomainColumn(): bool
+    {
+        return self::$supportsSubdomainColumn ??= Schema::hasColumn('stores', 'subdomain');
     }
 
     public function visits(): HasMany
@@ -125,6 +236,32 @@ class Store extends Model
         return self::$supportsReservationScheduleColumns ??= Schema::hasColumn('stores', 'reservation_available_days')
             && Schema::hasColumn('stores', 'reservation_time_start')
             && Schema::hasColumn('stores', 'reservation_time_end');
+    }
+
+    public static function supportsCommercialNoticeColumns(): bool
+    {
+        return self::$supportsCommercialNoticeColumns ??= Schema::hasColumn('stores', 'announcement_items')
+            && Schema::hasColumn('stores', 'free_shipping_minimum');
+    }
+
+    public function announcementMessages(): array
+    {
+        if (! $this->allowsCommercialNotices()) {
+            return [];
+        }
+
+        $messages = collect($this->announcement_items ?? [])
+            ->pluck('text')
+            ->map(fn ($text) => trim((string) $text))
+            ->filter()
+            ->take(5)
+            ->values();
+
+        if ($this->free_shipping_minimum !== null && (float) $this->free_shipping_minimum > 0) {
+            $messages->prepend('Envio gratis desde $' . number_format((float) $this->free_shipping_minimum, 0, ',', '.'));
+        }
+
+        return $messages->unique()->values()->all();
     }
 
     public function reservationScheduleSummary(): ?string
@@ -347,7 +484,7 @@ class Store extends Model
 
     public function ensureCategoryRecords(): void
     {
-        if (! $this->exists || $this->categories()->exists()) {
+        if (! $this->allowsCategories() || ! $this->exists || $this->categories()->exists()) {
             return;
         }
 
@@ -362,6 +499,10 @@ class Store extends Model
 
     public function productCategoryOptions(): array
     {
+        if (! $this->allowsCategories()) {
+            return [];
+        }
+
         if (! $this->exists) {
             return $this->defaultProductCategoryOptions();
         }

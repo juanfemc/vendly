@@ -40,6 +40,15 @@ class StoreCategoryController extends Controller
         }
 
         $store = $selectedStore ?: $this->currentStore();
+        if (! $store->allowsCategories()) {
+            return view('admin.categories.index', [
+                'store' => $store,
+                'categories' => collect(),
+                'selectedStore' => $selectedStore,
+                'categoriesLocked' => true,
+            ]);
+        }
+
         $categories = $store->categories()
             ->orderedForDisplay()
             ->get();
@@ -50,6 +59,11 @@ class StoreCategoryController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $store = $this->storeForRequest($request);
+        if (! $store->allowsCategories()) {
+            return $this->redirectToCategories($store)
+                ->with('error', 'El plan ' . $store->planLabel() . ' no incluye categorias.');
+        }
+
         $request->merge([
             'slug' => Str::slug($request->input('slug') ?: $request->input('name')),
         ]);
@@ -103,6 +117,7 @@ class StoreCategoryController extends Controller
             ? $category->store
             : $this->currentStore();
         abort_unless($store && (int) $category->store_id === (int) $store->id, 404);
+        abort_unless($store->allowsCategories(), 404);
 
         return view('admin.categories.edit', compact('store', 'category'));
     }
@@ -113,6 +128,7 @@ class StoreCategoryController extends Controller
             ? $category->store
             : $this->currentStore();
         abort_unless($store && (int) $category->store_id === (int) $store->id, 404);
+        abort_unless($store->allowsCategories(), 404);
         $request->merge([
             'slug' => Str::slug($request->input('slug') ?: $request->input('name')),
         ]);
@@ -181,6 +197,7 @@ class StoreCategoryController extends Controller
             ? $category->store
             : $this->currentStore();
         abort_unless($store && (int) $category->store_id === (int) $store->id, 404);
+        abort_unless($store->allowsCategories(), 404);
 
         Product::where('store_id', $store->id)
             ->where('category', $category->name)

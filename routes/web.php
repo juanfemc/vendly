@@ -14,6 +14,7 @@ use App\Http\Controllers\LandingTestimonialController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StoreCategoryController;
+use App\Services\StoreSubdomainService;
 
 /*
 |--------------------------------------------------------------------------
@@ -56,6 +57,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::delete('/admin/orders/{order}', [OrderController::class, 'destroy'])->name('admin.orders.destroy');
     Route::get('/admin/store-settings', [StoreController::class, 'settings']);
     Route::post('/admin/store-settings', [StoreController::class, 'updateSettings']);
+    Route::get('/admin/store-visits', [StoreController::class, 'visits'])->name('admin.store.visits');
     Route::get('/admin/categories', [StoreCategoryController::class, 'index'])->name('admin.categories.index');
     Route::post('/admin/categories', [StoreCategoryController::class, 'store'])->name('admin.categories.store');
     Route::get('/admin/categories/{category}/edit', [StoreCategoryController::class, 'edit'])->name('admin.categories.edit');
@@ -69,6 +71,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/users', [AdminUserController::class, 'store']);
     Route::get('/admin/users/{user}/edit', [AdminUserController::class, 'edit'])->name('admin.users.edit');
     Route::put('/admin/users/{user}', [AdminUserController::class, 'update'])->name('admin.users.update');
+    Route::patch('/admin/users/{user}/extend', [AdminUserController::class, 'extendAccess'])->name('admin.users.extend');
     Route::patch('/admin/users/{user}/toggle', [AdminUserController::class, 'toggleActive'])->name('admin.users.toggle');
     Route::delete('/admin/users/{user}', [AdminUserController::class, 'destroy'])->name('admin.users.destroy');
 
@@ -106,6 +109,12 @@ Route::middleware(['auth', 'admin'])->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::get('/', function () {
+    $subdomains = app(StoreSubdomainService::class);
+
+    if ($subdomains->subdomainFromRequest(request())) {
+        return app(ProductController::class)->storeBySubdomain(request(), $subdomains);
+    }
+
     $portfolioStores = Schema::hasColumn('stores', 'views_count')
         ? Store::publiclyAvailable()
             ->where('views_count', '>', 0)
@@ -125,6 +134,10 @@ Route::get('/', function () {
     return view('landing', compact('portfolioStores', 'testimonials'));
 });
 require __DIR__.'/auth.php';
+Route::get('/categorias/{category}', [ProductController::class, 'categoryBySubdomain'])->name('subdomain.store.category.show');
+Route::get('/nosotros', [ProductController::class, 'aboutBySubdomain'])->name('subdomain.store.about');
+Route::get('/productos', [ProductController::class, 'allProductsBySubdomain'])->name('subdomain.store.products.index');
+Route::get('/productos/{product}', [ProductController::class, 'showBySubdomain'])->name('subdomain.store.product.show');
 Route::get('/{slug}/categorias/{category}', [ProductController::class, 'category'])->name('store.category.show');
 Route::get('/{slug}/nosotros', [ProductController::class, 'about'])->name('store.about');
 Route::get('/{slug}/productos', [ProductController::class, 'allProducts'])->name('store.products.index');

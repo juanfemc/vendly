@@ -2,7 +2,7 @@
     @if($showHeroProductsAction)
         <div class="store-hero-products-action">
             <p class="store-hero-short-copy">{{ $heroShortCopy }}</p>
-            <a href="{{ route('store.products.index', $store->slug) }}" class="catalog-all-link">
+            <a href="{{ $storefrontUrls->products($store) }}" class="catalog-all-link">
                 Ver todos los {{ $itemsLabel }}
             </a>
         </div>

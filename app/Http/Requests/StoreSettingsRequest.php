@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\ValidatesStoreProfile;
+use App\Models\Store;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreSettingsRequest extends FormRequest
@@ -12,6 +13,13 @@ class StoreSettingsRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'subdomain' => Store::normalizeSubdomain($this->input('subdomain')),
+        ]);
     }
 
     public function rules(): array
@@ -24,9 +32,12 @@ class StoreSettingsRequest extends FormRequest
         return $this->storeProfileData([
             'name',
             'business_type',
+            'subdomain',
             'whatsapp',
             'location',
             'business_hours',
+            'announcement_items',
+            'free_shipping_minimum',
             'reservation_available_days',
             'reservation_time_start',
             'reservation_time_end',

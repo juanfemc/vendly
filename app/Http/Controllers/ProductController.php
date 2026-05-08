@@ -9,7 +9,10 @@ use App\Models\StoreCategory;
 use App\Services\AdminUpdateService;
 use App\Services\ProductContentService;
 use App\Services\ProductFileService;
+use App\Services\StoreSubdomainService;
+use App\Services\StorefrontUrlService;
 use App\Services\StoreVisitService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
@@ -63,7 +66,7 @@ class ProductController extends Controller
             ? Product::where('store_id', $store->id)->latest()->get()
             : collect();
 
-        return view('admin.products.index', compact('products'));
+        return view('admin.products.index', compact('products', 'store'));
     }
 
     public function create()
@@ -71,6 +74,11 @@ class ProductController extends Controller
         $this->authorize('create', Product::class);
 
         $store = $this->currentStore();
+        if ($store && ! auth()->user()?->isAdmin() && ! $store->canCreateMoreProducts()) {
+            return redirect('/admin/products')
+                ->with('error', 'El plan ' . $store->planLabel() . ' permite hasta ' . $store->productLimit() . ' productos.');
+        }
+
         $store?->ensureCategoryRecords();
         $stores = auth()->user()?->isAdmin()
             ? Store::orderBy('name')->get()
@@ -95,10 +103,20 @@ class ProductController extends Controller
             return back()->with('error', 'No tienes tienda creada.');
         }
 
-        $this->productContentService->ensureStoreCategory($store, $request->category);
+        if (! $store->canCreateMoreProducts()) {
+            return back()
+                ->withInput()
+                ->with('error', 'El plan ' . $store->planLabel() . ' permite hasta ' . $store->productLimit() . ' productos.');
+        }
+
+        if ($store->allowsCategories()) {
+            $this->productContentService->ensureStoreCategory($store, $request->category);
+        }
 
         $primaryImage = $this->productFileService->storeImage($request);
-        $galleryImages = $this->productFileService->storeImages($request);
+        $galleryImages = $store->allowsProductGallery()
+            ? $this->productFileService->storeImages($request)
+            : [];
 
         if (! $primaryImage && ! empty($galleryImages)) {
             $primaryImage = array_shift($galleryImages);
@@ -149,6 +167,13 @@ class ProductController extends Controller
         $store = auth()->user()?->isAdmin()
             ? Store::findOrFail($request->integer('store_id'))
             : $product->store;
+
+        if (! $this->storeCanAcceptProduct($store, $product)) {
+            return back()
+                ->withInput()
+                ->with('error', 'El plan ' . $store->planLabel() . ' permite hasta ' . $store->productLimit() . ' productos.');
+        }
+
         $data = $this->productDataForStore($request, $store);
 
         if (auth()->user()?->isAdmin()) {
@@ -163,11 +188,11 @@ class ProductController extends Controller
         $data['sizes'] = $this->productContentService->optionList($request->sizes);
         $data['colors'] = $this->productContentService->optionList($request->colors);
 
-        if ($store) {
+        if ($store && $store->allowsCategories()) {
             $this->productContentService->ensureStoreCategory($store, $request->category);
         }
 
-        $product->update($this->productFileService->replaceImage($product, $request, $data));
+        $product->update($this->productFileService->replaceImage($product, $request, $data, $store->allowsProductGallery()));
 
         $this->adminUpdateService->record(
             'Producto actualizado',
@@ -195,21 +220,79 @@ class ProductController extends Controller
 
     public function storeBySlug($slug)
     {
-        $store = Store::publiclyAvailable()
+        return $this->storeHome($this->storeFromSlugOrFail($slug));
+    }
+
+    public function storeBySubdomain(Request $request, StoreSubdomainService $subdomains)
+    {
+        return $this->storeHome($this->storeFromSubdomainOrFail($request, $subdomains));
+    }
+
+    public function about($slug)
+    {
+        return $this->storeAbout($this->storeFromSlugOrFail($slug));
+    }
+
+    public function aboutBySubdomain(Request $request, StoreSubdomainService $subdomains)
+    {
+        return $this->storeAbout($this->storeFromSubdomainOrFail($request, $subdomains));
+    }
+
+    public function category($slug, string $category)
+    {
+        return $this->storeCategory($this->storeFromSlugOrFail($slug), $category);
+    }
+
+    public function categoryBySubdomain(Request $request, StoreSubdomainService $subdomains, string $category)
+    {
+        return $this->storeCategory($this->storeFromSubdomainOrFail($request, $subdomains), $category);
+    }
+
+    public function allProducts($slug)
+    {
+        return $this->storeProducts($this->storeFromSlugOrFail($slug));
+    }
+
+    public function allProductsBySubdomain(Request $request, StoreSubdomainService $subdomains)
+    {
+        return $this->storeProducts($this->storeFromSubdomainOrFail($request, $subdomains));
+    }
+
+    public function show($slug, string $product)
+    {
+        return $this->storeProduct($this->storeFromSlugOrFail($slug), $product);
+    }
+
+    public function showBySubdomain(Request $request, StoreSubdomainService $subdomains, string $product)
+    {
+        return $this->storeProduct($this->storeFromSubdomainOrFail($request, $subdomains), $product);
+    }
+
+    private function storeFromSlugOrFail(string $slug): Store
+    {
+        return Store::publiclyAvailable()
             ->where('slug', $slug)
             ->firstOrFail();
+    }
 
+    private function storeFromSubdomainOrFail(Request $request, StoreSubdomainService $subdomains): Store
+    {
+        $store = $subdomains->publicStoreFromRequest($request);
+
+        abort_unless($store, 404);
+
+        return $store;
+    }
+
+    private function storeHome(Store $store)
+    {
         $this->countStoreVisit($store);
 
         return view('store_shop', $this->storefrontPayload($store));
     }
 
-    public function about($slug)
+    private function storeAbout(Store $store)
     {
-        $store = Store::publiclyAvailable()
-            ->where('slug', $slug)
-            ->firstOrFail();
-
         abort_unless($store->hasAboutContent(), 404);
 
         $this->countStoreVisit($store);
@@ -217,14 +300,12 @@ class ProductController extends Controller
         return view('store_about', $this->storefrontNavigationPayload($store));
     }
 
-    public function category($slug, string $category)
+    private function storeCategory(Store $store, string $categorySlug)
     {
-        $store = Store::publiclyAvailable()
-            ->where('slug', $slug)
-            ->firstOrFail();
+        abort_unless($store->allowsCategories(), 404);
 
         $category = $store->categories()
-            ->where('slug', $category)
+            ->where('slug', $categorySlug)
             ->where('is_active', true)
             ->firstOrFail();
 
@@ -233,10 +314,8 @@ class ProductController extends Controller
         $productSearchEnabled = $store->hasProductSearch();
         $searchQuery = $productSearchEnabled ? $this->searchQuery() : '';
 
-        $products = Product::where('store_id', $store->id)
+        $products = $this->publicProductsQuery($store, $searchQuery)
             ->where('category', $category->name)
-            ->when($searchQuery !== '', fn ($query) => $this->applyProductSearch($query, $searchQuery))
-            ->latest()
             ->paginate(8)
             ->withQueryString();
 
@@ -248,20 +327,14 @@ class ProductController extends Controller
         ]));
     }
 
-    public function allProducts($slug)
+    private function storeProducts(Store $store)
     {
-        $store = Store::publiclyAvailable()
-            ->where('slug', $slug)
-            ->firstOrFail();
-
         $this->countStoreVisit($store);
 
         $productSearchEnabled = $store->hasProductSearch();
         $searchQuery = $productSearchEnabled ? $this->searchQuery() : '';
 
-        $products = Product::where('store_id', $store->id)
-            ->when($searchQuery !== '', fn ($query) => $this->applyProductSearch($query, $searchQuery))
-            ->latest()
+        $products = $this->publicProductsQuery($store, $searchQuery)
             ->paginate(24)
             ->withQueryString();
 
@@ -272,23 +345,9 @@ class ProductController extends Controller
         ]));
     }
 
-    public function show($slug, string $product)
+    private function storeProduct(Store $store, string $productKey)
     {
-        $store = Store::publiclyAvailable()
-            ->where('slug', $slug)
-            ->firstOrFail();
-
-        $product = Product::where('store_id', $store->id)
-            ->where(function ($query) use ($product) {
-                $query->where('slug', $product);
-
-                if (ctype_digit($product)) {
-                    $query->orWhere('id', (int) $product);
-                }
-            })
-            ->firstOrFail();
-
-        abort_unless((int) $product->store_id === (int) $store->id, 404);
+        $product = $this->publicProductFromKey($store, $productKey);
 
         $this->countStoreVisit($store);
 
@@ -302,6 +361,19 @@ class ProductController extends Controller
             'product' => $product,
             'relatedProducts' => $relatedProducts,
         ]));
+    }
+
+    private function publicProductFromKey(Store $store, string $productKey): Product
+    {
+        return Product::where('store_id', $store->id)
+            ->where(function ($query) use ($productKey) {
+                $query->where('slug', $productKey);
+
+                if (ctype_digit($productKey)) {
+                    $query->orWhere('id', (int) $productKey);
+                }
+            })
+            ->firstOrFail();
     }
 
     private function storefrontPayload(Store $store): array
@@ -350,9 +422,11 @@ class ProductController extends Controller
             ->take(12)
             ->get();
         $productSearchEnabled = $store->hasProductSearch();
+        $storefrontUrls = app(StorefrontUrlService::class);
 
         return compact(
             'store',
+            'storefrontUrls',
             'products',
             'allProducts',
             'activeCategories',
@@ -367,6 +441,7 @@ class ProductController extends Controller
     {
         return [
             'store' => $store,
+            'storefrontUrls' => app(StorefrontUrlService::class),
             'activeCategories' => $this->activeCategories($store),
             'showAboutSection' => $store->hasAboutContent(),
             'productSearchEnabled' => $store->hasProductSearch(),
@@ -387,9 +462,20 @@ class ProductController extends Controller
         });
     }
 
+    private function publicProductsQuery(Store $store, string $searchQuery = '')
+    {
+        return Product::where('store_id', $store->id)
+            ->when($searchQuery !== '', fn ($query) => $this->applyProductSearch($query, $searchQuery))
+            ->latest();
+    }
+
     private function productDataForStore(ProductRequest $request, Store $store): array
     {
         $data = $request->baseData();
+
+        if (! $store->allowsCategories()) {
+            $data['category'] = null;
+        }
 
         if (! Product::supportsInventoryColumns()) {
             unset($data['stock_quantity'], $data['is_sold_out']);
@@ -405,8 +491,31 @@ class ProductController extends Controller
         return $data;
     }
 
+    private function storeCanAcceptProduct(Store $store, Product $product): bool
+    {
+        if ((int) $product->store_id === (int) $store->id) {
+            return true;
+        }
+
+        $limit = $store->productLimit();
+
+        if ($limit === null) {
+            return true;
+        }
+
+        $count = $store->products()
+            ->whereKeyNot($product->id)
+            ->count();
+
+        return $count < $limit;
+    }
+
     private function activeCategories(Store $store)
     {
+        if (! $store->allowsCategories()) {
+            return collect();
+        }
+
         $store->ensureCategoryRecords();
 
         return $store->categories()

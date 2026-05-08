@@ -2,8 +2,8 @@
     <div class="landing-shell">
         <div class="section-head testimonials-head">
             <span class="section-kicker">Testimonios</span>
-            <h2>Negocios que ya se ven mas profesionales online.</h2>
-            <p>Historias cortas de tiendas que ordenaron su catalogo, compartieron un mejor enlace y recibieron pedidos mas claros.</p>
+            <h2>Negocios que ya se ven más profesionales online.</h2>
+            <p>Historias cortas de tiendas que ordenaron su catálogo, compartieron un mejor enlace y recibieron pedidos más claros.</p>
         </div>
 
         <div class="testimonial-grid">

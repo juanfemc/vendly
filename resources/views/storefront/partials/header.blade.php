@@ -1,6 +1,27 @@
-<header class="navbar">
+@php
+    $announcementMessages = \App\Models\Store::supportsCommercialNoticeColumns()
+        ? $store->announcementMessages()
+        : [];
+@endphp
+
+<div class="storefront-topbar" data-storefront-topbar>
+    @if(! empty($announcementMessages))
+        <section class="store-announcement-bar" aria-label="Avisos de la tienda" data-announcement-bar>
+            <div class="shell store-announcement-shell">
+                <div class="store-announcement-viewport">
+                    @foreach($announcementMessages as $announcementIndex => $announcementMessage)
+                        <p class="store-announcement-message {{ $announcementIndex === 0 ? 'is-active' : '' }}" data-announcement-message>
+                            {{ $announcementMessage }}
+                        </p>
+                    @endforeach
+                </div>
+            </div>
+        </section>
+    @endif
+
+    <header class="navbar">
     <div class="shell navbar-inner">
-        <a href="{{ route('store.show', $store->slug) }}" class="brand" aria-label="{{ $store->name }}">
+        <a href="{{ $storefrontUrls->home($store) }}" class="brand" aria-label="{{ $store->name }}">
             @if($store->logo_image)
                 <img src="{{ asset('storage/' . $store->logo_image) }}" alt="{{ $store->name }}" class="brand-logo" loading="eager" decoding="async">
             @endif
@@ -44,11 +65,11 @@
             </div>
 
             <nav class="nav-links" aria-label="Navegacion principal">
-                <a href="{{ route('store.show', $store->slug) }}">Inicio</a>
+                <a href="{{ $storefrontUrls->home($store) }}">Inicio</a>
                 @if($showAboutSection ?? false)
-                    <a href="{{ route('store.about', $store->slug) }}">Nosotros</a>
+                    <a href="{{ $storefrontUrls->about($store) }}">Nosotros</a>
                 @endif
-                <a href="{{ route('store.products.index', $store->slug) }}">{{ $isReservationStore ? 'Todos los servicios' : 'Productos' }}</a>
+                <a href="{{ $storefrontUrls->products($store) }}">{{ $isRestaurant ? 'Carta completa' : ($isReservationStore ? 'Todos los servicios' : 'Productos') }}</a>
                 @if(($activeCategories ?? collect())->isNotEmpty())
                     <div class="nav-dropdown">
                         <button type="button" class="nav-dropdown-button" aria-haspopup="true" aria-expanded="false" aria-controls="storefrontCategoryMenu">
@@ -57,7 +78,7 @@
                         </button>
                         <div class="nav-dropdown-menu" id="storefrontCategoryMenu">
                             @foreach(($activeCategories ?? collect()) as $categoryLink)
-                                <a href="{{ route('store.category.show', ['slug' => $store->slug, 'category' => $categoryLink->slug]) }}">
+                                <a href="{{ $storefrontUrls->category($store, $categoryLink) }}">
                                     {{ $categoryLink->name }}
                                 </a>
                             @endforeach
@@ -92,3 +113,4 @@
         <button type="button" class="nav-backdrop" aria-label="Cerrar menu"></button>
     </div>
 </header>
+</div>

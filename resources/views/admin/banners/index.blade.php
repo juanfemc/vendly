@@ -11,33 +11,55 @@
 @endif
 
 @if ($banners->isEmpty())
-    <div class="list-card">No hay banners registrados.</div>
+    <div class="panel-empty">
+        <h3>No hay banners registrados</h3>
+        <p>Crea un banner para destacar noticias, promociones o mensajes en las tiendas.</p>
+        <a href="/admin/banners/create" class="btn">Crear banner</a>
+    </div>
 @endif
 
-@foreach($banners as $banner)
-    <div class="list-card">
-        <img src="{{ asset('storage/' . $banner->image) }}" alt="{{ $banner->title ?: 'Banner' }}" style="width:100%; max-width:420px; max-height:180px; object-fit:cover; border-radius:10px; display:block; margin-bottom:12px;">
-        <strong>{{ $banner->title ?: 'Sin titulo' }}</strong><br>
-        Tienda: {{ $banner->applies_to_all ? 'Todas las tiendas' : ($banner->store->name ?? 'Sin tienda') }}<br>
-        Texto: {{ $banner->subtitle ?: 'Sin subtítulo' }}<br>
-        Orden: {{ $banner->sort_order }}<br>
-        Estado: {{ $banner->is_active ? 'Activo' : 'Inactivo' }}<br><br>
+<div class="panel-list">
+    @foreach($banners as $banner)
+        <article class="list-card resource-card resource-card--with-media">
+            <div class="resource-card__media">
+                <img src="{{ asset('storage/' . $banner->image) }}" alt="{{ $banner->title ?: 'Banner' }}">
+            </div>
 
-        <a href="{{ route('admin.banners.edit', $banner) }}" class="btn" style="display:inline-block; margin-right:8px;">Editar</a>
+            <div class="resource-card__main">
+                <div class="resource-card__header">
+                    <div>
+                        <h3 class="resource-card__title">{{ $banner->title ?: 'Sin titulo' }}</h3>
+                        <p class="resource-card__subtitle">{{ $banner->applies_to_all ? 'Todas las tiendas' : ($banner->store->name ?? 'Sin tienda') }}</p>
+                    </div>
+                    <div class="resource-badges">
+                        <span class="resource-badge {{ $banner->is_active ? 'resource-badge--active' : 'resource-badge--inactive' }}">
+                            {{ $banner->is_active ? 'Activo' : 'Inactivo' }}
+                        </span>
+                        <span class="resource-badge">Orden {{ $banner->sort_order }}</span>
+                    </div>
+                </div>
 
-        <form method="POST" action="{{ route('admin.banners.toggle', $banner) }}" style="display:inline-block; margin-right:8px;">
-            @csrf
-            @method('PATCH')
-            <button type="submit" class="btn">
-                {{ $banner->is_active ? 'Desactivar' : 'Activar' }}
-            </button>
-        </form>
+                <p class="resource-card__description">{{ $banner->subtitle ?: 'Sin subtitulo' }}</p>
+            </div>
 
-        <form method="POST" action="{{ route('admin.banners.destroy', $banner) }}" style="display:inline-block;" data-confirm-delete data-confirm-message="Seguro que quieres eliminar este banner? Esta accion no se puede deshacer.">
-            @csrf
-            @method('DELETE')
-            <button type="submit" class="btn btn-secondary">Eliminar</button>
-        </form>
-    </div>
-@endforeach
+            <div class="resource-actions">
+                <a href="{{ route('admin.banners.edit', $banner) }}" class="btn">Editar</a>
+
+                <form method="POST" action="{{ route('admin.banners.toggle', $banner) }}">
+                    @csrf
+                    @method('PATCH')
+                    <button type="submit" class="btn {{ $banner->is_active ? 'btn-warning' : 'btn-success' }}">
+                        {{ $banner->is_active ? 'Desactivar' : 'Activar' }}
+                    </button>
+                </form>
+
+                <form method="POST" action="{{ route('admin.banners.destroy', $banner) }}" data-confirm-delete data-confirm-message="Seguro que quieres eliminar este banner? Esta accion no se puede deshacer.">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </form>
+            </div>
+        </article>
+    @endforeach
+</div>
 @endsection

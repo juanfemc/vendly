@@ -2,7 +2,7 @@
     @if($showHeroProductsAction)
         <div class="store-hero-products-action">
             <p class="store-hero-short-copy">{{ $heroShortCopy }}</p>
-            <a href="{{ route('store.products.index', $store->slug) }}" class="catalog-all-link">
+            <a href="{{ $storefrontUrls->products($store) }}" class="catalog-all-link">
                 Ver todos los {{ $itemsLabel }}
             </a>
         </div>
@@ -30,7 +30,7 @@
                         <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" loading="lazy" decoding="async">
                     @endif
                 </div>
-                <a href="{{ route('store.product.show', ['slug' => $store->slug, 'product' => $product->publicRouteKey()]) }}">Explorar</a>
+                <a href="{{ $storefrontUrls->product($store, $product) }}">Explorar</a>
             </div>
         </article>
     @endforeach
@@ -77,7 +77,7 @@
                         @endif
                         <button type="submit">{{ $addLabel }}</button>
                     </form>
-                    <a href="{{ route('store.product.show', ['slug' => $store->slug, 'product' => $secondaryProduct->publicRouteKey()]) }}" class="tech-detail-link">Comprar ahora</a>
+                    <a href="{{ $storefrontUrls->product($store, $secondaryProduct) }}" class="tech-detail-link">Comprar ahora</a>
                 </div>
             </div>
 

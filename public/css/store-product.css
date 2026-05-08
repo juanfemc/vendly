@@ -247,6 +247,91 @@
     color: var(--ink);
 }
 
+.product-share {
+    display: grid;
+    gap: 14px;
+    padding: 20px 0 22px;
+    border-top: 1px solid var(--line);
+}
+
+.product-share h2 {
+    margin: 0 0 6px;
+    font-size: 17px;
+}
+
+.product-share-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.product-share-button {
+    width: 48px;
+    height: 48px;
+    min-height: 48px;
+    flex: 0 0 48px;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    color: var(--ink);
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.1;
+    text-align: center;
+    text-decoration: none;
+}
+
+.product-share-button img {
+    width: 24px;
+    height: 24px;
+    display: block;
+    object-fit: contain;
+}
+
+.product-share-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+}
+
+.product-share-button:hover,
+.product-share-button:focus-visible {
+    border-color: var(--brand-color, #111);
+    outline: none;
+}
+
+.product-share-button--facebook {
+    background: #1877f2;
+    border-color: #1877f2;
+    color: #fff;
+}
+
+.product-share-button--whatsapp {
+    background: #25d366;
+    border-color: #25d366;
+    color: #063f21;
+}
+
+.product-share-button--x {
+    background: #fff;
+    border-color: #111;
+    color: #111;
+}
+
+.product-share-button--copy {
+    background: color-mix(in srgb, var(--brand-color, #111) 8%, white);
+    color: var(--ink);
+}
+
 .product-detail-form {
     margin: 0 0 14px;
 }
@@ -297,6 +382,23 @@
     background: #fff;
     color: var(--ink);
     border: 1px solid var(--line);
+}
+
+.product-detail-whatsapp {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: #25d366;
+    border-color: #25d366;
+    color: #063f21;
+}
+
+.product-detail-whatsapp img {
+    width: 22px;
+    height: 22px;
+    display: block;
+    object-fit: contain;
 }
 
 .product-related {
@@ -353,5 +455,9 @@
 
     .product-options--detail {
         grid-template-columns: 1fr;
+    }
+
+    .product-share-actions {
+        gap: 8px;
     }
 }

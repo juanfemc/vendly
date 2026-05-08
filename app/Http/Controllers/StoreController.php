@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreRequest;
 use App\Http\Requests\StoreSettingsRequest;
+use App\Models\Product;
 use App\Models\Store;
 use App\Models\User;
 use App\Services\AdminUpdateService;
@@ -43,8 +44,6 @@ class StoreController extends Controller
 
     public function visits()
     {
-        $this->authorize('create', Store::class);
-
         if (! Schema::hasColumn('stores', 'views_count')) {
             $stores = new LengthAwarePaginator([], 0, 10);
 
@@ -54,6 +53,24 @@ class StoreController extends Controller
                 'needsMigration' => true,
             ]);
         }
+
+        if (! auth()->user()?->isAdmin()) {
+            $store = auth()->user()?->store ?? auth()->user()?->stores()->first();
+
+            abort_if(! $store, 404);
+            abort_unless($store->allowsVisitStats(), 403);
+
+            $stores = new LengthAwarePaginator(collect([$store]), 1, 10);
+
+            return view('admin.stores.visits', [
+                'stores' => $stores,
+                'totalVisits' => (int) ($store->views_count ?? 0),
+                'needsMigration' => false,
+                'selectedStore' => $store,
+            ]);
+        }
+
+        $this->authorize('create', Store::class);
 
         $stores = Store::with('user')
             ->where('views_count', '>', 0)
@@ -107,7 +124,17 @@ class StoreController extends Controller
     {
         $this->authorize('update', $store);
 
-        $store->update($this->storeFileService->replaceUploadedImages($store, $request, $request->storeData()));
+        $storeData = $request->storeData();
+        $requestedPlan = $storeData['plan'] ?? $store->plan;
+
+        if (! $this->storeCanUsePlan($store, $requestedPlan)) {
+            return back()
+                ->withInput()
+                ->with('error', 'Esta tienda tiene mas productos que los permitidos por el plan ' . Store::planOptions()[$requestedPlan] . '.');
+        }
+
+        $store->update($this->storeFileService->replaceUploadedImages($store, $request, $storeData));
+        $this->enforcePlanLimits($store);
 
         $this->adminUpdateService->record(
             'Tienda actualizada',
@@ -153,6 +180,7 @@ class StoreController extends Controller
         $this->authorize('update', $store);
 
         $store->update($this->storeFileService->replaceUploadedImages($store, $request, $request->settingsData()));
+        $this->enforcePlanLimits($store);
 
         $this->adminUpdateService->record(
             'Configuracion de tienda actualizada',
@@ -162,6 +190,43 @@ class StoreController extends Controller
         );
 
         return redirect('/admin/store-settings')->with('success', 'Configuración de tienda actualizada.');
+    }
+
+    private function enforcePlanLimits(Store $store): void
+    {
+        if (! $store->allowsCategories()) {
+            Product::where('store_id', $store->id)->update(['category' => null]);
+        }
+
+        if (! $store->allowsProductGallery()) {
+            Product::where('store_id', $store->id)->update(['images' => null]);
+        }
+
+        if (! $store->allowsFullCustomization()) {
+            $store->forceFill([
+                'brand_color' => null,
+                'background_color' => null,
+                'text_color' => Store::automaticTextColorFor(null),
+                'font_family' => 'system',
+                'responsive_product_columns' => 2,
+                'show_hero_products_action' => false,
+            ])->save();
+        }
+    }
+
+    private function storeCanUsePlan(Store $store, string $plan): bool
+    {
+        if ($plan === $store->plan) {
+            return true;
+        }
+
+        $limit = match ($plan) {
+            Store::PLAN_BASIC => Store::BASIC_PRODUCT_LIMIT,
+            Store::PLAN_PRO => Store::PRO_PRODUCT_LIMIT,
+            default => null,
+        };
+
+        return $limit === null || $store->products()->count() <= $limit;
     }
     
 }

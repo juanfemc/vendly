@@ -109,6 +109,31 @@
         min-width: 0;
     }
 
+    .announcement-list {
+        display: grid;
+        gap: 10px;
+    }
+
+    .announcement-row {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+    }
+
+    .announcement-number {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #eef2ff;
+        color: #3730a3;
+        font-size: 13px;
+        font-weight: 800;
+    }
+
     .settings-media-preview {
         width: 100%;
         border: 1px solid #e5e7eb;
@@ -213,6 +238,31 @@
             </div>
 
             <div class="settings-field">
+                <label class="field-label" for="store_plan">Plan actual</label>
+                <input id="store_plan" class="settings-readonly-input" type="text" value="{{ $store->planLabel() }}" readonly>
+                <p class="settings-help">El plan lo cambia el administrador.</p>
+            </div>
+
+            @if($store->allowsSubdomain())
+                @php
+                    $storefrontHost = parse_url(config('app.url'), PHP_URL_HOST) ?: request()->getHost();
+                @endphp
+                <div class="settings-field">
+                    <label class="field-label" for="store_subdomain">Subdominio</label>
+                    <input id="store_subdomain" type="text" name="subdomain" value="{{ old('subdomain', $store->subdomain) }}" placeholder="mitienda">
+                    <p class="settings-help">
+                        Tu tienda podra usarse como {{ old('subdomain', $store->subdomain) ?: 'mitienda' }}.{{ $storefrontHost }}.
+                    </p>
+                </div>
+            @else
+                <div class="settings-field">
+                    <label class="field-label" for="store_subdomain_locked">Subdominio</label>
+                    <input id="store_subdomain_locked" class="settings-readonly-input" type="text" value="Disponible desde el plan Pro" readonly>
+                    <p class="settings-help">El plan Basico mantiene la URL normal de la tienda.</p>
+                </div>
+            @endif
+
+            <div class="settings-field">
                 <label class="field-label" for="store_location">Ubicacion o direccion</label>
                 <input id="store_location" type="text" name="location" value="{{ old('location', $store->location) }}" placeholder="Ubicacion o direccion (opcional)">
             </div>
@@ -261,15 +311,86 @@
         </section>
     @endif
 
+    @if($store->allowsCommercialNotices())
     <section class="settings-section">
         <div class="settings-section-head">
             <div>
-                <h3 class="settings-section-title">Apariencia</h3>
-                <p class="settings-section-copy">Configura paletas, colores y fuente de la experiencia publica.</p>
+                <h3 class="settings-section-title">Avisos comerciales</h3>
+                <p class="settings-section-copy">Mensajes cortos que rotan arriba de la tienda para comunicar descuentos, entregas, pagos o promociones.</p>
             </div>
         </div>
-        @include('admin.stores.partials.theme-fields', ['store' => $store])
+
+        @php
+            $announcementItems = old('announcement_items', $store->announcement_items ?? []);
+            $announcementTexts = collect($announcementItems)->pluck('text')->values();
+        @endphp
+
+        <div class="settings-grid">
+            <div class="settings-field">
+                <label class="field-label" for="free_shipping_minimum">Envio gratis desde</label>
+                <input id="free_shipping_minimum" type="number" name="free_shipping_minimum" value="{{ old('free_shipping_minimum', $store->free_shipping_minimum) }}" min="0" step="1000" placeholder="Ej: 150000">
+                <p class="settings-help">Si agregas un monto, se mostrara automaticamente como aviso superior.</p>
+            </div>
+
+            <div class="settings-field settings-field--full">
+                <div class="field-label">Avisos rotativos</div>
+                <div class="announcement-list">
+                    @for($announcementIndex = 0; $announcementIndex < 5; $announcementIndex++)
+                        <label class="announcement-row">
+                            <span class="announcement-number">{{ $announcementIndex + 1 }}</span>
+                            <input
+                                type="text"
+                                name="announcement_items[{{ $announcementIndex }}][text]"
+                                value="{{ old('announcement_items.' . $announcementIndex . '.text', $announcementTexts[$announcementIndex] ?? '') }}"
+                                maxlength="140"
+                                placeholder="{{ [
+                                    '10% OFF pagando por transferencia',
+                                    'Entregas hoy hasta las 6:00 p.m.',
+                                    'Recoge en tienda sin costo adicional',
+                                    'Aceptamos Nequi, Daviplata y efectivo',
+                                    'Pedidos personalizados por WhatsApp',
+                                ][$announcementIndex] }}"
+                            >
+                        </label>
+                    @endfor
+                </div>
+                <p class="settings-help">Usa mensajes breves. La tienda mostrara uno a la vez y rotara automaticamente.</p>
+            </div>
+        </div>
     </section>
+    @else
+        <section class="settings-section">
+            <div class="settings-section-head">
+                <div>
+                    <h3 class="settings-section-title">Avisos comerciales</h3>
+                    <p class="settings-section-copy">Tu plan actual no incluye avisos superiores ni envio gratis destacado.</p>
+                </div>
+            </div>
+            <p class="settings-help">En el plan Basico la tienda se mantiene simple: productos, carrito por WhatsApp, logo, portada y personalizacion basica.</p>
+        </section>
+    @endif
+
+    @if($store->allowsFullCustomization())
+        <section class="settings-section">
+            <div class="settings-section-head">
+                <div>
+                    <h3 class="settings-section-title">Apariencia</h3>
+                    <p class="settings-section-copy">Configura paletas, colores y fuente de la experiencia publica.</p>
+                </div>
+            </div>
+            @include('admin.stores.partials.theme-fields', ['store' => $store])
+        </section>
+    @else
+        <section class="settings-section">
+            <div class="settings-section-head">
+                <div>
+                    <h3 class="settings-section-title">Apariencia</h3>
+                    <p class="settings-section-copy">Tu plan actual incluye personalizacion basica: logo, portada y datos principales.</p>
+                </div>
+            </div>
+            <p class="settings-help">La personalizacion completa de colores, fuentes y vistas del catalogo esta disponible desde el plan Pro.</p>
+        </section>
+    @endif
 
     <section class="settings-section">
         <div class="settings-section-head">
@@ -319,32 +440,34 @@
         </div>
     </section>
 
-    <section class="settings-section">
-        <div class="settings-section-head">
-            <div>
-                <h3 class="settings-section-title">Catalogo y portada</h3>
-                <p class="settings-section-copy">Ajustes visuales de productos y acciones sobre la portada.</p>
+    @if($store->allowsFullCustomization())
+        <section class="settings-section">
+            <div class="settings-section-head">
+                <div>
+                    <h3 class="settings-section-title">Catalogo y portada</h3>
+                    <p class="settings-section-copy">Ajustes visuales de productos y acciones sobre la portada.</p>
+                </div>
             </div>
-        </div>
 
-        <div class="settings-grid">
-            <div class="settings-field">
-                <label class="field-label" for="responsive_product_columns">Columnas de productos en responsive</label>
-                <select id="responsive_product_columns" name="responsive_product_columns">
-                    <option value="1" @selected((int) old('responsive_product_columns', $store->responsive_product_columns ?? 2) === 1)>1 columna</option>
-                    <option value="2" @selected((int) old('responsive_product_columns', $store->responsive_product_columns ?? 2) === 2)>2 columnas</option>
-                    <option value="3" @selected((int) old('responsive_product_columns', $store->responsive_product_columns ?? 2) === 3)>3 columnas</option>
-                </select>
+            <div class="settings-grid">
+                <div class="settings-field">
+                    <label class="field-label" for="responsive_product_columns">Columnas de productos en responsive</label>
+                    <select id="responsive_product_columns" name="responsive_product_columns">
+                        <option value="1" @selected((int) old('responsive_product_columns', $store->responsive_product_columns ?? 2) === 1)>1 columna</option>
+                        <option value="2" @selected((int) old('responsive_product_columns', $store->responsive_product_columns ?? 2) === 2)>2 columnas</option>
+                        <option value="3" @selected((int) old('responsive_product_columns', $store->responsive_product_columns ?? 2) === 3)>3 columnas</option>
+                    </select>
+                </div>
+                <div class="settings-field">
+                    <label class="field-label" for="show_hero_products_action">Boton y texto sobre la portada</label>
+                    <select id="show_hero_products_action" name="show_hero_products_action">
+                        <option value="1" @selected((bool) old('show_hero_products_action', $store->show_hero_products_action ?? false))>Habilitado</option>
+                        <option value="0" @selected(! (bool) old('show_hero_products_action', $store->show_hero_products_action ?? false))>Deshabilitado</option>
+                    </select>
+                </div>
             </div>
-            <div class="settings-field">
-                <label class="field-label" for="show_hero_products_action">Boton y texto sobre la portada</label>
-                <select id="show_hero_products_action" name="show_hero_products_action">
-                    <option value="1" @selected((bool) old('show_hero_products_action', $store->show_hero_products_action ?? false))>Habilitado</option>
-                    <option value="0" @selected(! (bool) old('show_hero_products_action', $store->show_hero_products_action ?? false))>Deshabilitado</option>
-                </select>
-            </div>
-        </div>
-    </section>
+        </section>
+    @endif
 
     <section class="settings-section">
         <div class="settings-section-head">

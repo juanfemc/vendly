@@ -9,6 +9,10 @@
     <div class="flash success">{{ session('success') }}</div>
 @endif
 
+@if (session('error'))
+    <div class="flash error">{{ session('error') }}</div>
+@endif
+
 @if ($errors->any())
     <div class="flash error">
         @foreach ($errors->all() as $error)
@@ -18,15 +22,29 @@
 @endif
 
 @if(auth()->user()->isAdmin() && empty($selectedStore))
-    @foreach(($stores ?? collect()) as $storeOption)
-        <div class="list-card" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-            <div>
-                <strong>{{ $storeOption->name }}</strong><br>
-                <span style="color:#6b7280; font-size:13px;">{{ $storeOption->categories_count }} categoria(s)</span>
+    <div class="panel-list">
+        @foreach(($stores ?? collect()) as $storeOption)
+            <div class="list-card resource-card">
+                <div class="resource-card__main">
+                    <div class="resource-card__header">
+                        <div>
+                            <h3 class="resource-card__title">{{ $storeOption->name }}</h3>
+                            <p class="resource-card__subtitle">Gestiona las categorias de esta tienda</p>
+                        </div>
+                        <div class="resource-badges">
+                            <span class="resource-badge">Plan {{ $storeOption->planLabel() }}</span>
+                            <span class="resource-badge">{{ $storeOption->categories_count }} categoria(s)</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="resource-actions">
+                    <a href="{{ route('admin.stores.categories.index', $storeOption) }}" class="btn">
+                        {{ $storeOption->allowsCategories() ? 'Ver categorias' : 'Ver limite' }}
+                    </a>
+                </div>
             </div>
-            <a href="{{ route('admin.stores.categories.index', $storeOption) }}" class="btn">Ver categorias</a>
-        </div>
-    @endforeach
+        @endforeach
+    </div>
 
     @if(($stores ?? null) && method_exists($stores, 'hasPages') && $stores->hasPages())
         <div class="list-card admin-pagination">
@@ -35,15 +53,23 @@
     @endif
 @else
     @if(auth()->user()->isAdmin() && ! empty($selectedStore))
-        <div class="list-card" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-            <div>
-                <strong>{{ $selectedStore->name }}</strong><br>
-                <span style="color:#6b7280; font-size:13px;">Categorias de esta tienda</span>
+        <div class="list-card resource-card">
+            <div class="resource-card__main">
+                <h3 class="resource-card__title">{{ $selectedStore->name }}</h3>
+                <p class="resource-card__subtitle">Categorias de esta tienda</p>
             </div>
-            <a href="/admin/categories" class="btn btn-secondary">Volver a tiendas</a>
+            <div class="resource-actions">
+                <a href="/admin/categories" class="btn btn-secondary">Volver a tiendas</a>
+            </div>
         </div>
     @endif
 
+    @if(! empty($categoriesLocked))
+        <div class="panel-empty">
+            <h3>Categorias no disponibles</h3>
+            <p>El plan {{ $store->planLabel() }} no incluye categorias. Los productos se muestran como un catalogo simple.</p>
+        </div>
+    @else
     <div class="list-card">
         <h3 style="margin-top:0;">Crear categoria</h3>
         <form method="POST" action="{{ route('admin.categories.store') }}" enctype="multipart/form-data">
@@ -72,7 +98,7 @@
                 </select>
             </label>
             <label style="display:flex; gap:8px; align-items:center; margin:10px 0;">
-                <input type="checkbox" name="is_active" value="1" checked>
+                <input type="checkbox" name="is_active" value="1" checked style="width:auto; margin:0;">
                 <span>Categoria visible</span>
             </label>
             <button class="btn" type="submit">Agregar categoria</button>
@@ -80,12 +106,14 @@
     </div>
 
     @if ($categories->isEmpty())
-        <div class="list-card">No hay categorias registradas.</div>
+        <div class="panel-empty">
+            <h3>No hay categorias registradas</h3>
+            <p>Crea categorias para ordenar el catalogo y facilitar la exploracion de productos.</p>
+        </div>
     @endif
 
-    @foreach ($categories as $category)
-        <div class="list-card">
-            <strong>{{ $category->name }}</strong>
+    <div class="panel-list">
+        @foreach ($categories as $category)
             @php
                 $positionLabel = [
                     0 => 'Normal',
@@ -97,24 +125,45 @@
                     100 => 'Al final',
                 ][$category->sort_order] ?? 'Personalizada';
             @endphp
-            <div style="color:#666; margin-top:6px;">/{{ $category->slug }} - {{ $positionLabel }} - {{ $category->is_active ? 'Visible' : 'Oculta' }}</div>
-            @if($category->description)
-                <p style="margin-bottom:0;">{{ $category->description }}</p>
-            @endif
-            @if($category->image)
-                <img src="{{ asset('storage/' . $category->image) }}" alt="{{ $category->name }}" style="width:120px; height:80px; object-fit:cover; border-radius:10px; margin-top:12px;">
-            @endif
 
-            <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:14px;">
-                <a href="{{ route('admin.categories.edit', $category) }}" class="btn">Editar</a>
+            <article class="list-card resource-card {{ $category->image ? 'resource-card--with-media' : '' }}">
+                @if($category->image)
+                    <div class="resource-card__media">
+                        <img src="{{ asset('storage/' . $category->image) }}" alt="{{ $category->name }}">
+                    </div>
+                @endif
 
-                <form method="POST" action="{{ route('admin.categories.destroy', $category) }}" data-confirm-delete data-confirm-message="Eliminar esta categoria? Los productos quedaran sin categoria.">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="btn btn-secondary">Eliminar</button>
-                </form>
-            </div>
-        </div>
-    @endforeach
+                <div class="resource-card__main">
+                    <div class="resource-card__header">
+                        <div>
+                            <h3 class="resource-card__title">{{ $category->name }}</h3>
+                            <p class="resource-card__subtitle">/{{ $category->slug }}</p>
+                        </div>
+                        <div class="resource-badges">
+                            <span class="resource-badge {{ $category->is_active ? 'resource-badge--active' : 'resource-badge--inactive' }}">
+                                {{ $category->is_active ? 'Visible' : 'Oculta' }}
+                            </span>
+                            <span class="resource-badge">{{ $positionLabel }}</span>
+                        </div>
+                    </div>
+
+                    @if($category->description)
+                        <p class="resource-card__description">{{ $category->description }}</p>
+                    @endif
+                </div>
+
+                <div class="resource-actions">
+                    <a href="{{ route('admin.categories.edit', $category) }}" class="btn">Editar</a>
+
+                    <form method="POST" action="{{ route('admin.categories.destroy', $category) }}" data-confirm-delete data-confirm-message="Eliminar esta categoria? Los productos quedaran sin categoria.">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-danger">Eliminar</button>
+                    </form>
+                </div>
+            </article>
+        @endforeach
+    </div>
+    @endif
 @endif
 @endsection

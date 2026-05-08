@@ -29,7 +29,15 @@
                 <option value="{{ $value }}" @selected(old('business_type', 'store') === $value)>{{ $label }}</option>
             @endforeach
         </select>
+        <label class="field-label" for="plan">Plan</label>
+        <select id="plan" name="plan" required>
+            @foreach (\App\Models\Store::planOptions() as $value => $label)
+                <option value="{{ $value }}" @selected(old('plan', \App\Models\Store::PLAN_BASIC) === $value)>{{ $label }}</option>
+            @endforeach
+        </select>
         <input type="text" name="slug" value="{{ old('slug') }}" placeholder="Slug (ej: mitienda)">
+        <label class="field-label" for="subdomain">Subdominio Pro/Premium</label>
+        <input id="subdomain" type="text" name="subdomain" value="{{ old('subdomain') }}" placeholder="Subdominio (ej: mitienda)">
         <input type="text" name="whatsapp" value="{{ old('whatsapp') }}" placeholder="WhatsApp">
         <input type="text" name="location" value="{{ old('location') }}" placeholder="Ubicacion o direccion (opcional)">
         <label class="field-label" for="business_hours">Horario de atencion</label>

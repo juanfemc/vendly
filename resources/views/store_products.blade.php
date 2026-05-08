@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     @php
         $page = \App\View\Models\StorefrontPageViewModel::from($store);
-        $publicBaseUrl = $page->publicBaseUrl;
         $absoluteStorageUrl = fn (?string $path) => $page->storageUrl($path);
         $storageAssetUrl = fn (?string $path) => $path ? asset('storage/' . $path) : null;
         $isRestaurant = $store->isRestaurant();
@@ -20,7 +19,7 @@
         $canManageStore = $page->canManageStore;
         $businessLabel = $isRestaurant ? 'Restaurante' : ($isReservationStore ? 'Reservas' : 'Tienda');
         $cartLabel = $isRestaurant ? 'Pedido' : ($isReservationStore ? 'Reserva' : 'Carrito');
-        $collectionLabelTitle = $isRestaurant ? 'Menu' : ($isReservationStore ? 'Servicios' : 'Catalogo');
+        $collectionLabelTitle = $isRestaurant ? 'Carta completa' : ($isReservationStore ? 'Servicios' : 'Catalogo');
         $itemsLabel = $isRestaurant ? 'platos' : ($isReservationStore ? 'servicios' : 'productos');
         $addLabel = $isRestaurant ? 'Agregar al pedido' : ($isReservationStore ? 'Agregar a la reserva' : 'Agregar al carrito');
         $showStorefrontSectionLinks = false;
@@ -37,10 +36,12 @@
         $cardClass = $isTechnologyStore ? 'tech-product-card' : ($isRestaurant ? 'restaurant-product-card' : ($isSupplementStore ? 'supplements-product-card' : ''));
         $faviconImage = $storageAssetUrl($store->logo_image) ?: asset('images/vendly-logo.svg');
         $seoImage = $absoluteStorageUrl($store->cover_image) ?: $absoluteStorageUrl($store->logo_image);
-        $metaUrl = $publicBaseUrl . '/' . $store->slug . '/productos';
-        $fallbackDescription = $isReservationStore
-            ? 'Explora todos los servicios de ' . $store->name . ' y solicita tu reserva por WhatsApp.'
-            : 'Explora todos los ' . $itemsLabel . ' de ' . $store->name . ' y compra por WhatsApp.';
+        $metaUrl = $storefrontUrls->products($store);
+        $fallbackDescription = $isRestaurant
+            ? 'Explora la carta completa de ' . $store->name . ' y envia tu pedido por WhatsApp.'
+            : ($isReservationStore
+                ? 'Explora todos los servicios de ' . $store->name . ' y solicita tu reserva por WhatsApp.'
+                : 'Explora todos los ' . $itemsLabel . ' de ' . $store->name . ' y compra por WhatsApp.');
         $seo = \App\Support\SeoMeta::category($store, $collectionLabelTitle, null, $metaUrl, $seoImage, $fallbackDescription, $faviconImage);
         $brandTheme = \App\Support\BrandTheme::from($store->brand_color);
         $responsiveProductColumns = in_array((int) $store->responsive_product_columns, [1, 2, 3], true) ? (int) $store->responsive_product_columns : 2;

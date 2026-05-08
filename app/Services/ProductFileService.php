@@ -30,7 +30,7 @@ class ProductFileService
             ->all();
     }
 
-    public function replaceImage(Product $product, Request $request, array $data): array
+    public function replaceImage(Product $product, Request $request, array $data, bool $allowGallery = true): array
     {
         $existingImages = collect($product->images ?? []);
         $removeImages = collect($request->input('remove_images', []))
@@ -38,7 +38,7 @@ class ProductFileService
             ->intersect($existingImages)
             ->values();
 
-        if ($removeImages->isNotEmpty()) {
+        if ($allowGallery && $removeImages->isNotEmpty()) {
             $this->publicFileService->deleteMany($removeImages);
             $existingImages = $existingImages
                 ->reject(fn ($image) => $removeImages->contains($image))
@@ -51,7 +51,7 @@ class ProductFileService
             $data['image'] = $request->file('image')->store('products', 'public');
         }
 
-        if ($request->hasFile('images')) {
+        if ($allowGallery && $request->hasFile('images')) {
             $newImages = $this->storeImages($request);
 
             if (! $product->image && ! ($data['image'] ?? null) && ! empty($newImages)) {

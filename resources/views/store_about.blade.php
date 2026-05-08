@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     @php
         $page = \App\View\Models\StorefrontPageViewModel::from($store);
-        $publicBaseUrl = $page->publicBaseUrl;
         $absoluteStorageUrl = fn (?string $path) => $page->storageUrl($path);
         $storageAssetUrl = fn (?string $path) => $path ? asset('storage/' . $path) : null;
         $isRestaurant = $store->isRestaurant();
@@ -36,7 +35,7 @@
         ];
         $faviconImage = $storageAssetUrl($store->logo_image) ?: asset('images/vendly-logo.svg');
         $seoImage = $absoluteStorageUrl($store->cover_image) ?: $absoluteStorageUrl($store->logo_image);
-        $metaUrl = $publicBaseUrl . '/' . $store->slug . '/nosotros';
+        $metaUrl = $storefrontUrls->about($store);
         $fallbackDescription = 'Conoce la mision y vision de ' . $store->name . '.';
         $seo = \App\Support\SeoMeta::category($store, 'Nosotros', null, $metaUrl, $seoImage, $fallbackDescription, $faviconImage);
         $brandTheme = \App\Support\BrandTheme::from($store->brand_color);

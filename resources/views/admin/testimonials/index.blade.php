@@ -25,35 +25,54 @@
 @endif
 
 @if ($testimonials->isEmpty() && ! ($needsMigration ?? false))
-    <div class="list-card">No hay testimonios registrados.</div>
+    <div class="panel-empty">
+        <h3>No hay testimonios registrados</h3>
+        <p>Agrega testimonios para reforzar confianza en la pagina principal de Vendly.</p>
+        <a href="{{ route('admin.testimonials.create') }}" class="btn">Crear testimonio</a>
+    </div>
 @endif
 
 @if (! ($needsMigration ?? false))
-    @foreach($testimonials as $testimonial)
-        <div class="list-card">
-            <strong>{{ $testimonial->name }}</strong><br>
-            Rol: {{ $testimonial->role ?: 'Sin rol' }}<br>
-            Iniciales: {{ $testimonial->initials ?: 'Sin iniciales' }}<br>
-            Orden: {{ $testimonial->sort_order }}<br>
-            Estado: {{ $testimonial->is_active ? 'Activo' : 'Inactivo' }}<br>
-            Texto: {{ $testimonial->quote }}<br><br>
+    <div class="panel-list">
+        @foreach($testimonials as $testimonial)
+            <article class="list-card resource-card">
+                <div class="resource-card__main">
+                    <div class="resource-card__header">
+                        <div>
+                            <h3 class="resource-card__title">{{ $testimonial->name }}</h3>
+                            <p class="resource-card__subtitle">{{ $testimonial->role ?: 'Sin rol' }}</p>
+                        </div>
+                        <div class="resource-badges">
+                            <span class="resource-badge {{ $testimonial->is_active ? 'resource-badge--active' : 'resource-badge--inactive' }}">
+                                {{ $testimonial->is_active ? 'Activo' : 'Inactivo' }}
+                            </span>
+                            <span class="resource-badge">Orden {{ $testimonial->sort_order }}</span>
+                            <span class="resource-badge">{{ $testimonial->initials ?: 'Sin iniciales' }}</span>
+                        </div>
+                    </div>
 
-            <a href="{{ route('admin.testimonials.edit', $testimonial) }}" class="btn" style="display:inline-block; margin-right:8px;">Editar</a>
+                    <p class="resource-card__description">{{ $testimonial->quote }}</p>
+                </div>
 
-            <form method="POST" action="{{ route('admin.testimonials.toggle', $testimonial) }}" style="display:inline-block; margin-right:8px;">
-                @csrf
-                @method('PATCH')
-                <button type="submit" class="btn">
-                    {{ $testimonial->is_active ? 'Desactivar' : 'Activar' }}
-                </button>
-            </form>
+                <div class="resource-actions">
+                    <a href="{{ route('admin.testimonials.edit', $testimonial) }}" class="btn">Editar</a>
 
-            <form method="POST" action="{{ route('admin.testimonials.destroy', $testimonial) }}" style="display:inline-block;" data-confirm-delete data-confirm-message="Seguro que quieres eliminar este testimonio? Esta accion no se puede deshacer.">
-                @csrf
-                @method('DELETE')
-                <button type="submit" class="btn btn-secondary">Eliminar</button>
-            </form>
-        </div>
-    @endforeach
+                    <form method="POST" action="{{ route('admin.testimonials.toggle', $testimonial) }}">
+                        @csrf
+                        @method('PATCH')
+                        <button type="submit" class="btn {{ $testimonial->is_active ? 'btn-warning' : 'btn-success' }}">
+                            {{ $testimonial->is_active ? 'Desactivar' : 'Activar' }}
+                        </button>
+                    </form>
+
+                    <form method="POST" action="{{ route('admin.testimonials.destroy', $testimonial) }}" data-confirm-delete data-confirm-message="Seguro que quieres eliminar este testimonio? Esta accion no se puede deshacer.">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-danger">Eliminar</button>
+                    </form>
+                </div>
+            </article>
+        @endforeach
+    </div>
 @endif
 @endsection

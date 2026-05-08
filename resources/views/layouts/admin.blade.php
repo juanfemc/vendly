@@ -223,6 +223,201 @@
             margin-bottom: 16px;
         }
 
+        .panel-list {
+            display: grid;
+            gap: 14px;
+        }
+
+        .panel-empty {
+            padding: 28px;
+            border: 1px dashed #cbd5e1;
+            border-radius: 12px;
+            background: #ffffff;
+            text-align: center;
+        }
+
+        .panel-empty h3 {
+            margin: 0 0 8px;
+            color: #111827;
+            font-size: 20px;
+        }
+
+        .panel-empty p {
+            margin: 0 0 18px;
+            color: #6b7280;
+            line-height: 1.5;
+        }
+
+        .resource-card {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 18px;
+            align-items: start;
+            padding: 18px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #ffffff;
+        }
+
+        .resource-card--with-media {
+            grid-template-columns: minmax(120px, 180px) minmax(0, 1fr) auto;
+        }
+
+        .resource-card__media {
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #f3f4f6;
+        }
+
+        .resource-card__media img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .resource-card__main {
+            min-width: 0;
+        }
+
+        .resource-card__header {
+            display: flex;
+            justify-content: space-between;
+            gap: 14px;
+            align-items: flex-start;
+        }
+
+        .resource-card__title {
+            margin: 0;
+            color: #111827;
+            font-size: 18px;
+            line-height: 1.2;
+        }
+
+        .resource-card__subtitle {
+            margin: 5px 0 0;
+            color: #6b7280;
+            font-size: 14px;
+            overflow-wrap: anywhere;
+        }
+
+        .resource-card__description {
+            margin: 12px 0 0;
+            color: #4b5563;
+            line-height: 1.55;
+            overflow-wrap: anywhere;
+        }
+
+        .resource-badges {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .resource-badge {
+            min-height: 28px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #f3f4f6;
+            color: #374151;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .resource-badge--active,
+        .resource-badge--success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .resource-badge--inactive,
+        .resource-badge--danger {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .resource-badge--warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .resource-metrics {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .resource-metric {
+            min-width: 0;
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: #f9fafb;
+        }
+
+        .resource-metric__label {
+            display: block;
+            margin-bottom: 6px;
+            color: #6b7280;
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .resource-metric__value {
+            color: #111827;
+            font-size: 14px;
+            font-weight: 800;
+            overflow-wrap: anywhere;
+        }
+
+        .resource-metric__value--warning {
+            color: #b45309;
+        }
+
+        .resource-metric__value--danger {
+            color: #991b1b;
+        }
+
+        .resource-actions {
+            min-width: 180px;
+            display: grid;
+            gap: 10px;
+            justify-items: stretch;
+        }
+
+        .resource-actions form {
+            margin: 0;
+        }
+
+        .resource-actions .btn {
+            width: 100%;
+        }
+
+        .btn-warning {
+            background: #f59e0b;
+            color: #ffffff;
+        }
+
+        .btn-success {
+            background: #16a34a;
+            color: #ffffff;
+        }
+
+        .btn-muted {
+            background: #6b7280;
+            color: #ffffff;
+        }
+
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -619,6 +814,31 @@
                 width: 100%;
             }
 
+            .resource-card,
+            .resource-card--with-media {
+                grid-template-columns: 1fr;
+            }
+
+            .resource-card__media {
+                max-height: 260px;
+            }
+
+            .resource-card__header {
+                display: grid;
+            }
+
+            .resource-badges {
+                justify-content: flex-start;
+            }
+
+            .resource-metrics {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .resource-actions {
+                min-width: 0;
+            }
+
             .admin-pagination nav {
                 justify-content: flex-start;
             }
@@ -726,6 +946,10 @@
 
             .delete-confirm-actions {
                 flex-direction: column-reverse;
+            }
+
+            .resource-metrics {
+                grid-template-columns: 1fr;
             }
         }
 
@@ -843,11 +1067,19 @@
                     </div>
                 </details>
             @else
+                @php
+                    $sidebarStore = auth()->user()?->store ?? auth()->user()?->stores()->first();
+                @endphp
                 <details class="sidebar-menu-group" {{ request()->is('admin/store-settings') || request()->is('admin/categories*') ? 'open' : '' }}>
                     <summary>Tienda</summary>
                     <div class="sidebar-submenu">
                         <a href="/admin/store-settings">Configuracion</a>
-                        <a href="/admin/categories">Categorias</a>
+                        @if(($sidebarStore?->allowsCategories() ?? true))
+                            <a href="/admin/categories">Categorias</a>
+                        @endif
+                        @if(($sidebarStore?->allowsVisitStats() ?? false))
+                            <a href="{{ route('admin.store.visits') }}">Visitas</a>
+                        @endif
                     </div>
                 </details>
 

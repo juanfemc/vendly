@@ -27,10 +27,11 @@
         @if($user->role === 'store')
             <label class="field-label" for="active_starts_at">Fecha de inicio</label>
             <input type="date" id="active_starts_at" name="active_starts_at" value="{{ old('active_starts_at', optional($user->active_starts_at)->toDateString()) }}">
-            <label class="field-label" for="active_duration_days">Cantidad de tiempo activo (dias)</label>
+            <label class="field-label" for="active_duration_days">Duracion total del plan (dias)</label>
             <input type="number" id="active_duration_days" name="active_duration_days" value="{{ old('active_duration_days', $user->active_duration_days) }}" min="1" max="3650" placeholder="Ej: 30">
 
             <div class="flash success">
+                Ajuste manual. Si quieres sumar dias sin recalcular todo el plan, usa el boton "Extender acceso" en la lista de usuarios.<br>
                 Fecha final actual:
                 <strong>{{ $user->active_ends_at ? $user->active_ends_at->format('d/m/Y') : 'Sin fecha final' }}</strong>
             </div>

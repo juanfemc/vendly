@@ -18,7 +18,7 @@
                 @endforeach
             </div>
 
-            <a href="{{ route('store.category.show', ['slug' => $store->slug, 'category' => $sectionCategory->slug]) }}" class="category-more-link">
+            <a href="{{ $storefrontUrls->category($store, $sectionCategory) }}" class="category-more-link">
                 Ver mas de {{ $sectionCategory->name }}
             </a>
         </section>
@@ -32,7 +32,7 @@
         <section class="category-block category-block--other">
             <div class="category-block-head">
                 <div class="category-block-copy">
-                    <h2>Otros productos</h2>
+                    <h2>{{ $store->isBasicPlan() ? 'Todos los productos' : 'Otros productos' }}</h2>
                 </div>
             </div>
 

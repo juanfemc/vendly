@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     @php
         $page = \App\View\Models\StorefrontPageViewModel::from($store);
-        $publicBaseUrl = $page->publicBaseUrl;
         $absoluteStorageUrl = fn (?string $path) => $page->storageUrl($path);
         $storageAssetUrl = fn (?string $path) => $path ? asset('storage/' . $path) : null;
         $isRestaurant = $store->isRestaurant();
@@ -29,16 +28,16 @@
         $businessLabel = $isRestaurant ? 'Restaurante' : ($isReservationStore ? 'Reservas' : 'Tienda');
         $cartLabel = $isRestaurant ? 'Pedido' : ($isReservationStore ? 'Reserva' : 'Carrito');
         $collectionLabel = $isRestaurant ? 'menu' : ($isReservationStore ? 'servicios' : 'catalogo');
-        $collectionLabelTitle = $isRestaurant ? 'Menu' : ($isReservationStore ? 'Servicios' : 'Catalogo');
+        $collectionLabelTitle = $isRestaurant ? 'Carta' : ($isReservationStore ? 'Servicios' : 'Catalogo');
         $itemsLabel = $isRestaurant ? 'platos' : ($isReservationStore ? 'servicios' : 'productos');
         $productsTotal = method_exists($catalogProducts, 'total') ? $catalogProducts->total() : $allProducts->count();
         $buyNowLabel = $isRestaurant ? 'Pedir ahora' : ($isReservationStore ? 'Reservar ahora' : 'Comprar ahora');
         $addLabel = $isRestaurant ? 'Agregar al pedido' : ($isReservationStore ? 'Agregar a la reserva' : 'Agregar al carrito');
         $heroEyebrow = $isRestaurant
-            ? 'Menu recomendado'
+            ? 'Recomendados de la casa'
             : ($isTechnologyStore ? 'Lo ultimo en tecnologia' : ($isSupplementStore ? 'Bienestar y rendimiento' : ($isReservationStore ? 'Servicios disponibles' : 'Nueva coleccion')));
         $defaultHeroCopy = $isRestaurant
-            ? 'Explora nuestro menu y haz tu pedido rapido desde una experiencia pensada para cerrar pedidos por WhatsApp.'
+            ? 'Elige tus platos favoritos de la carta y envia tu pedido directo por WhatsApp.'
             : ($isTechnologyStore
                 ? 'Descubre tecnologia seleccionada para tu dia a dia, con una vitrina pensada para resolver compras rapido por WhatsApp.'
                 : ($isSupplementStore
@@ -48,7 +47,7 @@
                         : 'Descubre nuestros productos y compra rapido desde una experiencia pensada para cerrar pedidos por WhatsApp.')));
         $heroShortCopy = trim((string) $store->shop_copy) !== '' ? trim((string) $store->shop_copy) : $defaultHeroCopy;
         $defaultShopCopy = $isRestaurant
-            ? 'Explora el menu actual de ' . ($store->name ?? 'el restaurante') . ' y agrega tus favoritos al pedido para enviarlo por WhatsApp.'
+            ? 'Revisa la carta de ' . ($store->name ?? 'el restaurante') . ', elige tus platos favoritos y envia tu pedido por WhatsApp.'
             : ($isTechnologyStore
                 ? 'Explora la seleccion actual de tecnologia de ' . ($store->name ?? 'la tienda') . ' y agrega tus favoritos al carrito para cerrar tu compra por WhatsApp.'
                 : ($isSupplementStore
@@ -66,7 +65,7 @@
             'supplements' => 'css/storefront-supplements.css',
             'default' => 'css/storefront-default.css',
         ];
-        $metaUrl = $publicBaseUrl . '/' . $store->slug;
+        $metaUrl = $storefrontUrls->home($store);
         $seo = \App\Support\SeoMeta::storeHome($store, $metaUrl, $seoImage, $defaultShopCopy, $faviconImage);
         $brandTheme = \App\Support\BrandTheme::from($store->brand_color);
         $responsiveProductColumns = in_array((int) $store->responsive_product_columns, [1, 2, 3], true) ? (int) $store->responsive_product_columns : 2;

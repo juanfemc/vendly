@@ -3,7 +3,9 @@
 @section('content')
 <div class="header">
     <h2>Editar producto</h2>
-    <a href="/admin/categories" class="btn btn-secondary">Gestionar categorias</a>
+    @if(auth()->user()->isAdmin() || ($product->store?->allowsCategories() ?? true))
+        <a href="/admin/categories" class="btn btn-secondary">Gestionar categorias</a>
+    @endif
 </div>
 
 @if ($errors->any())
@@ -37,21 +39,25 @@
             </select>
         @endif
         <input type="text" name="name" value="{{ old('name', $product->name) }}" placeholder="Nombre">
-        <select name="category" id="category_select">
-            <option value="">Selecciona categoria</option>
-            @foreach ($categoryOptions as $categoryOption)
-                <option value="{{ $categoryOption }}" @selected($selectedCategory === $categoryOption)>{{ $categoryOption }}</option>
-            @endforeach
-            <option value="__custom__" @selected($usesCustomCategory)>Otra categoria</option>
-        </select>
-        <input
-            type="text"
-            name="custom_category"
-            id="custom_category"
-            value="{{ $usesCustomCategory ? $selectedCategory : '' }}"
-            placeholder="Escribe otra categoria"
-            style="{{ $usesCustomCategory ? '' : 'display:none;' }}"
-        >
+        @if(auth()->user()->isAdmin() || ($product->store?->allowsCategories() ?? true))
+            <select name="category" id="category_select">
+                <option value="">Selecciona categoria</option>
+                @foreach ($categoryOptions as $categoryOption)
+                    <option value="{{ $categoryOption }}" @selected($selectedCategory === $categoryOption)>{{ $categoryOption }}</option>
+                @endforeach
+                <option value="__custom__" @selected($usesCustomCategory)>Otra categoria</option>
+            </select>
+            <input
+                type="text"
+                name="custom_category"
+                id="custom_category"
+                value="{{ $usesCustomCategory ? $selectedCategory : '' }}"
+                placeholder="Escribe otra categoria"
+                style="{{ $usesCustomCategory ? '' : 'display:none;' }}"
+            >
+        @else
+            <div class="flash" style="margin-bottom:12px;">El plan {{ $product->store->planLabel() }} no incluye categorias. Al guardar, el producto quedara sin categoria.</div>
+        @endif
         <input type="text" name="material" value="{{ old('material', $product->material) }}" placeholder="Material (ej: Algodon, Cuero, Acero)">
         <input type="number" step="0.01" name="price" value="{{ old('price', $product->price) }}" placeholder="Precio">
         @if(! ($product->store?->isReservationStore() ?? false))
@@ -84,7 +90,7 @@
             <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" class="thumb" style="width:140px; height:140px;">
         @endif
 
-        @if (! empty($product->images))
+        @if (($product->store?->allowsProductGallery() ?? true) && ! empty($product->images))
             <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
                 @foreach ($product->images as $productImage)
                     <label style="display:grid; gap:6px; width:96px; font-size:12px; color:#374151;">
@@ -100,9 +106,13 @@
 
         <label class="field-label" for="product_image">Sube una nueva imagen del producto</label>
         <input id="product_image" type="file" name="image" accept="image/*" data-optimize-image data-max-width="1600" data-max-height="1600" data-quality="0.82" data-output="webp">
-        <label class="field-label" for="product_images">Agrega imagenes adicionales del producto</label>
-        <input id="product_images" type="file" name="images[]" accept="image/*" multiple data-optimize-image data-max-width="1600" data-max-height="1600" data-quality="0.82" data-output="webp" data-product-image-preview data-preview-target="product_images_preview">
-        <div id="product_images_preview" class="product-image-preview" hidden></div>
+        @if(auth()->user()->isAdmin() || ($product->store?->allowsProductGallery() ?? true))
+            <label class="field-label" for="product_images">Agrega imagenes adicionales del producto</label>
+            <input id="product_images" type="file" name="images[]" accept="image/*" multiple data-optimize-image data-max-width="1600" data-max-height="1600" data-quality="0.82" data-output="webp" data-product-image-preview data-preview-target="product_images_preview">
+            <div id="product_images_preview" class="product-image-preview" hidden></div>
+        @else
+            <div class="flash" style="margin-bottom:12px;">La galeria de imagenes por producto esta disponible desde el plan Pro.</div>
+        @endif
 
         <button type="submit" class="btn">Actualizar</button>
     </form>

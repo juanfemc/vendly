@@ -1,6 +1,6 @@
 @if($productSearchEnabled ?? false)
     @php
-        $productSearchAction = $productSearchAction ?? route('store.products.index', $store->slug);
+        $productSearchAction = $productSearchAction ?? $storefrontUrls->products($store);
         $productSearchValue = trim((string) ($searchQuery ?? request('q', '')));
     @endphp
 

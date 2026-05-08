@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     @php
         $page = \App\View\Models\StorefrontPageViewModel::from($store);
-        $publicBaseUrl = $page->publicBaseUrl;
         $absoluteStorageUrl = fn (?string $path) => $page->storageUrl($path);
         $storageAssetUrl = fn (?string $path) => $path ? asset('storage/' . $path) : null;
         $isRestaurant = $store->isRestaurant();
@@ -20,7 +19,7 @@
         $canManageStore = $page->canManageStore;
         $businessLabel = $isRestaurant ? 'Restaurante' : ($isReservationStore ? 'Reservas' : 'Tienda');
         $cartLabel = $isRestaurant ? 'Pedido' : ($isReservationStore ? 'Reserva' : 'Carrito');
-        $collectionLabelTitle = $isRestaurant ? 'Menu' : ($isReservationStore ? 'Servicios' : 'Catalogo');
+        $collectionLabelTitle = $isRestaurant ? 'Carta' : ($isReservationStore ? 'Servicios' : 'Catalogo');
         $itemsLabel = $isRestaurant ? 'platos' : ($isReservationStore ? 'servicios' : 'productos');
         $addLabel = $isRestaurant ? 'Agregar al pedido' : ($isReservationStore ? 'Agregar a la reserva' : 'Agregar al carrito');
         $showStorefrontSectionLinks = false;
@@ -36,8 +35,10 @@
         ];
         $faviconImage = $storageAssetUrl($store->logo_image) ?: asset('images/vendly-logo.svg');
         $seoImage = $absoluteStorageUrl($category->image) ?: $absoluteStorageUrl($store->cover_image) ?: $absoluteStorageUrl($store->logo_image);
-        $metaUrl = $publicBaseUrl . '/' . $store->slug . '/categorias/' . $category->slug;
-        $fallbackDescription = 'Explora ' . $category->name . ' de ' . $store->name . ' y compra por WhatsApp.';
+        $metaUrl = $storefrontUrls->category($store, $category);
+        $fallbackDescription = $isRestaurant
+            ? 'Explora ' . $category->name . ' de la carta de ' . $store->name . ' y envia tu pedido por WhatsApp.'
+            : 'Explora ' . $category->name . ' de ' . $store->name . ' y compra por WhatsApp.';
         $seo = \App\Support\SeoMeta::category($store, $category->name, $category->description, $metaUrl, $seoImage, $fallbackDescription, $faviconImage);
         $brandTheme = \App\Support\BrandTheme::from($store->brand_color);
         $responsiveProductColumns = in_array((int) $store->responsive_product_columns, [1, 2, 3], true) ? (int) $store->responsive_product_columns : 2;
@@ -78,7 +79,7 @@
 
             @include('storefront.partials.product-search', [
                 'productSearchId' => 'category',
-                'productSearchAction' => route('store.category.show', ['slug' => $store->slug, 'category' => $category->slug]),
+                'productSearchAction' => $storefrontUrls->category($store, $category),
             ])
 
             @if($products->isNotEmpty())

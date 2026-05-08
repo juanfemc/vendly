@@ -35,6 +35,7 @@ body.storefront-page {
     font-family: var(--store-font);
     background: var(--store-bg);
     color: var(--store-text);
+    padding-top: var(--storefront-topbar-height, 0px);
 }
 
 body.storefront-page h1,
@@ -60,11 +61,64 @@ body.storefront-page .product-detail-copy h1 {
     margin: 0 auto;
 }
 
+.storefront-topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    transform: translateZ(0);
+    will-change: transform;
+}
+
+.store-announcement-bar {
+    background: var(--brand-color, #111);
+    color: var(--brand-contrast, #fff);
+    border-bottom: 1px solid color-mix(in srgb, var(--brand-contrast, #fff) 18%, transparent);
+}
+
+.store-announcement-shell {
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    text-align: center;
+}
+
+.store-announcement-viewport {
+    position: relative;
+    width: min(100%, 820px);
+    min-height: 20px;
+    overflow: hidden;
+}
+
+.store-announcement-message {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.25;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .24s ease, transform .24s ease;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.store-announcement-message.is-active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
 .navbar {
     --nav-text: var(--store-nav-text, var(--store-text));
-    position: sticky;
-    top: 0;
-    z-index: 40;
     border-bottom: 1px solid var(--line);
     background: color-mix(in srgb, var(--brand-color, #111) 10%, #ffffff);
     backdrop-filter: blur(12px);

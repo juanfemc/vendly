@@ -10,6 +10,7 @@
                 <a href="#portafolio">Portafolio</a>
             @endif
             <a href="#funciones">Ventajas</a>
+            <a href="#planes">Planes</a>
             @if($hasTestimonials)
                 <a href="#testimonios">Testimonios</a>
             @endif

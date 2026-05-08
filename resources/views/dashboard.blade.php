@@ -89,38 +89,51 @@
         </div>
 
         @if (!empty($storeUsers) && $storeUsers->isNotEmpty())
-            <div class="dashboard-users-table-wrap">
-                <table class="dashboard-users-table">
-                    <thead>
-                        <tr>
-                            <th>Usuario</th>
-                            <th>Tiempo activo</th>
-                            <th>Inicio</th>
-                            <th>Final</th>
-                            <th>Restante</th>
-                            <th>Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($storeUsers as $storeUser)
-                            <tr>
-                                <td>
-                                    <strong>{{ $storeUser->name }}</strong><br>
-                                    <span>{{ $storeUser->email }}</span>
-                                </td>
-                                <td>{{ $storeUser->active_duration_days ? $storeUser->active_duration_days . ' dia(s)' : 'Sin limite' }}</td>
-                                <td>{{ $storeUser->active_starts_at ? $storeUser->active_starts_at->format('d/m/Y') : 'Sin fecha' }}</td>
-                                <td>{{ $storeUser->active_ends_at ? $storeUser->active_ends_at->format('d/m/Y') : 'Sin fecha final' }}</td>
-                                <td>{{ $storeUser->active_remaining_label }}</td>
-                                <td>
-                                    <span class="dashboard-status {{ $storeUser->isActive() ? 'is-active' : 'is-inactive' }}">
+            <div class="panel-list">
+                @foreach ($storeUsers as $storeUser)
+                    @php
+                        $remainingLabel = $storeUser->active_remaining_label;
+                        $remainingClass = $remainingLabel === 'Vencida' ? 'resource-metric__value--danger' : ($remainingLabel === 'Vence hoy' ? 'resource-metric__value--warning' : '');
+                    @endphp
+                    <article class="resource-card">
+                        <div class="resource-card__main">
+                            <div class="resource-card__header">
+                                <div>
+                                    <h3 class="resource-card__title">{{ $storeUser->name }}</h3>
+                                    <p class="resource-card__subtitle">{{ $storeUser->email }}</p>
+                                </div>
+                                <div class="resource-badges">
+                                    <span class="resource-badge {{ $storeUser->isActive() ? 'resource-badge--active' : 'resource-badge--inactive' }}">
                                         {{ $storeUser->isActive() ? 'Activa' : 'Inactiva' }}
                                     </span>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                                </div>
+                            </div>
+
+                            <div class="resource-metrics">
+                                <div class="resource-metric">
+                                    <span class="resource-metric__label">Duracion</span>
+                                    <span class="resource-metric__value">{{ $storeUser->active_duration_days ? $storeUser->active_duration_days . ' dia(s)' : 'Sin limite' }}</span>
+                                </div>
+                                <div class="resource-metric">
+                                    <span class="resource-metric__label">Inicio</span>
+                                    <span class="resource-metric__value">{{ $storeUser->active_starts_at ? $storeUser->active_starts_at->format('d/m/Y') : 'Sin fecha' }}</span>
+                                </div>
+                                <div class="resource-metric">
+                                    <span class="resource-metric__label">Final</span>
+                                    <span class="resource-metric__value">{{ $storeUser->active_ends_at ? $storeUser->active_ends_at->format('d/m/Y') : 'Sin fecha final' }}</span>
+                                </div>
+                                <div class="resource-metric">
+                                    <span class="resource-metric__label">Restante</span>
+                                    <span class="resource-metric__value {{ $remainingClass }}">{{ $remainingLabel }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="resource-actions">
+                            <a href="{{ route('admin.users.edit', $storeUser) }}" class="btn">Editar</a>
+                        </div>
+                    </article>
+                @endforeach
             </div>
         @else
             <p>No hay usuarios de tienda registrados.</p>

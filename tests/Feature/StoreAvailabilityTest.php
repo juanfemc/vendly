@@ -11,6 +11,8 @@ use App\Models\StoreCategory;
 use App\Models\StoreVisit;
 use App\Models\User;
 use App\Services\AdminUpdateService;
+use App\Services\StoreSubdomainService;
+use App\Services\StorefrontUrlService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
@@ -37,9 +39,37 @@ test('landing page renders without compiled assets', function () {
         ->assertOk()
         ->assertSee('Vendly | Tiendas online listas para vender')
         ->assertSee('css/landing.css', false)
+        ->assertSee('Planes')
+        ->assertSee('Básico')
+        ->assertSee('Pro')
+        ->assertSee('Premium')
+        ->assertSee('Productos publicados')
+        ->assertSee('Carrito por WhatsApp')
+        ->assertSee('Logo y portada')
+        ->assertSee('Personalización básica')
+        ->assertSee('Límite de 20 productos')
+        ->assertSee('Límite de 100 productos')
+        ->assertSee('Sin categorías')
+        ->assertSee('Categorías')
+        ->assertSee('Sin avisos superiores')
+        ->assertSee('Varios avisos superiores rotativos')
+        ->assertSee('Estadística de visitas')
+        ->assertSee('Galería de imágenes por producto')
+        ->assertSee('Personalización completa')
+        ->assertSee('Soporte básico')
+        ->assertSee('Soporte prioritario')
+        ->assertSee('Todo lo del plan Pro')
+        ->assertSee('Diseño personalizado')
+        ->assertSee('Dominio personalizado')
+        ->assertSee('Pixel / Analytics')
+        ->assertSee('Cupones o promociones avanzadas')
+        ->assertSee('Reportes avanzados')
+        ->assertSee('Prioridad de soporte')
+        ->assertSee('Primeros en ver actualizaciones del sistema')
+        ->assertDontSee('Funciones por definir.')
         ->assertSee('Quiero mi tienda')
         ->assertSee('Testimonios')
-        ->assertSee('Negocios que ya se ven mas profesionales online.')
+        ->assertSee('Negocios que ya se ven más profesionales online.')
         ->assertSee(route('login'), false);
 });
 
@@ -72,7 +102,6 @@ test('landing page shows the three most visited public stores as portfolio', fun
         ->assertSee('Tienda Uno')
         ->assertSee('Tienda Dos')
         ->assertSee('Tienda Tres')
-        ->assertDontSee('visitas')
         ->assertDontSee('40 visitas')
         ->assertDontSee('Tienda Cuatro');
 });
@@ -352,6 +381,867 @@ test('store settings save optional location for about page', function () {
         ->assertSee('Lunes a sabado 10:00 AM - 7:00 PM');
 });
 
+test('store settings save commercial notices and storefront shows rotating bar', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Avisos',
+        'slug' => 'tienda-avisos',
+        'whatsapp' => '573001112233',
+        'business_type' => 'store',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->post('/admin/store-settings', [
+            'name' => $store->name,
+            'business_type' => $store->business_type,
+            'whatsapp' => $store->whatsapp,
+            'free_shipping_minimum' => 150000,
+            'announcement_items' => [
+                ['text' => '10% OFF pagando por transferencia'],
+                ['text' => 'Entregas hoy hasta las 6:00 p.m.'],
+                ['text' => ''],
+            ],
+            'brand_color' => '#111111',
+            'background_color' => '#ffffff',
+            'font_family' => 'system',
+            'responsive_product_columns' => 2,
+            'show_hero_products_action' => 0,
+        ])
+        ->assertRedirect('/admin/store-settings');
+
+    $store->refresh();
+
+    expect($store->free_shipping_minimum)->toBe('150000.00')
+        ->and($store->announcement_items)->toBe([
+            ['text' => '10% OFF pagando por transferencia'],
+            ['text' => 'Entregas hoy hasta las 6:00 p.m.'],
+        ]);
+
+    $this->get('/tienda-avisos')
+        ->assertOk()
+        ->assertSee('store-announcement-bar', false)
+        ->assertSee('data-storefront-topbar', false)
+        ->assertSee('Envio gratis desde $150.000')
+        ->assertSee('10% OFF pagando por transferencia')
+        ->assertSee('Entregas hoy hasta las 6:00 p.m.');
+});
+
+test('basic plan hides commercial notices and clears them when settings are saved', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Basica Avisos',
+        'slug' => 'tienda-basica-avisos',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_BASIC,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get('/admin/store-settings')
+        ->assertOk()
+        ->assertSee('Avisos comerciales')
+        ->assertSee('Tu plan actual no incluye avisos superiores');
+
+    $this->actingAs($storeUser)
+        ->post('/admin/store-settings', [
+            'name' => $store->name,
+            'business_type' => 'store',
+            'plan' => Store::PLAN_BASIC,
+            'whatsapp' => $store->whatsapp,
+            'free_shipping_minimum' => 150000,
+            'announcement_items' => [
+                ['text' => 'Descuento solo hoy'],
+            ],
+            'brand_color' => '#111111',
+            'background_color' => '#ffffff',
+            'font_family' => 'system',
+            'responsive_product_columns' => 2,
+            'show_hero_products_action' => 0,
+        ])
+        ->assertRedirect('/admin/store-settings');
+
+    $store->refresh();
+
+    expect($store->free_shipping_minimum)->toBeNull()
+        ->and($store->announcement_items)->toBe([]);
+
+    $this->get('/tienda-basica-avisos')
+        ->assertOk()
+        ->assertDontSee('store-announcement-bar', false)
+        ->assertDontSee('Descuento solo hoy');
+});
+
+test('store settings cannot change the store plan from a crafted request', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Plan Seguro',
+        'slug' => 'tienda-plan-seguro',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_BASIC,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->post('/admin/store-settings', [
+            'name' => $store->name,
+            'business_type' => 'store',
+            'plan' => Store::PLAN_PREMIUM,
+            'whatsapp' => $store->whatsapp,
+            'brand_color' => '#111111',
+            'background_color' => '#ffffff',
+            'font_family' => 'system',
+            'responsive_product_columns' => 2,
+            'show_hero_products_action' => 0,
+        ])
+        ->assertRedirect('/admin/store-settings');
+
+    expect($store->refresh()->plan)->toBe(Store::PLAN_BASIC);
+});
+
+test('pro plan store can save a normalized subdomain from settings', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pro Subdominio',
+        'slug' => 'tienda-pro-subdominio',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->post('/admin/store-settings', [
+            'name' => $store->name,
+            'business_type' => 'store',
+            'subdomain' => ' Mi Tienda Pro! ',
+            'whatsapp' => $store->whatsapp,
+            'brand_color' => '#111111',
+            'background_color' => '#ffffff',
+            'font_family' => 'system',
+            'responsive_product_columns' => 2,
+            'show_hero_products_action' => 0,
+        ])
+        ->assertRedirect('/admin/store-settings');
+
+    expect($store->refresh()->subdomain)->toBe('mi-tienda-pro');
+});
+
+test('basic plan cannot save a subdomain from a crafted settings request', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Basica Subdominio',
+        'slug' => 'tienda-basica-subdominio',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_BASIC,
+        'subdomain' => 'subdominio-antiguo',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->post('/admin/store-settings', [
+            'name' => $store->name,
+            'business_type' => 'store',
+            'subdomain' => 'quiero-pro',
+            'whatsapp' => $store->whatsapp,
+            'brand_color' => '#111111',
+            'background_color' => '#ffffff',
+            'font_family' => 'system',
+            'responsive_product_columns' => 2,
+            'show_hero_products_action' => 0,
+        ])
+        ->assertRedirect('/admin/store-settings');
+
+    expect($store->refresh()->subdomain)->toBeNull();
+});
+
+test('subdomain must be unique and cannot use reserved words', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $firstUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $secondUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    Store::create([
+        'user_id' => $firstUser->id,
+        'name' => 'Tienda Subdominio Uno',
+        'slug' => 'tienda-subdominio-uno',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'subdomain' => 'ocupado',
+        'is_active' => true,
+    ]);
+    $store = Store::create([
+        'user_id' => $secondUser->id,
+        'name' => 'Tienda Subdominio Dos',
+        'slug' => 'tienda-subdominio-dos',
+        'whatsapp' => '573001112244',
+        'plan' => Store::PLAN_PRO,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->put(route('admin.stores.update', $store), [
+            'user_id' => $secondUser->id,
+            'name' => $store->name,
+            'business_type' => 'store',
+            'plan' => Store::PLAN_PRO,
+            'slug' => $store->slug,
+            'subdomain' => 'ocupado',
+            'whatsapp' => $store->whatsapp,
+            'brand_color' => '#111111',
+            'background_color' => '#ffffff',
+            'font_family' => 'system',
+            'responsive_product_columns' => 2,
+            'show_hero_products_action' => 0,
+        ])
+        ->assertSessionHasErrors('subdomain');
+
+    $this->actingAs($admin)
+        ->put(route('admin.stores.update', $store), [
+            'user_id' => $secondUser->id,
+            'name' => $store->name,
+            'business_type' => 'store',
+            'plan' => Store::PLAN_PRO,
+            'slug' => $store->slug,
+            'subdomain' => 'admin',
+            'whatsapp' => $store->whatsapp,
+            'brand_color' => '#111111',
+            'background_color' => '#ffffff',
+            'font_family' => 'system',
+            'responsive_product_columns' => 2,
+            'show_hero_products_action' => 0,
+        ])
+        ->assertSessionHasErrors('subdomain');
+});
+
+test('subdomain service extracts the store subdomain from the configured app host', function () {
+    config(['app.url' => 'https://vendlysuite.com']);
+
+    $service = app(StoreSubdomainService::class);
+
+    expect($service->subdomainFromHost('cristina.vendlysuite.com'))->toBe('cristina')
+        ->and($service->subdomainFromHost('mi-tienda.vendlysuite.com'))->toBe('mi-tienda')
+        ->and($service->subdomainFromHost('vendlysuite.com'))->toBeNull()
+        ->and($service->subdomainFromHost('www.vendlysuite.com'))->toBeNull()
+        ->and($service->subdomainFromHost('demo.otrodominio.com'))->toBeNull()
+        ->and($service->subdomainFromHost('a.b.vendlysuite.com'))->toBeNull();
+});
+
+test('subdomain service resolves only public pro or premium stores from request host', function () {
+    config(['app.url' => 'https://vendlysuite.com']);
+
+    $proUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $basicUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $proStore = Store::create([
+        'user_id' => $proUser->id,
+        'name' => 'Tienda Subdominio Publica',
+        'slug' => 'tienda-subdominio-publica',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'subdomain' => 'publica',
+        'is_active' => true,
+    ]);
+    Store::create([
+        'user_id' => $basicUser->id,
+        'name' => 'Tienda Basica Legacy Subdominio',
+        'slug' => 'tienda-basica-legacy-subdominio',
+        'whatsapp' => '573001112244',
+        'plan' => Store::PLAN_BASIC,
+        'subdomain' => 'basica',
+        'is_active' => true,
+    ]);
+
+    $service = app(StoreSubdomainService::class);
+
+    expect($service->publicStoreFromRequest(request()->create('https://publica.vendlysuite.com'))?->id)->toBe($proStore->id)
+        ->and($service->publicStoreFromRequest(request()->create('https://basica.vendlysuite.com')))->toBeNull()
+        ->and($service->publicStoreFromRequest(request()->create('https://vendlysuite.com')))->toBeNull();
+});
+
+test('public storefront routes work from a pro store subdomain', function () {
+    config(['app.url' => 'https://vendlysuite.com']);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Subdominio Navegable',
+        'slug' => 'tienda-subdominio-navegable',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'subdomain' => 'navegable',
+        'shop_copy' => 'Somos una tienda navegable por subdominio.',
+        'mission' => 'Atender pedidos desde un subdominio.',
+        'vision' => 'Crecer con una direccion facil de compartir.',
+        'is_active' => true,
+    ]);
+    $category = StoreCategory::create([
+        'store_id' => $store->id,
+        'name' => 'Destacados',
+        'slug' => 'destacados',
+        'is_active' => true,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto por subdominio',
+        'category' => $category->name,
+        'price' => 25000,
+    ]);
+
+    $this->get('https://navegable.vendlysuite.com/')
+        ->assertOk()
+        ->assertSee('Tienda Subdominio Navegable')
+        ->assertSee('Producto por subdominio')
+        ->assertSee('<link rel="canonical" href="https://navegable.vendlysuite.com">', false)
+        ->assertSee('<meta property="og:url" content="https://navegable.vendlysuite.com">', false)
+        ->assertSee('https://navegable.vendlysuite.com/productos', false)
+        ->assertSee('https://navegable.vendlysuite.com/productos/' . $product->publicRouteKey(), false)
+        ->assertSee('https://navegable.vendlysuite.com/categorias/' . $category->slug, false)
+        ->assertDontSee('/tienda-subdominio-navegable/productos', false);
+
+    $this->get('https://navegable.vendlysuite.com/productos')
+        ->assertOk()
+        ->assertSee('<link rel="canonical" href="https://navegable.vendlysuite.com/productos">', false)
+        ->assertSee('Producto por subdominio');
+
+    $subdomainProductUrl = 'https://navegable.vendlysuite.com/productos/' . $product->publicRouteKey();
+    $encodedSubdomainProductUrl = rawurlencode($subdomainProductUrl);
+
+    $this->get($subdomainProductUrl)
+        ->assertOk()
+        ->assertSee('<link rel="canonical" href="' . $subdomainProductUrl . '">', false)
+        ->assertSee('Producto por subdominio')
+        ->assertSee('https://www.facebook.com/sharer/sharer.php?u=' . $encodedSubdomainProductUrl, false)
+        ->assertSee('https://wa.me/?text=', false)
+        ->assertSee($encodedSubdomainProductUrl, false)
+        ->assertSee('https://twitter.com/intent/tweet?url=' . $encodedSubdomainProductUrl, false)
+        ->assertSee('data-copy-product-link="' . $subdomainProductUrl . '"', false)
+        ->assertDontSee('/tienda-subdominio-navegable/productos/' . $product->publicRouteKey(), false);
+
+    $this->get('https://navegable.vendlysuite.com/categorias/' . $category->slug)
+        ->assertOk()
+        ->assertSee('<link rel="canonical" href="https://navegable.vendlysuite.com/categorias/' . $category->slug . '">', false)
+        ->assertSee('Destacados')
+        ->assertSee('Producto por subdominio');
+
+    $this->get('https://navegable.vendlysuite.com/nosotros')
+        ->assertOk()
+        ->assertSee('<link rel="canonical" href="https://navegable.vendlysuite.com/nosotros">', false)
+        ->assertSee('Somos una tienda navegable por subdominio.');
+
+    $this->get('https://vendlysuite.com/tienda-subdominio-navegable/productos/' . $product->publicRouteKey())
+        ->assertOk()
+        ->assertSee('<link rel="canonical" href="' . route('store.product.show', ['slug' => $store->slug, 'product' => $product->publicRouteKey()]) . '">', false);
+});
+
+test('storefront url service generates subdomain aware public links', function () {
+    config(['app.url' => 'https://vendlysuite.com']);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Links Subdominio',
+        'slug' => 'tienda-links-subdominio',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'subdomain' => 'links',
+        'is_active' => true,
+    ]);
+    $category = StoreCategory::create([
+        'store_id' => $store->id,
+        'name' => 'Ropa',
+        'slug' => 'ropa',
+        'is_active' => true,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto Link',
+        'price' => 25000,
+    ]);
+
+    $service = app(StorefrontUrlService::class);
+    $subdomainRequest = request()->create('https://links.vendlysuite.com/productos');
+    $mainDomainRequest = request()->create('https://vendlysuite.com/tienda-links-subdominio/productos');
+
+    expect($service->home($store, $subdomainRequest))->toBe('https://links.vendlysuite.com')
+        ->and($service->products($store, $subdomainRequest))->toBe('https://links.vendlysuite.com/productos')
+        ->and($service->product($store, $product, $subdomainRequest))->toBe('https://links.vendlysuite.com/productos/' . $product->publicRouteKey())
+        ->and($service->category($store, $category, $subdomainRequest))->toBe('https://links.vendlysuite.com/categorias/ropa')
+        ->and($service->about($store, $subdomainRequest))->toBe('https://links.vendlysuite.com/nosotros')
+        ->and($service->products($store, $subdomainRequest, ['q' => 'camisa']))->toBe('https://links.vendlysuite.com/productos?q=camisa')
+        ->and($service->products($store, $mainDomainRequest))->toBe(route('store.products.index', $store->slug));
+});
+
+test('main domain keeps landing and basic legacy subdomain returns not found', function () {
+    config(['app.url' => 'https://vendlysuite.com']);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Basica Subdominio Legacy',
+        'slug' => 'tienda-basica-subdominio-legacy',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_BASIC,
+        'subdomain' => 'legacy',
+        'is_active' => true,
+    ]);
+
+    $this->get('https://vendlysuite.com/')
+        ->assertOk()
+        ->assertSee('Vendly | Tiendas online listas para vender');
+
+    $this->get('https://legacy.vendlysuite.com/')
+        ->assertNotFound();
+
+    $this->get('https://fantasma.vendlysuite.com/')
+        ->assertNotFound();
+});
+
+test('basic plan ignores full customization fields from settings', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Basica Apariencia',
+        'slug' => 'tienda-basica-apariencia',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_BASIC,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->post('/admin/store-settings', [
+            'name' => $store->name,
+            'business_type' => 'store',
+            'whatsapp' => $store->whatsapp,
+            'brand_color' => '#be123c',
+            'background_color' => '#111827',
+            'font_family' => 'serif',
+            'responsive_product_columns' => 3,
+            'show_hero_products_action' => 1,
+        ])
+        ->assertRedirect('/admin/store-settings');
+
+    $store->refresh();
+
+    expect($store->brand_color)->toBeNull()
+        ->and($store->background_color)->toBeNull()
+        ->and($store->text_color)->toBe('#111111')
+        ->and($store->font_family)->toBe('system')
+        ->and($store->responsive_product_columns)->toBe(2)
+        ->and($store->show_hero_products_action)->toBeFalse();
+});
+
+test('basic plan blocks category management and public category pages', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Basica Categorias',
+        'slug' => 'tienda-basica-categorias',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_BASIC,
+        'is_active' => true,
+    ]);
+    StoreCategory::create([
+        'store_id' => $store->id,
+        'name' => 'Audio',
+        'slug' => 'audio',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get('/admin/categories')
+        ->assertOk()
+        ->assertSee('Categorias no disponibles')
+        ->assertSee('El plan Basico no incluye categorias');
+
+    $this->actingAs($storeUser)
+        ->post('/admin/categories', [
+            'name' => 'Ropa',
+            'slug' => 'ropa',
+        ])
+        ->assertRedirect(route('admin.categories.index'))
+        ->assertSessionHas('error');
+
+    $this->get('/tienda-basica-categorias/categorias/audio')->assertNotFound();
+});
+
+test('basic plan storefront labels uncategorized block as all products', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Basica Catalogo',
+        'slug' => 'tienda-basica-catalogo',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_BASIC,
+        'is_active' => true,
+    ]);
+    Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto simple',
+        'price' => 25000,
+    ]);
+
+    $this->get('/tienda-basica-catalogo')
+        ->assertOk()
+        ->assertSee('Todos los productos')
+        ->assertDontSee('Otros productos');
+});
+
+test('basic plan hides existing product galleries after downgrade', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Galeria Downgrade',
+        'slug' => 'tienda-galeria-downgrade',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'is_active' => true,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto con galeria',
+        'price' => 25000,
+        'image' => 'products/principal.webp',
+        'images' => ['products/extra.webp'],
+    ]);
+
+    $this->get('/tienda-galeria-downgrade/productos/' . $product->publicRouteKey())
+        ->assertOk()
+        ->assertSee('products/extra.webp', false);
+
+    $this->actingAs($admin)
+        ->put(route('admin.stores.update', $store), [
+            'user_id' => $storeUser->id,
+            'name' => $store->name,
+            'business_type' => 'store',
+            'plan' => Store::PLAN_BASIC,
+            'slug' => $store->slug,
+            'whatsapp' => $store->whatsapp,
+            'brand_color' => '#111111',
+            'background_color' => '#ffffff',
+            'font_family' => 'system',
+            'responsive_product_columns' => 2,
+            'show_hero_products_action' => 0,
+        ])
+        ->assertRedirect('/admin/stores');
+
+    $product->refresh();
+
+    expect($product->images)->toBeNull();
+
+    $this->get('/tienda-galeria-downgrade/productos/' . $product->publicRouteKey())
+        ->assertOk()
+        ->assertDontSee('products/extra.webp', false);
+});
+
+test('basic plan limits product creation to twenty products', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Basica Productos',
+        'slug' => 'tienda-basica-productos',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_BASIC,
+        'is_active' => true,
+    ]);
+
+    foreach (range(1, Store::BASIC_PRODUCT_LIMIT) as $index) {
+        Product::create([
+            'user_id' => $storeUser->id,
+            'store_id' => $store->id,
+            'name' => 'Producto ' . $index,
+            'price' => 10000 + $index,
+        ]);
+    }
+
+    $this->actingAs($storeUser)
+        ->get('/admin/products/create')
+        ->assertRedirect('/admin/products')
+        ->assertSessionHas('error');
+
+    $this->actingAs($storeUser)
+        ->post('/admin/products', [
+            'name' => 'Producto extra',
+            'price' => 50000,
+            'category' => 'Categoria bloqueada',
+        ])
+        ->assertSessionHas('error');
+
+    expect(Product::where('store_id', $store->id)->count())->toBe(Store::BASIC_PRODUCT_LIMIT);
+});
+
+test('pro plan limits product creation to one hundred products', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pro Productos',
+        'slug' => 'tienda-pro-productos',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'is_active' => true,
+    ]);
+
+    foreach (range(1, Store::PRO_PRODUCT_LIMIT) as $index) {
+        Product::create([
+            'user_id' => $storeUser->id,
+            'store_id' => $store->id,
+            'name' => 'Producto Pro ' . $index,
+            'price' => 10000 + $index,
+        ]);
+    }
+
+    $this->actingAs($storeUser)
+        ->get('/admin/products/create')
+        ->assertRedirect('/admin/products')
+        ->assertSessionHas('error');
+
+    $this->actingAs($storeUser)
+        ->post('/admin/products', [
+            'name' => 'Producto Pro extra',
+            'price' => 50000,
+        ])
+        ->assertSessionHas('error');
+
+    expect(Product::where('store_id', $store->id)->count())->toBe(Store::PRO_PRODUCT_LIMIT);
+});
+
+test('admin cannot downgrade a store when existing products exceed the target plan limit', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pro Grande',
+        'slug' => 'tienda-pro-grande',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'is_active' => true,
+    ]);
+
+    foreach (range(1, Store::BASIC_PRODUCT_LIMIT + 1) as $index) {
+        Product::create([
+            'user_id' => $storeUser->id,
+            'store_id' => $store->id,
+            'name' => 'Producto Grande ' . $index,
+            'price' => 10000 + $index,
+        ]);
+    }
+
+    $this->actingAs($admin)
+        ->put(route('admin.stores.update', $store), [
+            'user_id' => $storeUser->id,
+            'name' => $store->name,
+            'business_type' => 'store',
+            'plan' => Store::PLAN_BASIC,
+            'slug' => $store->slug,
+            'whatsapp' => $store->whatsapp,
+            'brand_color' => '#111111',
+            'background_color' => '#ffffff',
+            'font_family' => 'system',
+            'responsive_product_columns' => 2,
+            'show_hero_products_action' => 0,
+        ])
+        ->assertSessionHas('error');
+
+    expect($store->refresh()->plan)->toBe(Store::PLAN_PRO)
+        ->and(Product::where('store_id', $store->id)->count())->toBe(Store::BASIC_PRODUCT_LIMIT + 1);
+});
+
+test('admin cannot move a product into a store that reached its plan limit', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $basicUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $sourceUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $basicStore = Store::create([
+        'user_id' => $basicUser->id,
+        'name' => 'Tienda Basica Llena',
+        'slug' => 'tienda-basica-llena',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_BASIC,
+        'is_active' => true,
+    ]);
+    $sourceStore = Store::create([
+        'user_id' => $sourceUser->id,
+        'name' => 'Tienda Origen Producto',
+        'slug' => 'tienda-origen-producto',
+        'whatsapp' => '573001112244',
+        'plan' => Store::PLAN_PRO,
+        'is_active' => true,
+    ]);
+
+    foreach (range(1, Store::BASIC_PRODUCT_LIMIT) as $index) {
+        Product::create([
+            'user_id' => $basicUser->id,
+            'store_id' => $basicStore->id,
+            'name' => 'Producto Basico ' . $index,
+            'price' => 10000 + $index,
+        ]);
+    }
+
+    $product = Product::create([
+        'user_id' => $sourceUser->id,
+        'store_id' => $sourceStore->id,
+        'name' => 'Producto a mover',
+        'price' => 75000,
+    ]);
+
+    $this->actingAs($admin)
+        ->put(route('admin.products.update', $product), [
+            'store_id' => $basicStore->id,
+            'name' => $product->name,
+            'price' => $product->price,
+        ])
+        ->assertSessionHas('error');
+
+    expect($product->refresh()->store_id)->toBe($sourceStore->id)
+        ->and(Product::where('store_id', $basicStore->id)->count())->toBe(Store::BASIC_PRODUCT_LIMIT);
+});
+
+test('existing products can be edited when a legacy store is already over its plan limit', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Basica Heredada',
+        'slug' => 'tienda-basica-heredada',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_BASIC,
+        'is_active' => true,
+    ]);
+
+    foreach (range(1, Store::BASIC_PRODUCT_LIMIT + 1) as $index) {
+        $product = Product::create([
+            'user_id' => $storeUser->id,
+            'store_id' => $store->id,
+            'name' => 'Producto Heredado ' . $index,
+            'price' => 10000 + $index,
+        ]);
+    }
+
+    $this->actingAs($storeUser)
+        ->put(route('admin.products.update', $product), [
+            'name' => 'Producto heredado editado',
+            'price' => 45000,
+        ])
+        ->assertRedirect('/admin/products')
+        ->assertSessionHas('success');
+
+    expect($product->refresh()->name)->toBe('Producto heredado editado')
+        ->and(Product::where('store_id', $store->id)->count())->toBe(Store::BASIC_PRODUCT_LIMIT + 1);
+});
+
+test('pro plan store user can see visit statistics', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pro Visitas',
+        'slug' => 'tienda-pro-visitas',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'views_count' => 42,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get(route('admin.store.visits'))
+        ->assertOk()
+        ->assertSee('Visitas de tu tienda')
+        ->assertSee('42')
+        ->assertSee('Pro');
+});
+
+test('basic plan store user cannot see visit statistics', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Basica Visitas',
+        'slug' => 'tienda-basica-visitas',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_BASIC,
+        'views_count' => 42,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get(route('admin.store.visits'))
+        ->assertForbidden();
+});
+
 test('cart rejects products from an expired owner account', function () {
     $user = User::factory()->create([
         'active_starts_at' => now()->subDays(10),
@@ -450,6 +1340,50 @@ test('technology storefront renders variant selectors before adding to cart', fu
         ->assertOk()
         ->assertSee('name="size"', false)
         ->assertSee('name="color"', false);
+});
+
+test('restaurant storefront renders as a menu', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Bistro Menu',
+        'slug' => 'bistro-menu',
+        'whatsapp' => '573001112233',
+        'business_type' => 'restaurant',
+        'is_active' => true,
+    ]);
+    $store->ensureCategoryRecords();
+    $category = $store->categories()->where('name', 'Entradas')->first();
+
+    $product = Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Croquetas de la casa',
+        'category' => $category->name,
+        'price' => 28000,
+        'description' => 'Crujientes, con salsa cremosa y hierbas frescas.',
+    ]);
+
+    $this->get('/bistro-menu')
+        ->assertOk()
+        ->assertSee('restaurant-menu', false)
+        ->assertSee('Croquetas de la casa')
+        ->assertSee('Crujientes, con salsa cremosa y hierbas frescas.')
+        ->assertSee('Pedir')
+        ->assertSee('Carta completa')
+        ->assertDontSee('restaurant-product-card', false);
+
+    $this->get('/bistro-menu/productos/' . $product->publicRouteKey())
+        ->assertOk()
+        ->assertSee('Detalle del plato')
+        ->assertSee('Sobre este plato')
+        ->assertSee('Agregar al pedido')
+        ->assertSee('Pedir por WhatsApp')
+        ->assertDontSee('Comprar por WhatsApp');
 });
 
 test('reservation stores use service and reservation language', function () {
@@ -1159,6 +2093,59 @@ test('admin can create another admin user from the panel', function () {
         ->assertSee('Administrador');
 });
 
+test('admin can extend a store user access from the current end date', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $user = User::factory()->create([
+        'role' => 'store',
+        'active_starts_at' => now()->subDays(10)->toDateString(),
+        'active_duration_days' => 40,
+        'active_ends_at' => now()->addDays(30)->toDateString(),
+    ]);
+
+    $this->actingAs($admin)
+        ->patch(route('admin.users.extend', $user), [
+            'extend_days' => 15,
+        ])
+        ->assertRedirect('/admin/users');
+
+    $user->refresh();
+
+    expect($user->active_ends_at->toDateString())->toBe(now()->addDays(45)->toDateString())
+        ->and($user->is_active)->toBeTrue()
+        ->and($user->active_duration_days)->toBe(55);
+});
+
+test('admin can extend an expired store user access from today and reactivate the store', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $user = User::factory()->create([
+        'role' => 'store',
+        'is_active' => false,
+        'active_starts_at' => now()->subDays(20)->toDateString(),
+        'active_duration_days' => 10,
+        'active_ends_at' => now()->subDays(10)->toDateString(),
+    ]);
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda renovada',
+        'slug' => 'tienda-renovada',
+        'whatsapp' => '573001112233',
+        'is_active' => false,
+    ]);
+
+    $this->actingAs($admin)
+        ->patch(route('admin.users.extend', $user), [
+            'extend_days' => 30,
+        ])
+        ->assertRedirect('/admin/users');
+
+    $user->refresh();
+    $store->refresh();
+
+    expect($user->active_ends_at->toDateString())->toBe(now()->addDays(30)->toDateString())
+        ->and($user->is_active)->toBeTrue()
+        ->and($store->is_active)->toBeTrue();
+});
+
 test('legacy invalid brand colors are not printed in public inline styles', function () {
     $storeUser = User::factory()->create();
     $store = Store::create([
@@ -1771,7 +2758,7 @@ test('store user cannot remove product images outside the product gallery', func
 
 test('admin cannot use reserved store slugs and entered slugs are normalized', function () {
     $admin = User::factory()->create(['role' => 'admin']);
-    foreach (['cart', 'forgot-password', 'reset-password', 'verify-email', 'confirm-password', 'email'] as $reservedSlug) {
+    foreach (['cart', 'forgot-password', 'reset-password', 'verify-email', 'confirm-password', 'email', 'productos', 'nosotros', 'categorias'] as $reservedSlug) {
         $reservedSlugUser = User::factory()->create();
 
         $this->actingAs($admin)

@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     @php
         $page = \App\View\Models\StorefrontPageViewModel::from($store);
-        $publicBaseUrl = $page->publicBaseUrl;
         $absoluteStorageUrl = fn (?string $path) => $page->storageUrl($path);
         $storageAssetUrl = fn (?string $path) => $path ? asset('storage/' . $path) : null;
         $isRestaurant = $store->isRestaurant();
@@ -17,7 +16,7 @@
         $faviconImage = $storageAssetUrl($store->logo_image) ?: asset('images/vendly-logo.svg');
         $productImage = $absoluteStorageUrl($product->image);
         $productGallery = collect([$product->image])
-            ->merge($product->images ?? [])
+            ->merge($store->allowsProductGallery() ? ($product->images ?? []) : [])
             ->filter()
             ->unique()
             ->values();
@@ -28,7 +27,7 @@
         $tiktokUrl = $page->tiktokUrl;
         $canManageStore = $page->canManageStore;
         $cartLabel = $isRestaurant ? 'Pedido' : ($isReservationStore ? 'Reserva' : 'Carrito');
-        $collectionLabelTitle = $isRestaurant ? 'Menu' : ($isReservationStore ? 'Servicios' : 'Catalogo');
+        $collectionLabelTitle = $isRestaurant ? 'Carta' : ($isReservationStore ? 'Servicios' : 'Catalogo');
         $showStorefrontSectionLinks = false;
         $storefrontVariant = $isTechnologyStore ? 'technology' : ($isRestaurant ? 'restaurant' : ($isSupplementStore ? 'supplements' : 'default'));
         $variantStylesheets = [
@@ -37,16 +36,23 @@
             'supplements' => 'css/storefront-supplements.css',
             'default' => 'css/storefront-default.css',
         ];
-        $previewTitle = $isReservationStore ? 'Vista previa del servicio' : ($isSupplementStore ? 'Vista previa del suplemento' : ($isTechnologyStore ? 'Vista previa del producto' : 'Vista previa del producto'));
-        $previewCopy = $isSupplementStore
-            ? 'Revisa el detalle del suplemento, ajusta la cantidad y decide si quieres agregarlo al carrito o ir directo al flujo de compra por WhatsApp.'
-            : ($isTechnologyStore
-                ? 'Explora el producto, ajusta la cantidad y decide si quieres agregarlo al carrito o pasar al flujo de compra por WhatsApp.'
-                : ($isReservationStore
-                    ? 'Explora el servicio, ajusta la cantidad y solicita tu reserva por WhatsApp.'
-                    : 'Explora el producto, ajusta la cantidad y decide si quieres agregarlo al carrito o pasar al flujo de compra por WhatsApp.'));
-        $metaUrl = $publicBaseUrl . '/' . $store->slug . '/productos/' . $product->publicRouteKey();
+        $previewTitle = $isRestaurant
+            ? 'Detalle del plato'
+            : ($isReservationStore ? 'Vista previa del servicio' : ($isSupplementStore ? 'Vista previa del suplemento' : ($isTechnologyStore ? 'Vista previa del producto' : 'Vista previa del producto')));
+        $previewCopy = $isRestaurant
+            ? 'Revisa el plato, ajusta la cantidad y agregalo al pedido para enviarlo por WhatsApp.'
+            : ($isSupplementStore
+                ? 'Revisa el detalle del suplemento, ajusta la cantidad y decide si quieres agregarlo al carrito o ir directo al flujo de compra por WhatsApp.'
+                : ($isTechnologyStore
+                    ? 'Explora el producto, ajusta la cantidad y decide si quieres agregarlo al carrito o pasar al flujo de compra por WhatsApp.'
+                    : ($isReservationStore
+                        ? 'Explora el servicio, ajusta la cantidad y solicita tu reserva por WhatsApp.'
+                        : 'Explora el producto, ajusta la cantidad y decide si quieres agregarlo al carrito o pasar al flujo de compra por WhatsApp.')));
+        $metaUrl = $storefrontUrls->product($store, $product);
         $seo = \App\Support\SeoMeta::product($store, $product, $metaUrl, $seoImage, $previewCopy, $faviconImage);
+        $shareText = $product->name . ' | ' . $store->name;
+        $shareUrlEncoded = rawurlencode($metaUrl);
+        $shareTextEncoded = rawurlencode($shareText);
         $brandTheme = \App\Support\BrandTheme::from($store->brand_color);
         $responsiveProductColumns = in_array((int) $store->responsive_product_columns, [1, 2, 3], true) ? (int) $store->responsive_product_columns : 2;
         $isProductSoldOut = $product->isSoldOut();
@@ -61,16 +67,16 @@
 <body
     class="storefront-page storefront-page--{{ $storefrontVariant }}"
     data-csrf="{{ csrf_token() }}"
-    data-adding-text="{{ $isReservationStore ? 'Agregando a la reserva...' : 'Agregando...' }}"
-    data-feedback-added="{{ $isReservationStore ? 'Servicio agregado a la reserva' : 'Producto agregado al carrito' }}"
-    data-feedback-error="{{ $isReservationStore ? 'No pudimos agregar el servicio' : 'No pudimos agregar el producto' }}"
+    data-adding-text="{{ $isRestaurant ? 'Agregando al pedido...' : ($isReservationStore ? 'Agregando a la reserva...' : 'Agregando...') }}"
+    data-feedback-added="{{ $isRestaurant ? 'Plato agregado al pedido' : ($isReservationStore ? 'Servicio agregado a la reserva' : 'Producto agregado al carrito') }}"
+    data-feedback-error="{{ $isRestaurant ? 'No pudimos agregar el plato' : ($isReservationStore ? 'No pudimos agregar el servicio' : 'No pudimos agregar el producto') }}"
     style="{{ $store->storefrontCssVariables($brandTheme, $responsiveProductColumns) }}"
 >
     @include('storefront.partials.header')
 
     <main class="shell product-shell">
         <section class="product-breadcrumb">
-            <a href="{{ route('store.show', $store->slug) }}">{{ $store->name }}</a>
+            <a href="{{ $storefrontUrls->home($store) }}">{{ $store->name }}</a>
             <span>/</span>
             <span>{{ $product->name }}</span>
         </section>
@@ -141,25 +147,73 @@
 
                 @if($product->material)
                     <div class="product-detail-description">
-                        <h2>Material</h2>
+                        <h2>{{ $isRestaurant ? 'Detalle' : 'Material' }}</h2>
                         <p>{{ $product->material }}</p>
                     </div>
                 @endif
 
                 <div class="product-detail-description">
-                    <h2>Descripción</h2>
-                    <p>{{ $product->description ?: ($isReservationStore ? 'Este servicio aun no tiene una descripcion amplia configurada, pero ya esta listo para reservarse desde la tienda.' : 'Este producto aun no tiene una descripcion amplia configurada, pero ya esta listo para venderse desde la tienda.') }}</p>
+                    <h2>{{ $isRestaurant ? 'Sobre este plato' : 'Descripción' }}</h2>
+                    <p>{{ $product->description ?: ($isRestaurant ? 'Este plato aun no tiene una descripcion amplia, pero ya esta disponible para pedir por WhatsApp.' : ($isReservationStore ? 'Este servicio aun no tiene una descripcion amplia configurada, pero ya esta listo para reservarse.' : 'Este producto aun no tiene una descripcion amplia configurada, pero ya esta listo para venderse.')) }}</p>
                 </div>
 
                 @if($product->features)
                     <div class="product-detail-description product-detail-features">
-                        <h2>Características</h2>
+                        <h2>{{ $isRestaurant ? 'Ingredientes y detalles' : 'Características' }}</h2>
                         <div class="product-rich-content">{!! $product->features !!}</div>
                     </div>
                 @endif
 
+                <section class="product-share" aria-label="Compartir producto">
+                    <div>
+                        <h2>Compartir</h2>
+                    </div>
+
+                    <div class="product-share-actions">
+                        <a
+                            href="https://www.facebook.com/sharer/sharer.php?u={{ $shareUrlEncoded }}"
+                            class="product-share-button product-share-button--facebook"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Compartir en Facebook"
+                        >
+                            <span aria-hidden="true">f</span>
+                            <span class="product-share-label">Facebook</span>
+                        </a>
+                        <a
+                            href="https://wa.me/?text={{ $shareTextEncoded }}%20{{ $shareUrlEncoded }}"
+                            class="product-share-button product-share-button--whatsapp"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Compartir por WhatsApp"
+                        >
+                            <span aria-hidden="true">WA</span>
+                            <span class="product-share-label">WhatsApp</span>
+                        </a>
+                        <a
+                            href="https://twitter.com/intent/tweet?url={{ $shareUrlEncoded }}&text={{ $shareTextEncoded }}"
+                            class="product-share-button product-share-button--x"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Compartir en X"
+                        >
+                            <span aria-hidden="true">X</span>
+                            <span class="product-share-label">X</span>
+                        </a>
+                        <button
+                            type="button"
+                            class="product-share-button product-share-button--copy"
+                            data-copy-product-link="{{ $metaUrl }}"
+                            aria-label="Copiar enlace del producto"
+                        >
+                            <span aria-hidden="true">Link</span>
+                            <span class="product-share-label">Copiar enlace</span>
+                        </button>
+                    </div>
+                </section>
+
                 @if($isProductSoldOut)
-                    <div class="product-unavailable-message">Este producto esta agotado por ahora.</div>
+                    <div class="product-unavailable-message">{{ $isRestaurant ? 'Este plato esta agotado por ahora.' : 'Este producto esta agotado por ahora.' }}</div>
                 @else
                     <form action="{{ route('cart.add', $product->id) }}" method="POST" class="product-detail-form add-to-cart-form">
                         @csrf
@@ -167,9 +221,9 @@
                             <div class="product-options product-options--detail">
                                 @if($product->hasSizes())
                                     <label>
-                                        <span>Talla</span>
+                                        <span>{{ $isRestaurant ? 'Porcion' : 'Talla' }}</span>
                                         <select name="size" data-role="selected-size" required>
-                                            <option value="">Selecciona talla</option>
+                                            <option value="">{{ $isRestaurant ? 'Selecciona porcion' : 'Selecciona talla' }}</option>
                                             @foreach($product->sizes as $size)
                                                 <option value="{{ $size }}">{{ $size }}</option>
                                             @endforeach
@@ -179,9 +233,9 @@
 
                                 @if($product->hasColors())
                                     <label>
-                                        <span>Color</span>
+                                        <span>{{ $isRestaurant ? 'Opcion' : 'Color' }}</span>
                                         <select name="color" data-role="selected-color" required>
-                                            <option value="">Selecciona color</option>
+                                            <option value="">{{ $isRestaurant ? 'Selecciona opcion' : 'Selecciona color' }}</option>
                                             @foreach($product->colors as $color)
                                                 <option value="{{ $color }}">{{ $color }}</option>
                                             @endforeach
@@ -196,7 +250,7 @@
                             <input id="quantity" type="number" name="quantity" min="1" max="{{ $quantityMax }}" value="{{ old('quantity', 1) }}" class="product-quantity-input">
                         </div>
 
-                        <button type="submit" class="product-detail-primary">{{ $isReservationStore ? 'Agregar a la reserva' : 'Agregar al carrito' }}</button>
+                        <button type="submit" class="product-detail-primary">{{ $isRestaurant ? 'Agregar al pedido' : ($isReservationStore ? 'Agregar a la reserva' : 'Agregar al carrito') }}</button>
                     </form>
 
                     <form action="{{ route('cart.buy_now', $product->id) }}" method="POST" class="product-detail-form" data-role="buy-now-form">
@@ -204,7 +258,9 @@
                         <input type="hidden" name="quantity" value="{{ old('quantity', 1) }}" data-role="buy-now-quantity">
                         <input type="hidden" name="size" value="" data-role="buy-now-size">
                         <input type="hidden" name="color" value="" data-role="buy-now-color">
-                        <button type="submit" class="product-detail-secondary">{{ $isReservationStore ? 'Reservar por WhatsApp' : 'Comprar por WhatsApp' }}</button>
+                        <button type="submit" class="product-detail-secondary product-detail-whatsapp">
+                            <span>{{ $isRestaurant ? 'Pedir por WhatsApp' : ($isReservationStore ? 'Reservar por WhatsApp' : 'Comprar por WhatsApp') }}</span>
+                        </button>
                     </form>
                 @endif
             </div>
@@ -213,7 +269,7 @@
         @if($relatedProducts->isNotEmpty())
             <section class="product-related">
                 <div class="catalog-head">
-                    <h2>Tambien te puede interesar</h2>
+                    <h2>{{ $isRestaurant ? 'Tambien puedes pedir' : 'Tambien te puede interesar' }}</h2>
                 </div>
 
                 <div class="products-grid">
@@ -231,7 +287,7 @@
                                 <span class="price">${{ number_format($relatedProduct->price, 0, ',', '.') }}</span>
                             </div>
 
-                            <a href="{{ route('store.product.show', ['slug' => $store->slug, 'product' => $relatedProduct->publicRouteKey()]) }}" class="product-preview-link">
+                            <a href="{{ $storefrontUrls->product($store, $relatedProduct) }}" class="product-preview-link">
                                 Ver más
                             </a>
                         </article>
@@ -323,6 +379,62 @@
                 }
             });
             syncBuyNowFields();
+        })();
+
+        (() => {
+            const copyButton = document.querySelector('[data-copy-product-link]');
+            const feedback = document.getElementById('cartFeedback');
+            let feedbackTimer;
+
+            if (!copyButton) {
+                return;
+            }
+
+            const showFeedback = (message) => {
+                if (!feedback) {
+                    return;
+                }
+
+                feedback.textContent = message;
+                feedback.classList.add('is-visible');
+
+                window.clearTimeout(feedbackTimer);
+                feedbackTimer = window.setTimeout(() => {
+                    feedback.classList.remove('is-visible');
+                }, 1800);
+            };
+
+            const fallbackCopy = (value) => {
+                const input = document.createElement('textarea');
+                input.value = value;
+                input.setAttribute('readonly', '');
+                input.style.position = 'fixed';
+                input.style.opacity = '0';
+                document.body.appendChild(input);
+                input.select();
+                document.execCommand('copy');
+                document.body.removeChild(input);
+            };
+
+            copyButton.addEventListener('click', async () => {
+                const link = copyButton.dataset.copyProductLink;
+
+                if (!link) {
+                    return;
+                }
+
+                try {
+                    if (navigator.clipboard && window.isSecureContext) {
+                        await navigator.clipboard.writeText(link);
+                    } else {
+                        fallbackCopy(link);
+                    }
+
+                    showFeedback('Link del producto copiado');
+                } catch (error) {
+                    showFeedback('No pudimos copiar el link');
+                }
+            });
         })();
     </script>
 </body>

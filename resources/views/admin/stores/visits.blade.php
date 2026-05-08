@@ -2,8 +2,12 @@
 
 @section('content')
 <div class="header">
-    <h2>Visitas por tienda</h2>
-    <a href="/admin/stores" class="btn btn-secondary">Volver a tiendas</a>
+    <h2>{{ isset($selectedStore) ? 'Visitas de tu tienda' : 'Visitas por tienda' }}</h2>
+    @if(auth()->user()?->isAdmin())
+        <a href="/admin/stores" class="btn btn-secondary">Volver a tiendas</a>
+    @else
+        <a href="/admin/store-settings" class="btn btn-secondary">Volver a configuracion</a>
+    @endif
 </div>
 
 <div class="grid" style="margin-bottom:16px;">
@@ -13,58 +17,70 @@
     </div>
 
     <div class="card">
-        <span style="display:block; color:#6b7280; font-size:14px; font-weight:700; margin-bottom:8px;">Tiendas con visitas</span>
+        <span style="display:block; color:#6b7280; font-size:14px; font-weight:700; margin-bottom:8px;">{{ isset($selectedStore) ? 'Plan' : 'Tiendas con visitas' }}</span>
+        @if(isset($selectedStore))
+            <strong style="font-size:34px;">{{ $selectedStore->planLabel() }}</strong>
+        @else
         <strong style="font-size:34px;">{{ $stores->total() }}</strong>
+        @endif
     </div>
 </div>
 
-<div class="list-card">
-    @if($needsMigration ?? false)
-        <div class="flash error" style="margin-bottom:0;">
-            La columna de visitas todavia no existe. Ejecuta <strong>php artisan migrate</strong> para habilitar esta seccion.
-        </div>
-    @elseif($stores->isNotEmpty())
-        <div style="width:100%; overflow-x:auto;">
-            <table style="width:100%; min-width:720px; border-collapse:collapse;">
-                <thead>
-                    <tr>
-                        <th style="padding:12px 10px; border-bottom:1px solid #e5e7eb; text-align:left;">Tienda</th>
-                        <th style="padding:12px 10px; border-bottom:1px solid #e5e7eb; text-align:left;">Usuario</th>
-                        <th style="padding:12px 10px; border-bottom:1px solid #e5e7eb; text-align:left;">URL</th>
-                        <th style="padding:12px 10px; border-bottom:1px solid #e5e7eb; text-align:right;">Visitas</th>
-                        <th style="padding:12px 10px; border-bottom:1px solid #e5e7eb; text-align:right;">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($stores as $store)
-                        <tr>
-                            <td style="padding:12px 10px; border-bottom:1px solid #e5e7eb;">
-                                <strong>{{ $store->name }}</strong><br>
-                                <span style="color:#6b7280; font-size:13px;">{{ $store->businessTypeLabel() }}</span>
-                            </td>
-                            <td style="padding:12px 10px; border-bottom:1px solid #e5e7eb;">
-                                {{ $store->user->name ?? 'Sin usuario' }}
-                            </td>
-                            <td style="padding:12px 10px; border-bottom:1px solid #e5e7eb;">
-                                <a href="{{ url('/' . $store->slug) }}" target="_blank" rel="noopener noreferrer">/{{ $store->slug }}</a>
-                            </td>
-                            <td style="padding:12px 10px; border-bottom:1px solid #e5e7eb; text-align:right;">
-                                <strong>{{ number_format($store->views_count ?? 0, 0, ',', '.') }}</strong>
-                            </td>
-                            <td style="padding:12px 10px; border-bottom:1px solid #e5e7eb; text-align:right;">
-                                <a href="{{ route('admin.stores.edit', $store) }}" class="btn">Editar</a>
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
+@if($needsMigration ?? false)
+    <div class="flash error">
+        La columna de visitas todavia no existe. Ejecuta <strong>php artisan migrate</strong> para habilitar esta seccion.
+    </div>
+@elseif($stores->isNotEmpty())
+    <div class="panel-list">
+        @foreach($stores as $store)
+            <article class="list-card resource-card">
+                <div class="resource-card__main">
+                    <div class="resource-card__header">
+                        <div>
+                            <h3 class="resource-card__title">{{ $store->name }}</h3>
+                            <p class="resource-card__subtitle">/{{ $store->slug }}</p>
+                        </div>
+                        <div class="resource-badges">
+                            <span class="resource-badge">{{ $store->businessTypeLabel() }}</span>
+                            <span class="resource-badge resource-badge--active">{{ number_format($store->views_count ?? 0, 0, ',', '.') }} visita(s)</span>
+                        </div>
+                    </div>
 
-        <div class="admin-pagination" style="margin-top:16px;">
-            {{ $stores->links('pagination::bootstrap-4') }}
-        </div>
-    @else
-        <p>Aun no hay tiendas con visitas registradas.</p>
-    @endif
-</div>
+                    <div class="resource-metrics">
+                        <div class="resource-metric">
+                            <span class="resource-metric__label">Usuario</span>
+                            <span class="resource-metric__value">{{ $store->user->name ?? 'Sin usuario' }}</span>
+                        </div>
+                        <div class="resource-metric">
+                            <span class="resource-metric__label">URL publica</span>
+                            <span class="resource-metric__value">/{{ $store->slug }}</span>
+                        </div>
+                        <div class="resource-metric">
+                            <span class="resource-metric__label">Tipo</span>
+                            <span class="resource-metric__value">{{ $store->businessTypeLabel() }}</span>
+                        </div>
+                        <div class="resource-metric">
+                            <span class="resource-metric__label">Visitas</span>
+                            <span class="resource-metric__value">{{ number_format($store->views_count ?? 0, 0, ',', '.') }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="resource-actions">
+                    <a href="{{ url('/' . $store->slug) }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Ver tienda</a>
+                    <a href="{{ route('admin.stores.edit', $store) }}" class="btn">Editar</a>
+                </div>
+            </article>
+        @endforeach
+    </div>
+
+    <div class="list-card admin-pagination" style="margin-top:16px;">
+        {{ $stores->links('pagination::bootstrap-4') }}
+    </div>
+@else
+    <div class="panel-empty">
+        <h3>Aun no hay visitas registradas</h3>
+        <p>Cuando las tiendas reciban trafico publico, veras aqui el conteo por tienda.</p>
+    </div>
+@endif
 @endsection

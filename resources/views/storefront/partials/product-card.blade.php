@@ -5,6 +5,7 @@
 
     $stockLabel = $product->stockLabel();
     $isSoldOut = $product->isSoldOut();
+    $isRestaurantCard = isset($store) && $store->isRestaurant();
 @endphp
 
 <article class="product-card {{ $cardClass ?? '' }}">
@@ -24,7 +25,7 @@
         <span class="product-stock-badge {{ $isSoldOut ? 'is-sold-out' : '' }}">{{ $stockLabel }}</span>
     @endif
 
-    <a href="{{ route('store.product.show', ['slug' => $store->slug, 'product' => $product->publicRouteKey()]) }}" class="product-preview-link {{ $isSoldOut ? 'is-disabled' : '' }}">
-        {{ $isSoldOut ? 'Agotado' : 'Ver mas' }}
+    <a href="{{ $storefrontUrls->product($store, $product) }}" class="product-preview-link {{ $isSoldOut ? 'is-disabled' : '' }}">
+        {{ $isSoldOut ? 'Agotado' : ($isRestaurantCard ? 'Ver plato' : 'Ver mas') }}
     </a>
 </article>
