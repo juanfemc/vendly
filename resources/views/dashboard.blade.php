@@ -9,6 +9,42 @@
     <h2>{{ auth()->user()->isAdmin() ? 'Dashboard admin' : 'Dashboard de tienda' }}</h2>
 </div>
 
+@if (!auth()->user()->isAdmin() && !empty($banners) && $banners->isNotEmpty())
+    <div class="list-card dashboard-banner-card dashboard-banner-card--top">
+        <div id="dashboard-banner-slider" class="dashboard-slider">
+            @foreach ($banners as $index => $banner)
+                <div class="dashboard-slide {{ $index === 0 ? 'is-active' : '' }}">
+                    <div class="dashboard-slide-media">
+                        <img src="{{ asset('storage/' . $banner->image) }}" alt="{{ $banner->title ?: 'Banner' }}">
+                        @if ($banner->title || $banner->subtitle || $banner->link)
+                            <div class="dashboard-slide-overlay">
+                                @if ($banner->title)
+                                    <div class="dashboard-slide-title">{{ $banner->title }}</div>
+                                @endif
+                                @if ($banner->subtitle)
+                                    <div class="dashboard-slide-text">{{ $banner->subtitle }}</div>
+                                @endif
+                                @if ($banner->link)
+                                    <div class="dashboard-slide-actions">
+                                        <a href="{{ $banner->link }}" class="btn dashboard-slide-link">Ver mas</a>
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            @endforeach
+        </div>
+        @if ($banners->count() > 1)
+            <div class="dashboard-dots">
+                @foreach ($banners as $index => $banner)
+                    <button type="button" class="dashboard-dot {{ $index === 0 ? 'is-active' : '' }}" data-slide="{{ $index }}"></button>
+                @endforeach
+            </div>
+        @endif
+    </div>
+@endif
+
 @if (auth()->user()->isAdmin())
     @if (!empty($expiringUsers) && $expiringUsers->isNotEmpty())
         <div class="dashboard-notification">
@@ -194,42 +230,6 @@
             <a href="{{ url('/' . $store->slug) }}" class="btn btn-secondary dashboard-store-link" target="_blank" rel="noopener noreferrer">
                 Ir a mi tienda
             </a>
-        </div>
-    @endif
-
-    @if (!empty($banners) && $banners->isNotEmpty())
-        <div class="list-card dashboard-banner-card">
-            <div id="dashboard-banner-slider" class="dashboard-slider">
-                @foreach ($banners as $index => $banner)
-                    <div class="dashboard-slide {{ $index === 0 ? 'is-active' : '' }}">
-                        <div class="dashboard-slide-media">
-                            <img src="{{ asset('storage/' . $banner->image) }}" alt="{{ $banner->title ?: 'Banner' }}">
-                            @if ($banner->title || $banner->subtitle || $banner->link)
-                                <div class="dashboard-slide-overlay">
-                                    @if ($banner->title)
-                                        <div class="dashboard-slide-title">{{ $banner->title }}</div>
-                                    @endif
-                                    @if ($banner->subtitle)
-                                        <div class="dashboard-slide-text">{{ $banner->subtitle }}</div>
-                                    @endif
-                                    @if ($banner->link)
-                                        <div class="dashboard-slide-actions">
-                                            <a href="{{ $banner->link }}" class="btn dashboard-slide-link">Ver mas</a>
-                                        </div>
-                                    @endif
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-            @if ($banners->count() > 1)
-                <div class="dashboard-dots">
-                    @foreach ($banners as $index => $banner)
-                        <button type="button" class="dashboard-dot {{ $index === 0 ? 'is-active' : '' }}" data-slide="{{ $index }}"></button>
-                    @endforeach
-                </div>
-            @endif
         </div>
     @endif
 
