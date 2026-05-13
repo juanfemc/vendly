@@ -246,6 +246,7 @@
             @if($store->allowsSubdomain())
                 @php
                     $storefrontHost = parse_url(config('app.url'), PHP_URL_HOST) ?: request()->getHost();
+                    $customDomain = old('custom_domain', $store->custom_domain);
                 @endphp
                 <div class="settings-field">
                     <label class="field-label" for="store_subdomain">Subdominio</label>
@@ -254,11 +255,40 @@
                         Tu tienda podra usarse como {{ old('subdomain', $store->subdomain) ?: 'mitienda' }}.{{ $storefrontHost }}.
                     </p>
                 </div>
+
+                @if($store->allowsCustomDomain())
+                    <div class="settings-field settings-field--full">
+                        <label class="field-label" for="store_custom_domain">Dominio personalizado</label>
+                        <input id="store_custom_domain" type="text" name="custom_domain" value="{{ $customDomain }}" placeholder="www.tudominio.com">
+                        <p class="settings-help">
+                            Disponible para Premium. Primero guarda el dominio y luego apunta un CNAME hacia {{ $storefrontHost }}.
+                        </p>
+                        @if($customDomain)
+                            <p class="settings-help">
+                                Estado: {{ ($store->custom_domain_status ?? 'pending') === 'verified' ? 'verificado' : 'pendiente de verificacion' }}.
+                            </p>
+                            <p class="settings-help">
+                                DNS recomendado: tipo CNAME, nombre {{ str_starts_with($customDomain, 'www.') ? 'www' : $customDomain }}, destino {{ $storefrontHost }}.
+                            </p>
+                        @endif
+                    </div>
+                @else
+                    <div class="settings-field settings-field--full">
+                        <label class="field-label" for="store_custom_domain_locked">Dominio personalizado</label>
+                        <input id="store_custom_domain_locked" class="settings-readonly-input" type="text" value="Disponible desde el plan Premium" readonly>
+                        <p class="settings-help">El plan Pro puede usar subdominio; el dominio propio queda reservado para Premium.</p>
+                    </div>
+                @endif
             @else
                 <div class="settings-field">
                     <label class="field-label" for="store_subdomain_locked">Subdominio</label>
                     <input id="store_subdomain_locked" class="settings-readonly-input" type="text" value="Disponible desde el plan Pro" readonly>
                     <p class="settings-help">El plan Basico mantiene la URL normal de la tienda.</p>
+                </div>
+                <div class="settings-field">
+                    <label class="field-label" for="store_custom_domain_locked">Dominio personalizado</label>
+                    <input id="store_custom_domain_locked" class="settings-readonly-input" type="text" value="Disponible desde el plan Premium" readonly>
+                    <p class="settings-help">El dominio propio requiere plan Premium.</p>
                 </div>
             @endif
 

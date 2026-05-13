@@ -42,6 +42,14 @@
         <input type="text" name="slug" value="{{ old('slug', $store->slug) }}" placeholder="Slug (ej: mitienda)">
         <label class="field-label" for="subdomain">Subdominio Pro/Premium</label>
         <input id="subdomain" type="text" name="subdomain" value="{{ old('subdomain', $store->subdomain) }}" placeholder="Subdominio (ej: mitienda)">
+        <label class="field-label" for="custom_domain">Dominio personalizado Premium</label>
+        <input id="custom_domain" type="text" name="custom_domain" value="{{ old('custom_domain', $store->custom_domain) }}" placeholder="www.tudominio.com">
+        <label class="field-label" for="custom_domain_status">Estado del dominio</label>
+        <select id="custom_domain_status" name="custom_domain_status">
+            <option value="pending" @selected(old('custom_domain_status', $store->custom_domain_status ?? 'pending') === 'pending')>Pendiente</option>
+            <option value="verified" @selected(old('custom_domain_status', $store->custom_domain_status) === 'verified')>Verificado</option>
+            <option value="failed" @selected(old('custom_domain_status', $store->custom_domain_status) === 'failed')>Fallido</option>
+        </select>
         <input type="text" name="whatsapp" value="{{ old('whatsapp', $store->whatsapp) }}" placeholder="WhatsApp">
         <input type="text" name="location" value="{{ old('location', $store->location) }}" placeholder="Ubicacion o direccion (opcional)">
         <label class="field-label" for="business_hours">Horario de atencion</label>

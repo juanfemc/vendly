@@ -212,6 +212,14 @@ class StoreController extends Controller
                 'show_hero_products_action' => false,
             ])->save();
         }
+
+        if (Store::supportsCustomDomainColumns() && ! $store->allowsCustomDomain()) {
+            $store->forceFill([
+                'custom_domain' => null,
+                'custom_domain_status' => Store::CUSTOM_DOMAIN_PENDING,
+                'custom_domain_verified_at' => null,
+            ])->save();
+        }
     }
 
     private function storeCanUsePlan(Store $store, string $plan): bool

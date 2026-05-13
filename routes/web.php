@@ -12,6 +12,7 @@ use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminBannerController;
 use App\Http\Controllers\LandingTestimonialController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\PaymentSettingsController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StoreCategoryController;
 use App\Services\StoreSubdomainService;
@@ -30,6 +31,14 @@ Route::patch('/cart/item/{id}', [CartController::class, 'updateItem'])->name('ca
 Route::delete('/cart/item/{id}', [CartController::class, 'removeItem'])->name('cart.item.remove');
 Route::delete('/cart', [CartController::class, 'clear'])->name('cart.clear');
 Route::post('/cart/whatsapp', [CartController::class, 'whatsappFromCart'])->middleware('throttle:10,1')->name('cart.whatsapp');
+Route::post('/cart/mercadopago', [CartController::class, 'mercadoPagoFromCart'])->middleware('throttle:10,1')->name('cart.mercadopago');
+Route::get('/cart/mercadopago/{order}/{result}', [CartController::class, 'mercadoPagoReturn'])
+    ->whereIn('result', ['success', 'failure', 'pending'])
+    ->whereUuid('order')
+    ->name('cart.mercadopago.return');
+Route::post('/webhooks/mercadopago', [CartController::class, 'mercadoPagoWebhook'])
+    ->middleware('throttle:120,1')
+    ->name('cart.mercadopago.webhook');
 
 
 
@@ -57,6 +66,9 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::delete('/admin/orders/{order}', [OrderController::class, 'destroy'])->name('admin.orders.destroy');
     Route::get('/admin/store-settings', [StoreController::class, 'settings']);
     Route::post('/admin/store-settings', [StoreController::class, 'updateSettings']);
+    Route::get('/admin/payments', [PaymentSettingsController::class, 'index'])->name('admin.payments.index');
+    Route::get('/admin/payments/mercadopago/connect', [PaymentSettingsController::class, 'connectMercadoPago'])->name('admin.payments.mercadopago.connect');
+    Route::get('/admin/payments/mercadopago/callback', [PaymentSettingsController::class, 'mercadoPagoCallback'])->name('admin.payments.mercadopago.callback');
     Route::get('/admin/store-visits', [StoreController::class, 'visits'])->name('admin.store.visits');
     Route::get('/admin/categories', [StoreCategoryController::class, 'index'])->name('admin.categories.index');
     Route::post('/admin/categories', [StoreCategoryController::class, 'store'])->name('admin.categories.store');
@@ -111,7 +123,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
 Route::get('/', function () {
     $subdomains = app(StoreSubdomainService::class);
 
-    if ($subdomains->subdomainFromRequest(request())) {
+    if ($subdomains->subdomainFromRequest(request()) || $subdomains->publicStoreFromRequest(request())) {
         return app(ProductController::class)->storeBySubdomain(request(), $subdomains);
     }
 

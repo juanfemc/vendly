@@ -38,6 +38,8 @@
         <input type="text" name="slug" value="{{ old('slug') }}" placeholder="Slug (ej: mitienda)">
         <label class="field-label" for="subdomain">Subdominio Pro/Premium</label>
         <input id="subdomain" type="text" name="subdomain" value="{{ old('subdomain') }}" placeholder="Subdominio (ej: mitienda)">
+        <label class="field-label" for="custom_domain">Dominio personalizado Premium</label>
+        <input id="custom_domain" type="text" name="custom_domain" value="{{ old('custom_domain') }}" placeholder="www.tudominio.com">
         <input type="text" name="whatsapp" value="{{ old('whatsapp') }}" placeholder="WhatsApp">
         <input type="text" name="location" value="{{ old('location') }}" placeholder="Ubicacion o direccion (opcional)">
         <label class="field-label" for="business_hours">Horario de atencion</label>

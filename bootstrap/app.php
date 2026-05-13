@@ -15,6 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'active' => \App\Http\Middleware\EnsureActiveUser::class,
         ]);
+
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/mercadopago/*',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

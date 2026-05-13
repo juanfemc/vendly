@@ -19,6 +19,7 @@ class StoreSettingsRequest extends FormRequest
     {
         $this->merge([
             'subdomain' => Store::normalizeSubdomain($this->input('subdomain')),
+            'custom_domain' => Store::normalizeCustomDomain($this->input('custom_domain')),
         ]);
     }
 
@@ -33,6 +34,7 @@ class StoreSettingsRequest extends FormRequest
             'name',
             'business_type',
             'subdomain',
+            'custom_domain',
             'whatsapp',
             'location',
             'business_hours',

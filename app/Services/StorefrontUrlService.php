@@ -67,6 +67,17 @@ class StorefrontUrlService
             && $store->subdomain === $subdomain;
     }
 
+    public function usesCurrentCustomDomain(Store $store, ?Request $request = null): bool
+    {
+        $request ??= request();
+        $customDomain = $this->subdomains->customDomainFromRequest($request);
+
+        return $customDomain
+            && $store->allowsCustomDomain()
+            && $store->custom_domain_status === Store::CUSTOM_DOMAIN_VERIFIED
+            && $store->custom_domain === $customDomain;
+    }
+
     private function withQuery(string $url, array $query): string
     {
         $query = array_filter($query, fn ($value) => $value !== null && $value !== '');
@@ -80,7 +91,7 @@ class StorefrontUrlService
 
     private function storeUrl(Store $store, ?Request $request, string $subdomainPath, callable $slugUrl): string
     {
-        return $this->usesCurrentSubdomain($store, $request)
+        return $this->usesCurrentSubdomain($store, $request) || $this->usesCurrentCustomDomain($store, $request)
             ? $this->subdomainUrl($request, $subdomainPath)
             : $slugUrl();
     }

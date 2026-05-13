@@ -1070,10 +1070,11 @@
                 @php
                     $sidebarStore = auth()->user()?->store ?? auth()->user()?->stores()->first();
                 @endphp
-                <details class="sidebar-menu-group" {{ request()->is('admin/store-settings') || request()->is('admin/categories*') ? 'open' : '' }}>
+                <details class="sidebar-menu-group" {{ request()->is('admin/store-settings') || request()->is('admin/payments*') || request()->is('admin/categories*') ? 'open' : '' }}>
                     <summary>Tienda</summary>
                     <div class="sidebar-submenu">
                         <a href="/admin/store-settings">Configuracion</a>
+                        <a href="{{ route('admin.payments.index') }}">Metodos de pago</a>
                         @if(($sidebarStore?->allowsCategories() ?? true))
                             <a href="/admin/categories">Categorias</a>
                         @endif

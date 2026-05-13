@@ -22,6 +22,7 @@ class StoreRequest extends FormRequest
         $this->merge([
             'slug' => app(StoreSlugService::class)->normalize($this->input('slug')),
             'subdomain' => Store::normalizeSubdomain($this->input('subdomain')),
+            'custom_domain' => Store::normalizeCustomDomain($this->input('custom_domain')),
         ]);
     }
 
@@ -49,6 +50,8 @@ class StoreRequest extends FormRequest
             'plan',
             'slug',
             'subdomain',
+            'custom_domain',
+            'custom_domain_status',
             'whatsapp',
             'location',
             'business_hours',

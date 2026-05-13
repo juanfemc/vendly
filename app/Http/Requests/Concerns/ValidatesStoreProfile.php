@@ -24,11 +24,37 @@ trait ValidatesStoreProfile
             $subdomainRules[] = Rule::unique('stores', 'subdomain')->ignore($storeId);
         }
 
+        $customDomainRules = [
+            'nullable',
+            'string',
+            'max:253',
+            'regex:/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/',
+            Rule::notIn($this->reservedCustomDomains()),
+            function (string $attribute, mixed $value, \Closure $fail) {
+                $domain = Store::normalizeCustomDomain($value);
+                $appHost = Store::normalizeCustomDomain(parse_url(config('app.url'), PHP_URL_HOST));
+
+                if ($domain && $appHost && str_ends_with($domain, '.' . $appHost)) {
+                    $fail('Usa el campo de subdominio para direcciones de ' . $appHost . '.');
+                }
+            },
+        ];
+
+        if (Store::supportsCustomDomainColumns()) {
+            $customDomainRules[] = Rule::unique('stores', 'custom_domain')->ignore($storeId);
+        }
+
         return [
             'name' => ['required', 'string', 'max:255'],
             'business_type' => ['required', 'in:' . implode(',', array_keys(Store::businessTypeOptions()))],
             'plan' => ['nullable', Rule::in(array_keys(Store::planOptions()))],
             'subdomain' => $subdomainRules,
+            'custom_domain' => $customDomainRules,
+            'custom_domain_status' => ['nullable', Rule::in([
+                Store::CUSTOM_DOMAIN_PENDING,
+                Store::CUSTOM_DOMAIN_VERIFIED,
+                Store::CUSTOM_DOMAIN_FAILED,
+            ])],
             'whatsapp' => ['required', 'string', 'max:255'],
             'location' => ['nullable', 'string', 'max:255'],
             'business_hours' => ['nullable', 'string', 'max:1000'],
@@ -76,12 +102,25 @@ trait ValidatesStoreProfile
         } else {
             unset($data['subdomain']);
         }
+
+        if (Store::supportsCustomDomainColumns()) {
+            $data['custom_domain'] = Store::normalizeCustomDomain($data['custom_domain'] ?? null);
+            $this->applyCustomDomainState($data, $effectivePlan);
+        } else {
+            unset($data['custom_domain']);
+        }
+
         $data['responsive_product_columns'] = (int) ($data['responsive_product_columns'] ?? 2);
         $data['show_hero_products_action'] = $this->boolean('show_hero_products_action', false);
 
         if ($effectivePlan === Store::PLAN_BASIC) {
             if (Store::supportsSubdomainColumn()) {
                 $data['subdomain'] = null;
+            }
+            if (Store::supportsCustomDomainColumns()) {
+                $data['custom_domain'] = null;
+                $data['custom_domain_status'] = Store::CUSTOM_DOMAIN_PENDING;
+                $data['custom_domain_verified_at'] = null;
             }
             $data['brand_color'] = null;
             $data['background_color'] = null;
@@ -131,11 +170,52 @@ trait ValidatesStoreProfile
         return $data;
     }
 
+    private function applyCustomDomainState(array &$data, string $effectivePlan): void
+    {
+        $store = $this->profileStore();
+        $domain = $data['custom_domain'] ?? null;
+        $previousDomain = Store::normalizeCustomDomain($store?->custom_domain);
+        $requestedStatus = $data['custom_domain_status'] ?? null;
+
+        if ($effectivePlan !== Store::PLAN_PREMIUM) {
+            $data['custom_domain'] = null;
+            $data['custom_domain_status'] = Store::CUSTOM_DOMAIN_PENDING;
+            $data['custom_domain_verified_at'] = null;
+
+            return;
+        }
+
+        if ($domain === $previousDomain) {
+            if (array_key_exists('custom_domain_status', $data)) {
+                if ($domain && $requestedStatus === Store::CUSTOM_DOMAIN_VERIFIED) {
+                    $data['custom_domain_verified_at'] = $store?->custom_domain_verified_at ?? now();
+                } else {
+                    $data['custom_domain_verified_at'] = null;
+                }
+            }
+
+            return;
+        }
+
+        $data['custom_domain_status'] = Store::CUSTOM_DOMAIN_PENDING;
+        $data['custom_domain_verified_at'] = null;
+    }
+
     private function normalizeBrandColor(?string $value): ?string
     {
         $value = trim((string) $value);
 
         return $value === '' ? null : BrandTheme::normalizeColor($value);
+    }
+
+    private function reservedCustomDomains(): array
+    {
+        $appHost = Store::normalizeCustomDomain(parse_url(config('app.url'), PHP_URL_HOST));
+
+        return array_values(array_filter([
+            $appHost,
+            $appHost ? 'www.' . preg_replace('/^www\./', '', $appHost) : null,
+        ]));
     }
 
     private function profileStore(): ?Store

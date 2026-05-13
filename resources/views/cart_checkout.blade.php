@@ -40,6 +40,10 @@
                         <div class="flash-error">{{ session('error') }}</div>
                     @endif
 
+                    @if (session('success'))
+                        <div class="flash-success">{{ session('success') }}</div>
+                    @endif
+
                     @if ($errors->any())
                         <div class="errors">
                             <ul>
@@ -113,6 +117,19 @@
                             </div>
 
                             <button class="primary-btn" type="submit">{{ $isRestaurant ? 'Enviar pedido por WhatsApp' : ($isReservationStore ? 'Solicitar reserva por WhatsApp' : 'Finalizar pedido por WhatsApp') }}</button>
+
+                            @if($mercadoPagoAvailable)
+                                <div class="payment-divider"><span>o paga en linea</span></div>
+
+                                <button
+                                    class="mercadopago-btn"
+                                    type="submit"
+                                    formaction="{{ route('cart.mercadopago', ['store' => $store?->slug]) }}"
+                                >
+                                    <span class="mercadopago-mark">MP</span>
+                                    <span>Pagar con Mercado Pago</span>
+                                </button>
+                            @endif
                         </section>
                     </form>
                 </div>

@@ -64,11 +64,20 @@
                     </div>
                     <div class="resource-badges">
                         <span class="resource-badge {{ $statusBadgeClass }}">{{ $order->statusLabel() }}</span>
+                        <span class="resource-badge {{ $order->paymentStatusBadgeClass() }}">{{ $order->paymentStatusLabel() }}</span>
                         <span class="resource-badge">${{ number_format($order->total, 0, ',', '.') }}</span>
                     </div>
                 </div>
 
                 <div class="resource-metrics">
+                    <div class="resource-metric">
+                        <span class="resource-metric__label">Metodo de pago</span>
+                        <span class="resource-metric__value">{{ $order->paymentMethodLabel() }}</span>
+                    </div>
+                    <div class="resource-metric">
+                        <span class="resource-metric__label">Estado de pago</span>
+                        <span class="resource-metric__value">{{ $order->paymentStatusLabel() }}</span>
+                    </div>
                     <div class="resource-metric">
                         <span class="resource-metric__label">Ciudad</span>
                         <span class="resource-metric__value">{{ $order->customer_city ?: 'Sin ciudad' }}</span>

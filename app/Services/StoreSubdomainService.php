@@ -12,6 +12,27 @@ class StoreSubdomainService
         return $this->subdomainFromHost($request->getHost());
     }
 
+    public function isCustomDomainRequest(Request $request): bool
+    {
+        return $this->customDomainFromRequest($request) !== null;
+    }
+
+    public function customDomainFromRequest(Request $request): ?string
+    {
+        if (! Store::supportsCustomDomainColumns()) {
+            return null;
+        }
+
+        $host = $this->normalizeHost($request->getHost());
+        $baseHost = $this->baseHost();
+
+        if (! $host || ! $baseHost || $host === $baseHost || str_ends_with($host, '.' . $baseHost)) {
+            return null;
+        }
+
+        return Store::normalizeCustomDomain($host);
+    }
+
     public function subdomainFromHost(?string $host): ?string
     {
         if (! Store::supportsSubdomainColumn()) {
@@ -44,6 +65,17 @@ class StoreSubdomainService
 
     public function publicStoreFromRequest(Request $request): ?Store
     {
+        $customDomain = $this->customDomainFromRequest($request);
+
+        if ($customDomain) {
+            $store = Store::publiclyAvailable()
+                ->where('custom_domain', $customDomain)
+                ->where('custom_domain_status', Store::CUSTOM_DOMAIN_VERIFIED)
+                ->first();
+
+            return $store?->allowsCustomDomain() ? $store : null;
+        }
+
         $subdomain = $this->subdomainFromRequest($request);
 
         if (! $subdomain) {

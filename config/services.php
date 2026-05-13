@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    'mercadopago' => [
+        'client_id' => env('MERCADOPAGO_CLIENT_ID'),
+        'client_secret' => env('MERCADOPAGO_CLIENT_SECRET'),
+        'redirect_uri' => env('MERCADOPAGO_REDIRECT_URI'),
+        'webhook_secret' => env('MERCADOPAGO_WEBHOOK_SECRET'),
+        'test_token' => env('MERCADOPAGO_TEST_TOKEN', false),
+        'payment_expiration_minutes' => (int) env('MERCADOPAGO_PAYMENT_EXPIRATION_MINUTES', 60),
+        'payment_expiration_grace_minutes' => (int) env('MERCADOPAGO_PAYMENT_EXPIRATION_GRACE_MINUTES', 30),
+    ],
+
 ];

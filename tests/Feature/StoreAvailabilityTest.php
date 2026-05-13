@@ -8,13 +8,17 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\StoreBanner;
 use App\Models\StoreCategory;
+use App\Models\StorePaymentAccount;
 use App\Models\StoreVisit;
 use App\Models\User;
 use App\Services\AdminUpdateService;
 use App\Services\StoreSubdomainService;
 use App\Services\StorefrontUrlService;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
 test('public store is hidden when owner account is expired', function () {
@@ -574,6 +578,79 @@ test('basic plan cannot save a subdomain from a crafted settings request', funct
     expect($store->refresh()->subdomain)->toBeNull();
 });
 
+test('premium plan can save a normalized custom domain from settings', function () {
+    config(['app.url' => 'https://vendlysuite.com']);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Premium Dominio',
+        'slug' => 'tienda-premium-dominio',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->post('/admin/store-settings', [
+            'name' => $store->name,
+            'business_type' => 'store',
+            'subdomain' => 'premium-demo',
+            'custom_domain' => 'https://WWW.MiDominioPremium.com/tienda',
+            'whatsapp' => $store->whatsapp,
+            'brand_color' => '#111111',
+            'background_color' => '#ffffff',
+            'font_family' => 'system',
+            'responsive_product_columns' => 2,
+            'show_hero_products_action' => 0,
+        ])
+        ->assertRedirect('/admin/store-settings');
+
+    expect($store->refresh()->custom_domain)->toBe('www.midominiopremium.com')
+        ->and($store->custom_domain_status)->toBe(Store::CUSTOM_DOMAIN_PENDING)
+        ->and($store->custom_domain_verified_at)->toBeNull();
+});
+
+test('non premium plans cannot keep custom domains from crafted requests', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pro Sin Dominio',
+        'slug' => 'tienda-pro-sin-dominio',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'custom_domain' => 'antiguo.com',
+        'custom_domain_status' => Store::CUSTOM_DOMAIN_VERIFIED,
+        'custom_domain_verified_at' => now(),
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->post('/admin/store-settings', [
+            'name' => $store->name,
+            'business_type' => 'store',
+            'subdomain' => 'tienda-pro',
+            'custom_domain' => 'www.no-premium.com',
+            'whatsapp' => $store->whatsapp,
+            'brand_color' => '#111111',
+            'background_color' => '#ffffff',
+            'font_family' => 'system',
+            'responsive_product_columns' => 2,
+            'show_hero_products_action' => 0,
+        ])
+        ->assertRedirect('/admin/store-settings');
+
+    expect($store->refresh()->custom_domain)->toBeNull()
+        ->and($store->custom_domain_status)->toBe(Store::CUSTOM_DOMAIN_PENDING)
+        ->and($store->custom_domain_verified_at)->toBeNull();
+});
+
 test('subdomain must be unique and cannot use reserved words', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $firstUser = User::factory()->create([
@@ -637,6 +714,116 @@ test('subdomain must be unique and cannot use reserved words', function () {
         ->assertSessionHasErrors('subdomain');
 });
 
+test('custom domain must be unique and cannot use the app domain', function () {
+    config(['app.url' => 'https://vendlysuite.com']);
+
+    $admin = User::factory()->create(['role' => 'admin']);
+    $firstUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $secondUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    Store::create([
+        'user_id' => $firstUser->id,
+        'name' => 'Tienda Dominio Uno',
+        'slug' => 'tienda-dominio-uno',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'custom_domain' => 'www.ocupado.com',
+        'custom_domain_status' => Store::CUSTOM_DOMAIN_VERIFIED,
+        'is_active' => true,
+    ]);
+    $store = Store::create([
+        'user_id' => $secondUser->id,
+        'name' => 'Tienda Dominio Dos',
+        'slug' => 'tienda-dominio-dos',
+        'whatsapp' => '573001112244',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+
+    $payload = [
+        'user_id' => $secondUser->id,
+        'name' => $store->name,
+        'business_type' => 'store',
+        'plan' => Store::PLAN_PREMIUM,
+        'slug' => $store->slug,
+        'subdomain' => 'dominio-dos',
+        'whatsapp' => $store->whatsapp,
+        'brand_color' => '#111111',
+        'background_color' => '#ffffff',
+        'font_family' => 'system',
+        'responsive_product_columns' => 2,
+        'show_hero_products_action' => 0,
+    ];
+
+    $this->actingAs($admin)
+        ->put(route('admin.stores.update', $store), $payload + ['custom_domain' => 'www.ocupado.com'])
+        ->assertSessionHasErrors('custom_domain');
+
+    $this->actingAs($admin)
+        ->put(route('admin.stores.update', $store), $payload + ['custom_domain' => 'vendlysuite.com'])
+        ->assertSessionHasErrors('custom_domain');
+
+    $this->actingAs($admin)
+        ->put(route('admin.stores.update', $store), $payload + ['custom_domain' => 'cliente.vendlysuite.com'])
+        ->assertSessionHasErrors('custom_domain');
+
+    $this->actingAs($admin)
+        ->put(route('admin.stores.update', $store), $payload + ['custom_domain' => 'tienda-.com'])
+        ->assertSessionHasErrors('custom_domain');
+
+    $this->actingAs($admin)
+        ->put(route('admin.stores.update', $store), $payload + ['custom_domain' => 'mi.-marca.com'])
+        ->assertSessionHasErrors('custom_domain');
+});
+
+test('admin verification stores custom domain verified timestamp', function () {
+    config(['app.url' => 'https://vendlysuite.com']);
+
+    $admin = User::factory()->create(['role' => 'admin']);
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Dominio Verificado',
+        'slug' => 'tienda-dominio-verificado',
+        'whatsapp' => '573001112244',
+        'plan' => Store::PLAN_PREMIUM,
+        'custom_domain' => 'www.verificado.com',
+        'custom_domain_status' => Store::CUSTOM_DOMAIN_PENDING,
+        'custom_domain_verified_at' => null,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->put(route('admin.stores.update', $store), [
+            'user_id' => $storeUser->id,
+            'name' => $store->name,
+            'business_type' => 'store',
+            'plan' => Store::PLAN_PREMIUM,
+            'slug' => $store->slug,
+            'subdomain' => 'dominio-verificado',
+            'custom_domain' => 'www.verificado.com',
+            'custom_domain_status' => Store::CUSTOM_DOMAIN_VERIFIED,
+            'whatsapp' => $store->whatsapp,
+            'brand_color' => '#111111',
+            'background_color' => '#ffffff',
+            'font_family' => 'system',
+            'responsive_product_columns' => 2,
+            'show_hero_products_action' => 0,
+        ])
+        ->assertRedirect('/admin/stores');
+
+    expect($store->refresh()->custom_domain_status)->toBe(Store::CUSTOM_DOMAIN_VERIFIED)
+        ->and($store->custom_domain_verified_at)->not->toBeNull();
+});
+
 test('subdomain service extracts the store subdomain from the configured app host', function () {
     config(['app.url' => 'https://vendlysuite.com']);
 
@@ -685,6 +872,1997 @@ test('subdomain service resolves only public pro or premium stores from request 
     expect($service->publicStoreFromRequest(request()->create('https://publica.vendlysuite.com'))?->id)->toBe($proStore->id)
         ->and($service->publicStoreFromRequest(request()->create('https://basica.vendlysuite.com')))->toBeNull()
         ->and($service->publicStoreFromRequest(request()->create('https://vendlysuite.com')))->toBeNull();
+});
+
+test('custom domain service resolves only verified public premium stores', function () {
+    config(['app.url' => 'https://vendlysuite.com']);
+
+    $premiumUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $proUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $pendingUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $premiumStore = Store::create([
+        'user_id' => $premiumUser->id,
+        'name' => 'Tienda Dominio Publica',
+        'slug' => 'tienda-dominio-publica',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'custom_domain' => 'www.marca.com',
+        'custom_domain_status' => Store::CUSTOM_DOMAIN_VERIFIED,
+        'custom_domain_verified_at' => now(),
+        'is_active' => true,
+    ]);
+    Store::create([
+        'user_id' => $proUser->id,
+        'name' => 'Tienda Pro Dominio Legacy',
+        'slug' => 'tienda-pro-dominio-legacy',
+        'whatsapp' => '573001112244',
+        'plan' => Store::PLAN_PRO,
+        'custom_domain' => 'www.prolegacy.com',
+        'custom_domain_status' => Store::CUSTOM_DOMAIN_VERIFIED,
+        'custom_domain_verified_at' => now(),
+        'is_active' => true,
+    ]);
+    Store::create([
+        'user_id' => $pendingUser->id,
+        'name' => 'Tienda Dominio Pendiente',
+        'slug' => 'tienda-dominio-pendiente',
+        'whatsapp' => '573001112255',
+        'plan' => Store::PLAN_PREMIUM,
+        'custom_domain' => 'www.pendiente.com',
+        'custom_domain_status' => Store::CUSTOM_DOMAIN_PENDING,
+        'is_active' => true,
+    ]);
+
+    $service = app(StoreSubdomainService::class);
+
+    expect($service->publicStoreFromRequest(request()->create('https://www.marca.com'))?->id)->toBe($premiumStore->id)
+        ->and($service->publicStoreFromRequest(request()->create('https://www.prolegacy.com')))->toBeNull()
+        ->and($service->publicStoreFromRequest(request()->create('https://www.pendiente.com')))->toBeNull()
+        ->and($service->publicStoreFromRequest(request()->create('https://vendlysuite.com')))->toBeNull()
+        ->and($service->publicStoreFromRequest(request()->create('https://demo.vendlysuite.com')))->toBeNull();
+});
+
+test('store payment account stores mercadopago tokens encrypted', function () {
+    $storeUser = User::factory()->create();
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pagos Seguros',
+        'slug' => 'tienda-pagos-seguros',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $account = StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'access-token-secreto',
+        'refresh_token' => 'refresh-token-secreto',
+        'public_key' => 'public-key-secreta',
+        'provider_user_id' => '123456789',
+        'expires_at' => now()->addHours(6),
+        'connected_at' => now(),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+
+    $rawAccount = DB::table('store_payment_accounts')->where('id', $account->id)->first();
+
+    expect($account->fresh()->access_token)->toBe('access-token-secreto')
+        ->and($rawAccount->access_token)->not->toBe('access-token-secreto')
+        ->and($store->mercadoPagoAccount()->first()?->isConnected())->toBeTrue();
+});
+
+test('store user can see payment methods panel', function () {
+    config([
+        'services.mercadopago.client_id' => null,
+        'services.mercadopago.client_secret' => null,
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Metodos Pago',
+        'slug' => 'tienda-metodos-pago',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get('/admin/payments')
+        ->assertOk()
+        ->assertSee('Metodos de pago')
+        ->assertSee('WhatsApp')
+        ->assertSee('573001112233')
+        ->assertSee('Mercado Pago')
+        ->assertSee('No conectado')
+        ->assertSee('Conectar Mercado Pago')
+        ->assertSee(route('admin.payments.mercadopago.connect'), false);
+
+    $this->actingAs($storeUser)
+        ->get(route('admin.payments.mercadopago.connect'))
+        ->assertRedirect(route('admin.payments.index'))
+        ->assertSessionHas('error');
+});
+
+test('cart shows mercadopago button only for connected stores', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Checkout Pago',
+        'slug' => 'tienda-checkout-pago',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto pagable',
+        'price' => 45000,
+    ]);
+
+    $this->post(route('cart.add', $product->id))->assertRedirect();
+
+    $this->get(route('cart.index', ['store' => $store->slug]))
+        ->assertOk()
+        ->assertDontSee('Pagar con Mercado Pago');
+
+    StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'access-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'connected_at' => now(),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+
+    $this->get(route('cart.index', ['store' => $store->slug]))
+        ->assertOk()
+        ->assertSee('Pagar con Mercado Pago')
+        ->assertSee(route('cart.mercadopago', ['store' => $store->slug]), false);
+
+    Http::fake([
+        'https://api.mercadopago.com/checkout/preferences' => Http::response([
+            'id' => 'pref_123',
+            'init_point' => 'https://www.mercadopago.com.co/checkout/v1/redirect?pref_id=pref_123',
+        ]),
+    ]);
+
+    $this->post(route('cart.mercadopago', ['store' => $store->slug]), [
+        'name' => 'Cliente',
+        'last_name' => 'Pago',
+        'phone' => '3001234567',
+        'address' => 'Calle 1',
+        'city' => 'Bogota',
+        'document' => '123456',
+    ])->assertRedirect('https://www.mercadopago.com.co/checkout/v1/redirect?pref_id=pref_123');
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://api.mercadopago.com/checkout/preferences'
+        && $request->hasHeader('Authorization', 'Bearer access-token')
+        && $request['items'][0]['title'] === 'Producto pagable'
+        && $request['items'][0]['quantity'] === 1
+        && $request['items'][0]['unit_price'] === 45000.0
+        && $request['items'][0]['currency_id'] === 'COP'
+        && str_ends_with((string) $request['notification_url'], '/webhooks/mercadopago')
+        && $request['expires'] === true
+        && $request['date_of_expiration']
+        && $request['external_reference']
+    );
+
+    $order = Order::where('store_id', $store->id)->latest('id')->firstOrFail();
+
+    expect($order->payment_method)->toBe(Order::PAYMENT_METHOD_MERCADOPAGO)
+        ->and($order->payment_provider)->toBe(StorePaymentAccount::PROVIDER_MERCADOPAGO)
+        ->and($order->payment_status)->toBe(Order::PAYMENT_STATUS_PENDING)
+        ->and($order->payment_provider_reference)->toBe('pref_123')
+        ->and($order->payment_preference_id)->toBe('pref_123')
+        ->and($order->payment_expires_at)->not->toBeNull()
+        ->and(session()->has('carts.' . $store->id))->toBeFalse();
+});
+
+test('expired mercadopago account is not available at checkout', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pago Expirado',
+        'slug' => 'tienda-pago-expirado',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto pago expirado',
+        'price' => 45000,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'expired-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'expires_at' => now()->subMinute(),
+        'connected_at' => now()->subMonths(6),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+
+    $this->post(route('cart.add', $product->id))->assertRedirect();
+
+    $this->get(route('cart.index', ['store' => $store->slug]))
+        ->assertOk()
+        ->assertDontSee('Pagar con Mercado Pago');
+
+    Http::fake();
+
+    $this->post(route('cart.mercadopago', ['store' => $store->slug]), [
+        'name' => 'Cliente',
+        'last_name' => 'Pago',
+        'phone' => '3001234567',
+        'address' => 'Calle 1',
+        'city' => 'Bogota',
+        'document' => '123456',
+    ])
+        ->assertRedirect(route('cart.index', ['store' => $store->slug]))
+        ->assertSessionHas('error');
+
+    Http::assertNothingSent();
+});
+
+test('mercadopago webhook verifies payment and marks order as paid', function () {
+    config(['services.mercadopago.webhook_secret' => 'webhook-secret']);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Webhook Pago',
+        'slug' => 'tienda-webhook-pago',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'seller-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'connected_at' => now(),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Pago',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        'payment_provider_reference' => 'pref_123',
+        'total' => 45000,
+    ]);
+
+    Http::fake([
+        'https://api.mercadopago.com/v1/payments/pay_123' => Http::response([
+            'id' => 123,
+            'status' => 'approved',
+            'transaction_amount' => 45000,
+            'external_reference' => $order->admin_token,
+            'date_approved' => '2026-05-08T12:00:00.000-05:00',
+        ]),
+    ]);
+
+    $requestId = 'request-123';
+    $timestamp = '1715191200';
+    $hash = hash_hmac('sha256', "id:pay_123;request-id:{$requestId};ts:{$timestamp};", 'webhook-secret');
+
+    $this->postJson(route('cart.mercadopago.webhook') . '?type=payment&data.id=pay_123', [], [
+        'x-request-id' => $requestId,
+        'x-signature' => "ts={$timestamp},v1={$hash}",
+    ])->assertOk();
+
+    $order->refresh();
+
+    expect($order->status)->toBe('pagado')
+        ->and($order->payment_status)->toBe(Order::PAYMENT_STATUS_APPROVED)
+        ->and($order->payment_provider_reference)->toBe('123')
+        ->and($order->payment_id)->toBe('123')
+        ->and($order->paid_at?->toDateString())->toBe('2026-05-08');
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://api.mercadopago.com/v1/payments/pay_123'
+        && $request->hasHeader('Authorization', 'Bearer seller-token'));
+});
+
+test('global mercadopago webhook finds order by payment external reference', function () {
+    config(['services.mercadopago.webhook_secret' => 'webhook-secret']);
+
+    $firstUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $secondUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $firstStore = Store::create([
+        'user_id' => $firstUser->id,
+        'name' => 'Tienda Webhook Global Uno',
+        'slug' => 'tienda-webhook-global-uno',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    $secondStore = Store::create([
+        'user_id' => $secondUser->id,
+        'name' => 'Tienda Webhook Global Dos',
+        'slug' => 'tienda-webhook-global-dos',
+        'whatsapp' => '573001112244',
+        'is_active' => true,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $firstStore->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'wrong-seller-token',
+        'refresh_token' => 'wrong-refresh-token',
+        'provider_user_id' => '111',
+        'connected_at' => now(),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $secondStore->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'seller-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '222',
+        'connected_at' => now(),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+    $order = Order::create([
+        'store_id' => $secondStore->id,
+        'customer_name' => 'Cliente Global',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        'payment_provider_reference' => 'pref_global',
+        'total' => 45000,
+    ]);
+
+    Http::fake([
+        'https://api.mercadopago.com/v1/payments/pay_global' => function ($request) use ($order) {
+            if ($request->hasHeader('Authorization', 'Bearer wrong-seller-token')) {
+                return Http::response(['message' => 'not found'], 404);
+            }
+
+            return Http::response([
+                'id' => 456,
+                'status' => 'approved',
+                'transaction_amount' => 45000,
+                'external_reference' => $order->admin_token,
+                'date_approved' => '2026-05-08T12:00:00.000-05:00',
+            ]);
+        },
+    ]);
+
+    $requestId = 'request-global';
+    $timestamp = '1715191200';
+    $hash = hash_hmac('sha256', "id:pay_global;request-id:{$requestId};ts:{$timestamp};", 'webhook-secret');
+
+    $this->postJson(route('cart.mercadopago.webhook') . '?type=payment&data.id=pay_global', [], [
+        'x-request-id' => $requestId,
+        'x-signature' => "ts={$timestamp},v1={$hash}",
+    ])->assertOk();
+
+    expect($order->refresh()->status)->toBe('pagado')
+        ->and($order->payment_status)->toBe(Order::PAYMENT_STATUS_APPROVED)
+        ->and($order->payment_id)->toBe('456');
+});
+
+test('mercadopago webhook refreshes expired token before verifying payment', function () {
+    config([
+        'services.mercadopago.client_id' => '123456789',
+        'services.mercadopago.client_secret' => 'client-secret',
+        'services.mercadopago.webhook_secret' => 'webhook-secret',
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Webhook Token',
+        'slug' => 'tienda-webhook-token',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'expired-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'expires_at' => now()->subMinute(),
+        'connected_at' => now()->subMonths(6),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Token Webhook',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        'payment_provider_reference' => 'pref_123',
+        'total' => 45000,
+    ]);
+
+    Http::fake([
+        'https://api.mercadopago.com/oauth/token' => Http::response([
+            'access_token' => 'fresh-token',
+            'refresh_token' => 'fresh-refresh-token',
+            'public_key' => 'fresh-public-key',
+            'user_id' => 521008171,
+            'expires_in' => 15552000,
+        ]),
+        'https://api.mercadopago.com/v1/payments/pay_123' => Http::response([
+            'id' => 123,
+            'status' => 'approved',
+            'transaction_amount' => 45000,
+            'external_reference' => $order->admin_token,
+            'date_approved' => '2026-05-08T12:00:00.000-05:00',
+        ]),
+    ]);
+
+    $requestId = 'request-123';
+    $timestamp = '1715191200';
+    $hash = hash_hmac('sha256', "id:pay_123;request-id:{$requestId};ts:{$timestamp};", 'webhook-secret');
+
+    $this->postJson(route('cart.mercadopago.webhook') . '?type=payment&data.id=pay_123', [], [
+        'x-request-id' => $requestId,
+        'x-signature' => "ts={$timestamp},v1={$hash}",
+    ])->assertOk();
+
+    $order->refresh();
+    $account = $store->mercadoPagoAccount()->first();
+
+    expect($account?->access_token)->toBe('fresh-token')
+        ->and($order->status)->toBe('pagado')
+        ->and($order->payment_status)->toBe(Order::PAYMENT_STATUS_APPROVED)
+        ->and($order->payment_id)->toBe('123');
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://api.mercadopago.com/oauth/token'
+        && $request['grant_type'] === 'refresh_token'
+        && $request['refresh_token'] === 'refresh-token');
+    Http::assertSent(fn ($request) => $request->url() === 'https://api.mercadopago.com/v1/payments/pay_123'
+        && $request->hasHeader('Authorization', 'Bearer fresh-token'));
+});
+
+test('mercadopago webhook does not refresh manually disconnected account', function () {
+    config([
+        'services.mercadopago.client_id' => '123456789',
+        'services.mercadopago.client_secret' => 'client-secret',
+        'services.mercadopago.webhook_secret' => 'webhook-secret',
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Webhook Desconectado',
+        'slug' => 'tienda-webhook-desconectado',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    $account = StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'expired-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'expires_at' => now()->subMinute(),
+        'connected_at' => now()->subMonths(6),
+        'disconnected_at' => now(),
+        'status' => StorePaymentAccount::STATUS_DISCONNECTED,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Desconectado',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        'payment_provider_reference' => 'pref_123',
+        'total' => 45000,
+    ]);
+
+    Http::fake();
+
+    $requestId = 'request-123';
+    $timestamp = '1715191200';
+    $hash = hash_hmac('sha256', "id:pay_123;request-id:{$requestId};ts:{$timestamp};", 'webhook-secret');
+
+    $this->postJson(route('cart.mercadopago.webhook') . '?type=payment&data.id=pay_123', [], [
+        'x-request-id' => $requestId,
+        'x-signature' => "ts={$timestamp},v1={$hash}",
+    ])->assertOk();
+
+    expect($account->refresh()->status)->toBe(StorePaymentAccount::STATUS_DISCONNECTED)
+        ->and($order->refresh()->payment_status)->toBe(Order::PAYMENT_STATUS_PENDING);
+
+    Http::assertNothingSent();
+});
+
+test('mercadopago webhook keeps pending when token refresh has connection failure', function () {
+    config([
+        'services.mercadopago.client_id' => '123456789',
+        'services.mercadopago.client_secret' => 'client-secret',
+        'services.mercadopago.webhook_secret' => 'webhook-secret',
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Webhook Conexion',
+        'slug' => 'tienda-webhook-conexion',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'expired-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'expires_at' => now()->subMinute(),
+        'connected_at' => now()->subMonths(6),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Conexion',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        'payment_provider_reference' => 'pref_123',
+        'total' => 45000,
+    ]);
+
+    $refreshAttempted = false;
+
+    Http::fake([
+        'https://api.mercadopago.com/oauth/token' => function () use (&$refreshAttempted) {
+            $refreshAttempted = true;
+
+            throw new ConnectionException('timeout');
+        },
+    ]);
+
+    $requestId = 'request-123';
+    $timestamp = '1715191200';
+    $hash = hash_hmac('sha256', "id:pay_123;request-id:{$requestId};ts:{$timestamp};", 'webhook-secret');
+
+    $this->postJson(route('cart.mercadopago.webhook') . '?type=payment&data.id=pay_123', [], [
+        'x-request-id' => $requestId,
+        'x-signature' => "ts={$timestamp},v1={$hash}",
+    ])->assertOk();
+
+    expect($order->refresh()->payment_status)->toBe(Order::PAYMENT_STATUS_PENDING);
+
+    expect($refreshAttempted)->toBeTrue();
+});
+
+test('mercadopago webhook returns controlled error when payment lookup has connection failure', function () {
+    config(['services.mercadopago.webhook_secret' => 'webhook-secret']);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Lookup Conexion',
+        'slug' => 'tienda-lookup-conexion',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'seller-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'expires_at' => now()->addHour(),
+        'connected_at' => now(),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Lookup Conexion',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        'payment_provider_reference' => 'pref_123',
+        'total' => 45000,
+    ]);
+
+    Http::fake([
+        'https://api.mercadopago.com/v1/payments/pay_123' => fn () => throw new ConnectionException('timeout'),
+    ]);
+
+    $requestId = 'request-123';
+    $timestamp = '1715191200';
+    $hash = hash_hmac('sha256', "id:pay_123;request-id:{$requestId};ts:{$timestamp};", 'webhook-secret');
+
+    $this->postJson(route('cart.mercadopago.webhook') . '?type=payment&data.id=pay_123', [], [
+        'x-request-id' => $requestId,
+        'x-signature' => "ts={$timestamp},v1={$hash}",
+    ])->assertStatus(502);
+
+    expect($order->refresh()->payment_status)->toBe(Order::PAYMENT_STATUS_PENDING);
+});
+
+test('mercadopago rejected webhook releases reserved stock once', function () {
+    config(['services.mercadopago.webhook_secret' => 'webhook-secret']);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pago Rechazado Stock',
+        'slug' => 'tienda-pago-rechazado-stock',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'seller-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'connected_at' => now(),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto rechazado',
+        'price' => 45000,
+        'stock_quantity' => 0,
+        'is_sold_out' => true,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Rechazado',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        'payment_provider_reference' => 'pref_rejected',
+        'payment_expires_at' => now()->addHour(),
+        'total' => 45000,
+    ]);
+    OrderItem::create([
+        'order_id' => $order->id,
+        'product_id' => $product->id,
+        'product_name' => $product->name,
+        'quantity' => 1,
+        'price' => 45000,
+    ]);
+
+    Http::fake([
+        'https://api.mercadopago.com/v1/payments/pay_rejected' => Http::response([
+            'id' => 987,
+            'status' => 'rejected',
+            'transaction_amount' => 45000,
+            'external_reference' => $order->admin_token,
+        ]),
+    ]);
+
+    $requestId = 'request-123';
+    $timestamp = '1715191200';
+    $hash = hash_hmac('sha256', "id:pay_rejected;request-id:{$requestId};ts:{$timestamp};", 'webhook-secret');
+    $headers = [
+        'x-request-id' => $requestId,
+        'x-signature' => "ts={$timestamp},v1={$hash}",
+    ];
+    $url = route('cart.mercadopago.webhook') . '?type=payment&data.id=pay_rejected';
+
+    $this->postJson($url, [], $headers)->assertOk();
+    $this->postJson($url, [], $headers)->assertOk();
+
+    expect($order->refresh()->payment_status)->toBe(Order::PAYMENT_STATUS_REJECTED)
+        ->and($order->payment_expires_at)->toBeNull()
+        ->and($product->refresh()->stock_quantity)->toBe(1)
+        ->and($product->is_sold_out)->toBeFalse();
+});
+
+test('mercadopago checkout failure removes pending order and restores stock', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pago Fallido',
+        'slug' => 'tienda-pago-fallido',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto con stock',
+        'price' => 45000,
+        'stock_quantity' => 2,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'access-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'connected_at' => now(),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+
+    $this->post(route('cart.add', $product->id), ['quantity' => 2])->assertRedirect();
+
+    Http::fake([
+        'https://api.mercadopago.com/checkout/preferences' => Http::response([
+            'message' => 'error',
+        ], 500),
+    ]);
+
+    $this->post(route('cart.mercadopago', ['store' => $store->slug]), [
+        'name' => 'Cliente',
+        'last_name' => 'Pago',
+        'phone' => '3001234567',
+        'address' => 'Calle 1',
+        'city' => 'Bogota',
+        'document' => '123456',
+    ])->assertRedirect(route('cart.index', ['store' => $store->slug]))
+        ->assertSessionHas('error');
+
+    expect(Order::where('store_id', $store->id)->count())->toBe(0)
+        ->and($product->refresh()->stock_quantity)->toBe(2)
+        ->and($product->is_sold_out)->toBeFalse()
+        ->and(session()->has('carts.' . $store->id))->toBeTrue();
+});
+
+test('mercadopago checkout connection failure removes pending order and restores stock', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pago Conexion',
+        'slug' => 'tienda-pago-conexion',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto conexion',
+        'price' => 45000,
+        'stock_quantity' => 1,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'access-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'connected_at' => now(),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+
+    $this->post(route('cart.add', $product->id), ['quantity' => 1])->assertRedirect();
+
+    Http::fake([
+        'https://api.mercadopago.com/checkout/preferences' => fn () => throw new ConnectionException('timeout'),
+    ]);
+
+    $this->post(route('cart.mercadopago', ['store' => $store->slug]), [
+        'name' => 'Cliente',
+        'last_name' => 'Conexion',
+        'phone' => '3001234567',
+        'address' => 'Calle 1',
+        'city' => 'Bogota',
+        'document' => '123456',
+    ])->assertRedirect(route('cart.index', ['store' => $store->slug]))
+        ->assertSessionHas('error');
+
+    expect(Order::where('store_id', $store->id)->count())->toBe(0)
+        ->and($product->refresh()->stock_quantity)->toBe(1)
+        ->and($product->is_sold_out)->toBeFalse()
+        ->and(session()->has('carts.' . $store->id))->toBeTrue();
+});
+
+test('mercadopago cancelled payment stops showing order as paid', function () {
+    config(['services.mercadopago.webhook_secret' => 'webhook-secret']);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pago Cancelado',
+        'slug' => 'tienda-pago-cancelado',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'seller-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'connected_at' => now(),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto pagado cancelado',
+        'price' => 45000,
+        'stock_quantity' => 0,
+        'is_sold_out' => true,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Cancelado',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pagado',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_APPROVED,
+        'payment_provider_reference' => '123',
+        'payment_expires_at' => now()->addHour(),
+        'paid_at' => now(),
+        'total' => 45000,
+    ]);
+    OrderItem::create([
+        'order_id' => $order->id,
+        'product_id' => $product->id,
+        'product_name' => $product->name,
+        'quantity' => 1,
+        'price' => 45000,
+    ]);
+
+    Http::fake([
+        'https://api.mercadopago.com/v1/payments/pay_123' => Http::response([
+            'id' => 123,
+            'status' => 'cancelled',
+            'transaction_amount' => 45000,
+            'external_reference' => $order->admin_token,
+        ]),
+    ]);
+
+    $requestId = 'request-123';
+    $timestamp = '1715191200';
+    $hash = hash_hmac('sha256', "id:pay_123;request-id:{$requestId};ts:{$timestamp};", 'webhook-secret');
+
+    $this->postJson(route('cart.mercadopago.webhook') . '?type=payment&data.id=pay_123', [], [
+        'x-request-id' => $requestId,
+        'x-signature' => "ts={$timestamp},v1={$hash}",
+    ])->assertOk();
+
+    $order->refresh();
+
+    expect($order->status)->toBe('pendiente')
+        ->and($order->payment_status)->toBe(Order::PAYMENT_STATUS_CANCELLED)
+        ->and($order->paid_at)->toBeNull()
+        ->and($order->payment_expires_at)->not->toBeNull()
+        ->and($product->refresh()->stock_quantity)->toBe(0)
+        ->and($product->is_sold_out)->toBeTrue();
+});
+
+test('expired mercadopago pending orders release reserved stock', function () {
+    config(['services.mercadopago.payment_expiration_grace_minutes' => 0]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pago Vencido',
+        'slug' => 'tienda-pago-vencido',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto reservado',
+        'price' => 45000,
+        'stock_quantity' => 0,
+        'is_sold_out' => true,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Vencido',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        'payment_expires_at' => now()->subMinute(),
+        'total' => 90000,
+    ]);
+    OrderItem::create([
+        'order_id' => $order->id,
+        'product_id' => $product->id,
+        'product_name' => $product->name,
+        'quantity' => 2,
+        'price' => 45000,
+    ]);
+
+    $this->artisan('payments:expire-pending')
+        ->assertSuccessful()
+        ->expectsOutput('Pedidos Mercado Pago vencidos: 1');
+
+    $order->refresh();
+
+    expect($order->payment_status)->toBe(Order::PAYMENT_STATUS_CANCELLED)
+        ->and($product->refresh()->stock_quantity)->toBe(2)
+        ->and($product->is_sold_out)->toBeFalse();
+});
+
+test('expired mercadopago pending order keeps stock when connected account token cannot refresh', function () {
+    config([
+        'services.mercadopago.client_id' => '123456789',
+        'services.mercadopago.client_secret' => 'client-secret',
+        'services.mercadopago.payment_expiration_grace_minutes' => 0,
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Token Expirado',
+        'slug' => 'tienda-token-expirado',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'expired-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'expires_at' => now()->subMinute(),
+        'connected_at' => now()->subMonths(6),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto token expirado',
+        'price' => 45000,
+        'stock_quantity' => 0,
+        'is_sold_out' => true,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Token Expirado',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        'payment_preference_id' => 'pref_expired_token',
+        'payment_expires_at' => now()->subMinutes(10),
+        'total' => 45000,
+    ]);
+    OrderItem::create([
+        'order_id' => $order->id,
+        'product_id' => $product->id,
+        'product_name' => $product->name,
+        'quantity' => 1,
+        'price' => 45000,
+    ]);
+
+    Http::fake([
+        'https://api.mercadopago.com/oauth/token' => Http::response([
+            'message' => 'invalid refresh token',
+        ], 401),
+    ]);
+
+    $this->artisan('payments:expire-pending')
+        ->assertSuccessful()
+        ->expectsOutput('Pedidos Mercado Pago vencidos: 0');
+
+    expect($order->refresh()->payment_status)->toBe(Order::PAYMENT_STATUS_PENDING)
+        ->and($product->refresh()->stock_quantity)->toBe(0)
+        ->and($product->is_sold_out)->toBeTrue();
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://api.mercadopago.com/oauth/token'
+        && $request['grant_type'] === 'refresh_token'
+        && $request['refresh_token'] === 'refresh-token');
+});
+
+test('expired mercadopago pending order keeps stock when refresh has connection failure', function () {
+    config([
+        'services.mercadopago.client_id' => '123456789',
+        'services.mercadopago.client_secret' => 'client-secret',
+        'services.mercadopago.payment_expiration_grace_minutes' => 0,
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Refresh Conexion',
+        'slug' => 'tienda-refresh-conexion',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'expired-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'expires_at' => now()->subMinute(),
+        'connected_at' => now()->subMonths(6),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto refresh conexion',
+        'price' => 45000,
+        'stock_quantity' => 0,
+        'is_sold_out' => true,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Refresh Conexion',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        'payment_preference_id' => 'pref_connection_failure',
+        'payment_expires_at' => now()->subMinutes(10),
+        'total' => 45000,
+    ]);
+    OrderItem::create([
+        'order_id' => $order->id,
+        'product_id' => $product->id,
+        'product_name' => $product->name,
+        'quantity' => 1,
+        'price' => 45000,
+    ]);
+
+    $refreshAttempted = false;
+
+    Http::fake([
+        'https://api.mercadopago.com/oauth/token' => function () use (&$refreshAttempted) {
+            $refreshAttempted = true;
+
+            throw new ConnectionException('timeout');
+        },
+    ]);
+
+    $this->artisan('payments:expire-pending')
+        ->assertSuccessful()
+        ->expectsOutput('Pedidos Mercado Pago vencidos: 0');
+
+    expect($order->refresh()->payment_status)->toBe(Order::PAYMENT_STATUS_PENDING)
+        ->and($product->refresh()->stock_quantity)->toBe(0)
+        ->and($product->is_sold_out)->toBeTrue();
+
+    expect($refreshAttempted)->toBeTrue();
+});
+
+test('expired mercadopago pending order keeps stock when refresh response is incomplete', function () {
+    config([
+        'services.mercadopago.client_id' => '123456789',
+        'services.mercadopago.client_secret' => 'client-secret',
+        'services.mercadopago.payment_expiration_grace_minutes' => 0,
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Refresh Incompleto',
+        'slug' => 'tienda-refresh-incompleto',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    $account = StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'expired-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'expires_at' => now()->subMinute(),
+        'connected_at' => now()->subMonths(6),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto refresh incompleto',
+        'price' => 45000,
+        'stock_quantity' => 0,
+        'is_sold_out' => true,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Refresh Incompleto',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        'payment_preference_id' => 'pref_incomplete_refresh',
+        'payment_expires_at' => now()->subMinutes(10),
+        'total' => 45000,
+    ]);
+    OrderItem::create([
+        'order_id' => $order->id,
+        'product_id' => $product->id,
+        'product_name' => $product->name,
+        'quantity' => 1,
+        'price' => 45000,
+    ]);
+
+    Http::fake([
+        'https://api.mercadopago.com/oauth/token' => Http::response([
+            'refresh_token' => 'fresh-refresh-token',
+        ]),
+    ]);
+
+    $this->artisan('payments:expire-pending')
+        ->assertSuccessful()
+        ->expectsOutput('Pedidos Mercado Pago vencidos: 0');
+
+    expect($account->refresh()->access_token)->toBe('expired-token')
+        ->and($account->refresh()->expires_at?->isPast())->toBeTrue()
+        ->and($order->refresh()->payment_status)->toBe(Order::PAYMENT_STATUS_PENDING)
+        ->and($product->refresh()->stock_quantity)->toBe(0)
+        ->and($product->is_sold_out)->toBeTrue();
+
+    Http::assertSentCount(1);
+});
+
+test('expired mercadopago pending order refreshes token before checking merchant order', function () {
+    config([
+        'services.mercadopago.client_id' => '123456789',
+        'services.mercadopago.client_secret' => 'client-secret',
+        'services.mercadopago.payment_expiration_grace_minutes' => 0,
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Token Renovado',
+        'slug' => 'tienda-token-renovado',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    $account = StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'expired-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'expires_at' => now()->subMinute(),
+        'connected_at' => now()->subMonths(6),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto token renovado',
+        'price' => 45000,
+        'stock_quantity' => 0,
+        'is_sold_out' => true,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Token Renovado',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        'payment_preference_id' => 'pref_refreshed_token',
+        'payment_expires_at' => now()->subMinutes(10),
+        'total' => 45000,
+    ]);
+    OrderItem::create([
+        'order_id' => $order->id,
+        'product_id' => $product->id,
+        'product_name' => $product->name,
+        'quantity' => 1,
+        'price' => 45000,
+    ]);
+
+    Http::fake([
+        'https://api.mercadopago.com/oauth/token' => Http::response([
+            'access_token' => 'fresh-token',
+            'refresh_token' => 'fresh-refresh-token',
+            'public_key' => 'fresh-public-key',
+            'user_id' => 521008171,
+            'expires_in' => 15552000,
+        ]),
+        'https://api.mercadopago.com/merchant_orders/search*' => Http::response([
+            'elements' => [[
+                'id' => 987,
+                'status' => 'closed',
+                'external_reference' => $order->admin_token,
+                'preference_id' => 'pref_refreshed_token',
+                'payments' => [[
+                    'id' => 456,
+                    'status' => 'approved',
+                    'transaction_amount' => 45000,
+                    'date_approved' => '2026-05-08T12:00:00.000-05:00',
+                ]],
+            ]],
+        ]),
+    ]);
+
+    $this->artisan('payments:expire-pending')
+        ->assertSuccessful()
+        ->expectsOutput('Pedidos Mercado Pago vencidos: 0');
+
+    expect($account->refresh()->access_token)->toBe('fresh-token')
+        ->and($account->refresh()->isConnected())->toBeTrue()
+        ->and($order->refresh()->payment_status)->toBe(Order::PAYMENT_STATUS_APPROVED)
+        ->and($order->status)->toBe('pagado')
+        ->and($product->refresh()->stock_quantity)->toBe(0)
+        ->and($product->is_sold_out)->toBeTrue();
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://api.mercadopago.com/oauth/token'
+        && $request['grant_type'] === 'refresh_token'
+        && $request['refresh_token'] === 'refresh-token');
+    Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://api.mercadopago.com/merchant_orders/search')
+        && $request->hasHeader('Authorization', 'Bearer fresh-token'));
+});
+
+test('expired mercadopago pending order is paid when merchant order is approved', function () {
+    config(['services.mercadopago.payment_expiration_grace_minutes' => 0]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pago Aprobado Tarde',
+        'slug' => 'tienda-pago-aprobado-tarde',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'seller-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'connected_at' => now(),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto aprobado tarde',
+        'price' => 45000,
+        'stock_quantity' => 0,
+        'is_sold_out' => true,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Aprobado Tarde',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        'payment_preference_id' => 'pref_late_approved',
+        'payment_expires_at' => now()->subMinutes(10),
+        'total' => 45000,
+    ]);
+    OrderItem::create([
+        'order_id' => $order->id,
+        'product_id' => $product->id,
+        'product_name' => $product->name,
+        'quantity' => 1,
+        'price' => 45000,
+    ]);
+
+    Http::fake([
+        'https://api.mercadopago.com/merchant_orders/search*' => Http::response([
+            'elements' => [[
+                'id' => 987,
+                'status' => 'closed',
+                'external_reference' => $order->admin_token,
+                'preference_id' => 'pref_late_approved',
+                'payments' => [[
+                    'id' => 456,
+                    'status' => 'approved',
+                    'transaction_amount' => 45000,
+                    'date_approved' => '2026-05-08T12:00:00.000-05:00',
+                ]],
+            ]],
+        ]),
+    ]);
+
+    $this->artisan('payments:expire-pending')
+        ->assertSuccessful()
+        ->expectsOutput('Pedidos Mercado Pago vencidos: 0');
+
+    $order->refresh();
+
+    expect($order->status)->toBe('pagado')
+        ->and($order->payment_status)->toBe(Order::PAYMENT_STATUS_APPROVED)
+        ->and($order->payment_id)->toBe('456')
+        ->and($product->refresh()->stock_quantity)->toBe(0)
+        ->and($product->is_sold_out)->toBeTrue();
+});
+
+test('expired mercadopago pending order keeps stock when merchant order has active payment', function () {
+    config(['services.mercadopago.payment_expiration_grace_minutes' => 0]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pago Activo',
+        'slug' => 'tienda-pago-activo',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'seller-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'connected_at' => now(),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto pago activo',
+        'price' => 45000,
+        'stock_quantity' => 0,
+        'is_sold_out' => true,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Activo',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        'payment_preference_id' => 'pref_active',
+        'payment_expires_at' => now()->subMinutes(10),
+        'total' => 45000,
+    ]);
+    OrderItem::create([
+        'order_id' => $order->id,
+        'product_id' => $product->id,
+        'product_name' => $product->name,
+        'quantity' => 1,
+        'price' => 45000,
+    ]);
+
+    Http::fake([
+        'https://api.mercadopago.com/merchant_orders/search*' => Http::response([
+            'elements' => [[
+                'id' => 654,
+                'status' => 'opened',
+                'external_reference' => $order->admin_token,
+                'preference_id' => 'pref_active',
+                'payments' => [[
+                    'id' => 789,
+                    'status' => 'pending',
+                    'transaction_amount' => 45000,
+                ]],
+            ]],
+        ]),
+    ]);
+
+    $this->artisan('payments:expire-pending')
+        ->assertSuccessful()
+        ->expectsOutput('Pedidos Mercado Pago vencidos: 0');
+
+    expect($order->refresh()->payment_status)->toBe(Order::PAYMENT_STATUS_PENDING)
+        ->and($product->refresh()->stock_quantity)->toBe(0)
+        ->and($product->is_sold_out)->toBeTrue();
+});
+
+test('expired mercadopago pending order keeps stock when merchant order lookup has connection failure', function () {
+    config(['services.mercadopago.payment_expiration_grace_minutes' => 0]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Merchant Conexion',
+        'slug' => 'tienda-merchant-conexion',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'seller-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'expires_at' => now()->addHour(),
+        'connected_at' => now(),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto merchant conexion',
+        'price' => 45000,
+        'stock_quantity' => 0,
+        'is_sold_out' => true,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Merchant Conexion',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        'payment_preference_id' => 'pref_connection_failure',
+        'payment_expires_at' => now()->subMinutes(10),
+        'total' => 45000,
+    ]);
+    OrderItem::create([
+        'order_id' => $order->id,
+        'product_id' => $product->id,
+        'product_name' => $product->name,
+        'quantity' => 1,
+        'price' => 45000,
+    ]);
+
+    Http::fake([
+        'https://api.mercadopago.com/merchant_orders/search*' => fn () => throw new ConnectionException('timeout'),
+    ]);
+
+    $this->artisan('payments:expire-pending')
+        ->assertSuccessful()
+        ->expectsOutput('Pedidos Mercado Pago vencidos: 0');
+
+    expect($order->refresh()->payment_status)->toBe(Order::PAYMENT_STATUS_PENDING)
+        ->and($product->refresh()->stock_quantity)->toBe(0)
+        ->and($product->is_sold_out)->toBeTrue();
+});
+
+test('mercadopago pending orders inside grace window keep reserved stock', function () {
+    config(['services.mercadopago.payment_expiration_grace_minutes' => 30]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Gracia Pago',
+        'slug' => 'tienda-gracia-pago',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto en gracia',
+        'price' => 45000,
+        'stock_quantity' => 0,
+        'is_sold_out' => true,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Gracia',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        'payment_expires_at' => now()->subMinutes(10),
+        'total' => 45000,
+    ]);
+    OrderItem::create([
+        'order_id' => $order->id,
+        'product_id' => $product->id,
+        'product_name' => $product->name,
+        'quantity' => 1,
+        'price' => 45000,
+    ]);
+
+    $this->artisan('payments:expire-pending')
+        ->assertSuccessful()
+        ->expectsOutput('Pedidos Mercado Pago vencidos: 0');
+
+    expect($order->refresh()->payment_status)->toBe(Order::PAYMENT_STATUS_PENDING)
+        ->and($product->refresh()->stock_quantity)->toBe(0)
+        ->and($product->is_sold_out)->toBeTrue();
+});
+
+test('mercadopago return shows received order page', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Regreso Pago',
+        'slug' => 'tienda-regreso-pago',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Regreso',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pagado',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_APPROVED,
+        'payment_provider_reference' => '123',
+        'total' => 45000,
+        'paid_at' => now(),
+    ]);
+
+    $this->get(route('cart.mercadopago.return', ['order' => $order, 'result' => 'success']))
+        ->assertOk()
+        ->assertSee('Pedido recibido')
+        ->assertSee('Numero de pedido')
+        ->assertSee('#' . $order->id)
+        ->assertSee('Estado del pago')
+        ->assertSee('Aprobado')
+        ->assertSee('Mercado Pago')
+        ->assertSee('Volver a la tienda')
+        ->assertSee(route('store.show', $store->slug), false);
+});
+
+test('mercadopago return explains when immediate confirmation fails', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Confirmacion Lenta',
+        'slug' => 'tienda-confirmacion-lenta',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'seller-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'connected_at' => now(),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Confirmacion',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        'total' => 45000,
+    ]);
+
+    Http::fake([
+        'https://api.mercadopago.com/v1/payments/pay_123' => Http::response([], 500),
+    ]);
+
+    $this->get(route('cart.mercadopago.return', [
+        'order' => $order,
+        'result' => 'success',
+        'payment_id' => 'pay_123',
+    ]))
+        ->assertOk()
+        ->assertSee('Estamos confirmando tu pago con Mercado Pago');
+});
+
+test('mercadopago webhook rejects invalid signatures', function () {
+    config(['services.mercadopago.webhook_secret' => 'webhook-secret']);
+
+    $storeUser = User::factory()->create();
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Firma Mala',
+        'slug' => 'tienda-firma-mala',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    $order = Order::create([
+        'store_id' => $store->id,
+        'customer_name' => 'Cliente Firma',
+        'customer_phone' => '3001234567',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        'total' => 45000,
+    ]);
+
+    Http::fake();
+
+    $this->postJson(route('cart.mercadopago.webhook') . '?type=payment&data.id=pay_123', [], [
+        'x-request-id' => 'request-123',
+        'x-signature' => 'ts=1715191200,v1=invalid',
+    ])->assertUnauthorized();
+
+    expect($order->refresh()->payment_status)->toBe(Order::PAYMENT_STATUS_PENDING);
+    Http::assertNothingSent();
+});
+
+test('payment methods panel shows connected mercadopago account without exposing tokens', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Mercado Pago',
+        'slug' => 'tienda-mercado-pago',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'access-token-no-visible',
+        'refresh_token' => 'refresh-token-no-visible',
+        'provider_user_id' => '987654321',
+        'connected_at' => now(),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get('/admin/payments')
+        ->assertOk()
+        ->assertSee('Conectado')
+        ->assertSee('ID 987654321')
+        ->assertSee('Tokens encriptados')
+        ->assertDontSee('access-token-no-visible')
+        ->assertDontSee('refresh-token-no-visible');
+});
+
+test('store user can start mercadopago oauth connection', function () {
+    config([
+        'services.mercadopago.client_id' => '123456789',
+        'services.mercadopago.client_secret' => 'client-secret',
+        'services.mercadopago.redirect_uri' => 'https://vendlysuite.com/admin/payments/mercadopago/callback',
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda OAuth Inicio',
+        'slug' => 'tienda-oauth-inicio',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $response = $this->actingAs($storeUser)
+        ->get(route('admin.payments.mercadopago.connect'));
+
+    $response->assertRedirectContains('https://auth.mercadopago.com/authorization');
+    $response->assertRedirectContains('client_id=123456789');
+    $response->assertRedirectContains('response_type=code');
+    $response->assertRedirectContains('platform_id=mp');
+    $response->assertRedirectContains('redirect_uri=https%3A%2F%2Fvendlysuite.com%2Fadmin%2Fpayments%2Fmercadopago%2Fcallback');
+    $this->assertNotEmpty(session('mercadopago_oauth.state'));
+});
+
+test('mercadopago oauth callback stores connected account tokens', function () {
+    config([
+        'services.mercadopago.client_id' => '123456789',
+        'services.mercadopago.client_secret' => 'client-secret',
+        'services.mercadopago.redirect_uri' => 'https://vendlysuite.com/admin/payments/mercadopago/callback',
+    ]);
+
+    Http::fake([
+        'https://api.mercadopago.com/oauth/token' => Http::response([
+            'access_token' => 'seller-access-token',
+            'refresh_token' => 'seller-refresh-token',
+            'public_key' => 'seller-public-key',
+            'user_id' => 987654321,
+            'expires_in' => 15552000,
+        ], 200),
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda OAuth Callback',
+        'slug' => 'tienda-oauth-callback',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    $state = Str::random(48);
+
+    $this->withSession([
+        'mercadopago_oauth' => [
+            'state' => $state,
+            'store_id' => $store->id,
+            'expires_at' => now()->addMinutes(10)->timestamp,
+        ],
+    ])
+        ->actingAs($storeUser)
+        ->get(route('admin.payments.mercadopago.callback', [
+            'code' => 'TG-test-code',
+            'state' => $state,
+        ]))
+        ->assertRedirect(route('admin.payments.index'))
+        ->assertSessionHas('success');
+
+    $account = $store->mercadoPagoAccount()->first();
+    $rawAccount = DB::table('store_payment_accounts')->where('id', $account->id)->first();
+
+    expect($account)->not->toBeNull()
+        ->and($account->access_token)->toBe('seller-access-token')
+        ->and($account->refresh_token)->toBe('seller-refresh-token')
+        ->and($account->public_key)->toBe('seller-public-key')
+        ->and($account->provider_user_id)->toBe('987654321')
+        ->and($account->isConnected())->toBeTrue()
+        ->and($rawAccount->access_token)->not->toBe('seller-access-token');
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://api.mercadopago.com/oauth/token'
+        && $request['grant_type'] === 'authorization_code'
+        && $request['code'] === 'TG-test-code'
+        && $request['client_id'] === '123456789');
+});
+
+test('mercadopago oauth callback rejects incomplete credentials response', function () {
+    config([
+        'services.mercadopago.client_id' => '123456789',
+        'services.mercadopago.client_secret' => 'client-secret',
+        'services.mercadopago.redirect_uri' => 'https://vendlysuite.com/admin/payments/mercadopago/callback',
+    ]);
+
+    Http::fake([
+        'https://api.mercadopago.com/oauth/token' => Http::response([
+            'refresh_token' => 'seller-refresh-token',
+        ], 200),
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda OAuth Incompleto',
+        'slug' => 'tienda-oauth-incompleto',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    $state = Str::random(48);
+
+    $this->withSession([
+        'mercadopago_oauth' => [
+            'state' => $state,
+            'store_id' => $store->id,
+            'expires_at' => now()->addMinutes(10)->timestamp,
+        ],
+    ])
+        ->actingAs($storeUser)
+        ->get(route('admin.payments.mercadopago.callback', [
+            'code' => 'TG-test-code',
+            'state' => $state,
+        ]))
+        ->assertRedirect(route('admin.payments.index'))
+        ->assertSessionHas('error');
+
+    expect($store->mercadoPagoAccount()->exists())->toBeFalse();
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://api.mercadopago.com/oauth/token'
+        && $request['grant_type'] === 'authorization_code'
+        && $request['code'] === 'TG-test-code');
+});
+
+test('mercadopago oauth callback handles token connection failure', function () {
+    config([
+        'services.mercadopago.client_id' => '123456789',
+        'services.mercadopago.client_secret' => 'client-secret',
+        'services.mercadopago.redirect_uri' => 'https://vendlysuite.com/admin/payments/mercadopago/callback',
+    ]);
+
+    Http::fake([
+        'https://api.mercadopago.com/oauth/token' => fn () => throw new ConnectionException('timeout'),
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda OAuth Conexion',
+        'slug' => 'tienda-oauth-conexion',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+    $state = Str::random(48);
+
+    $this->withSession([
+        'mercadopago_oauth' => [
+            'state' => $state,
+            'store_id' => $store->id,
+            'expires_at' => now()->addMinutes(10)->timestamp,
+        ],
+    ])
+        ->actingAs($storeUser)
+        ->get(route('admin.payments.mercadopago.callback', [
+            'code' => 'TG-test-code',
+            'state' => $state,
+        ]))
+        ->assertRedirect(route('admin.payments.index'))
+        ->assertSessionHas('error');
+
+    expect($store->mercadoPagoAccount()->exists())->toBeFalse();
+});
+
+test('mercadopago oauth callback rejects invalid state', function () {
+    Http::fake();
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda OAuth Invalido',
+        'slug' => 'tienda-oauth-invalido',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $this->withSession([
+        'mercadopago_oauth' => [
+            'state' => 'estado-correcto',
+            'store_id' => $store->id,
+            'expires_at' => now()->addMinutes(10)->timestamp,
+        ],
+    ])
+        ->actingAs($storeUser)
+        ->get(route('admin.payments.mercadopago.callback', [
+            'code' => 'TG-test-code',
+            'state' => 'estado-malo',
+        ]))
+        ->assertRedirect(route('admin.payments.index'))
+        ->assertSessionHas('error');
+
+    expect($store->mercadoPagoAccount()->exists())->toBeFalse();
+    Http::assertNothingSent();
 });
 
 test('public storefront routes work from a pro store subdomain', function () {
@@ -808,6 +2986,50 @@ test('storefront url service generates subdomain aware public links', function (
         ->and($service->products($store, $mainDomainRequest))->toBe(route('store.products.index', $store->slug));
 });
 
+test('storefront url service keeps verified custom domain links on the current host', function () {
+    config(['app.url' => 'https://vendlysuite.com']);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Links Dominio',
+        'slug' => 'tienda-links-dominio',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'custom_domain' => 'www.marca.com',
+        'custom_domain_status' => Store::CUSTOM_DOMAIN_VERIFIED,
+        'custom_domain_verified_at' => now(),
+        'is_active' => true,
+    ]);
+    $category = StoreCategory::create([
+        'store_id' => $store->id,
+        'name' => 'Ropa',
+        'slug' => 'ropa',
+        'is_active' => true,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto Dominio',
+        'price' => 25000,
+    ]);
+
+    $service = app(StorefrontUrlService::class);
+    $customDomainRequest = request()->create('https://www.marca.com/productos');
+    $mainDomainRequest = request()->create('https://vendlysuite.com/tienda-links-dominio/productos');
+
+    expect($service->home($store, $customDomainRequest))->toBe('https://www.marca.com')
+        ->and($service->products($store, $customDomainRequest))->toBe('https://www.marca.com/productos')
+        ->and($service->product($store, $product, $customDomainRequest))->toBe('https://www.marca.com/productos/' . $product->publicRouteKey())
+        ->and($service->category($store, $category, $customDomainRequest))->toBe('https://www.marca.com/categorias/ropa')
+        ->and($service->about($store, $customDomainRequest))->toBe('https://www.marca.com/nosotros')
+        ->and($service->products($store, $customDomainRequest, ['q' => 'camisa']))->toBe('https://www.marca.com/productos?q=camisa')
+        ->and($service->products($store, $mainDomainRequest))->toBe(route('store.products.index', $store->slug));
+});
+
 test('main domain keeps landing and basic legacy subdomain returns not found', function () {
     config(['app.url' => 'https://vendlysuite.com']);
 
@@ -826,6 +3048,10 @@ test('main domain keeps landing and basic legacy subdomain returns not found', f
     ]);
 
     $this->get('https://vendlysuite.com/')
+        ->assertOk()
+        ->assertSee('Vendly | Tiendas online listas para vender');
+
+    $this->get('https://dominio-no-configurado.com/')
         ->assertOk()
         ->assertSee('Vendly | Tiendas online listas para vender');
 
@@ -2214,7 +4440,36 @@ test('admin can see orders from all stores', function () {
         'customer_city' => 'Medellin',
         'customer_document' => '654321',
         'status' => 'pagado',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_APPROVED,
         'total' => 18000,
+        'store_id' => $store->id,
+    ]);
+    Order::create([
+        'customer_name' => 'Cliente Rechazado',
+        'customer_phone' => '3001112235',
+        'customer_address' => 'Calle 3',
+        'customer_city' => 'Cali',
+        'customer_document' => '777777',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_REJECTED,
+        'total' => 19000,
+        'store_id' => $store->id,
+    ]);
+    Order::create([
+        'customer_name' => 'Cliente Cancelado',
+        'customer_phone' => '3001112236',
+        'customer_address' => 'Calle 4',
+        'customer_city' => 'Barranquilla',
+        'customer_document' => '888888',
+        'status' => 'pendiente',
+        'payment_method' => Order::PAYMENT_METHOD_MERCADOPAGO,
+        'payment_provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'payment_status' => Order::PAYMENT_STATUS_CANCELLED,
+        'total' => 20000,
         'store_id' => $store->id,
     ]);
 
@@ -2223,16 +4478,26 @@ test('admin can see orders from all stores', function () {
         ->assertOk()
         ->assertSee('Filtrar por estado')
         ->assertSee('name="status"', false)
-        ->assertSee('Mostrando 2 de 2 pedidos')
+        ->assertSee('Mostrando 4 de 4 pedidos')
         ->assertDontSee('No hay pedidos con ese estado.')
         ->assertSee('Cliente Global')
         ->assertSee('Cliente Pagado')
+        ->assertSee('Cliente Rechazado')
+        ->assertSee('Cliente Cancelado')
+        ->assertSee('Metodo de pago')
+        ->assertSee('Estado de pago')
+        ->assertSee('WhatsApp')
+        ->assertSee('Mercado Pago')
+        ->assertSee('Pendiente')
+        ->assertSee('Aprobado')
+        ->assertSee('Rechazado')
+        ->assertSee('Cancelado')
         ->assertSee('Tienda visible admin');
 
     $this->actingAs($admin)
         ->get('/admin/orders?status=pagado')
         ->assertOk()
-        ->assertSee('Mostrando 1 de 2 pedidos')
+        ->assertSee('Mostrando 1 de 4 pedidos')
         ->assertSee('Cliente Pagado')
         ->assertDontSee('Cliente Global')
         ->assertSee('value="pagado" selected', false);
@@ -2240,7 +4505,7 @@ test('admin can see orders from all stores', function () {
     $this->actingAs($admin)
         ->get('/admin/orders?status=enviado')
         ->assertOk()
-        ->assertSee('Mostrando 0 de 2 pedidos')
+        ->assertSee('Mostrando 0 de 4 pedidos')
         ->assertSee('No hay pedidos con ese estado.')
         ->assertDontSee('Cliente Global')
         ->assertDontSee('Cliente Pagado');
@@ -3302,3 +5567,4 @@ test('checkout clears the store cart without reviving the legacy cart', function
         ->assertSee('Tu carrito esta vacio')
         ->assertDontSee('Producto checkout');
 });
+

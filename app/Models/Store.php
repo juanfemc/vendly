@@ -15,12 +15,17 @@ class Store extends Model
     private static ?bool $supportsReservationScheduleColumns = null;
     private static ?bool $supportsCommercialNoticeColumns = null;
     private static ?bool $supportsSubdomainColumn = null;
+    private static ?bool $supportsCustomDomainColumns = null;
 
     public const PRODUCT_SEARCH_THRESHOLD = 20;
 
     public const PLAN_BASIC = 'basic';
     public const PLAN_PRO = 'pro';
     public const PLAN_PREMIUM = 'premium';
+
+    public const CUSTOM_DOMAIN_PENDING = 'pending';
+    public const CUSTOM_DOMAIN_VERIFIED = 'verified';
+    public const CUSTOM_DOMAIN_FAILED = 'failed';
 
     public const BASIC_PRODUCT_LIMIT = 20;
     public const PRO_PRODUCT_LIMIT = 100;
@@ -62,6 +67,9 @@ class Store extends Model
         'plan',
         'slug',
         'subdomain',
+        'custom_domain',
+        'custom_domain_status',
+        'custom_domain_verified_at',
         'whatsapp',
         'location',
         'business_hours',
@@ -95,6 +103,7 @@ class Store extends Model
         'reservation_available_days' => 'array',
         'responsive_product_columns' => 'integer',
         'show_hero_products_action' => 'boolean',
+        'custom_domain_verified_at' => 'datetime',
     ];
 
     public function isRestaurant(): bool
@@ -167,6 +176,11 @@ class Store extends Model
         return ! $this->isBasicPlan();
     }
 
+    public function allowsCustomDomain(): bool
+    {
+        return ($this->plan ?? self::PLAN_PRO) === self::PLAN_PREMIUM;
+    }
+
     public static function reservedSubdomains(): array
     {
         return [
@@ -193,9 +207,27 @@ class Store extends Model
         return $value === '' ? null : $value;
     }
 
+    public static function normalizeCustomDomain(?string $value): ?string
+    {
+        $value = strtolower(trim((string) $value));
+        $value = preg_replace('#^https?://#', '', $value) ?? '';
+        $value = preg_replace('#/.*$#', '', $value) ?? '';
+        $value = preg_replace('/:\d+$/', '', $value) ?? '';
+        $value = trim($value, ". \t\n\r\0\x0B");
+
+        return $value === '' ? null : $value;
+    }
+
     public static function supportsSubdomainColumn(): bool
     {
         return self::$supportsSubdomainColumn ??= Schema::hasColumn('stores', 'subdomain');
+    }
+
+    public static function supportsCustomDomainColumns(): bool
+    {
+        return self::$supportsCustomDomainColumns ??= Schema::hasColumn('stores', 'custom_domain')
+            && Schema::hasColumn('stores', 'custom_domain_status')
+            && Schema::hasColumn('stores', 'custom_domain_verified_at');
     }
 
     public function visits(): HasMany
@@ -548,6 +580,17 @@ class Store extends Model
     public function banners()
     {
         return $this->hasMany(StoreBanner::class);
+    }
+
+    public function paymentAccounts()
+    {
+        return $this->hasMany(StorePaymentAccount::class);
+    }
+
+    public function mercadoPagoAccount()
+    {
+        return $this->hasOne(StorePaymentAccount::class)
+            ->where('provider', StorePaymentAccount::PROVIDER_MERCADOPAGO);
     }
 
     public function categories()

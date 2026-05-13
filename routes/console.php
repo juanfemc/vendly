@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Services\CheckoutService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
@@ -61,3 +62,11 @@ Artisan::command('users:make-admin {email : Email del usuario admin} {--name= : 
 
     return self::SUCCESS;
 })->purpose('Crea o asciende un usuario admin sin sembrarlo automaticamente');
+
+Artisan::command('payments:expire-pending', function () {
+    $expired = app(CheckoutService::class)->expirePendingMercadoPagoOrders();
+
+    $this->info("Pedidos Mercado Pago vencidos: {$expired}");
+
+    return self::SUCCESS;
+})->purpose('Cancela pedidos pendientes de Mercado Pago vencidos y libera stock');
