@@ -15,7 +15,7 @@
         $heroImage = $storageAssetUrl($store->cover_image) ?: $storageAssetUrl($heroProduct?->image);
         $heroMetaImage = $absoluteStorageUrl($store->cover_image) ?: $absoluteStorageUrl($heroProduct?->image);
         $logoImage = $absoluteStorageUrl($store->logo_image);
-        $faviconImage = $storageAssetUrl($store->logo_image) ?: asset('images/vendly-logo.svg');
+        $faviconImage = $storefrontUrls->favicon($store);
         $seoImage = $heroMetaImage ?: $logoImage;
         $cartCount = $page->cartCount;
         $instagramUrl = $page->instagramUrl;
@@ -73,29 +73,41 @@
         $showAboutSection = trim((string) $store->mission) !== '' && trim((string) $store->vision) !== '';
     @endphp
     @include('storefront.partials.seo', ['seo' => $seo])
-    <link rel="stylesheet" href="{{ asset('css/storefront.css') }}">
-    <link rel="stylesheet" href="{{ asset($variantStylesheets[$storefrontVariant]) }}">
+    <link rel="stylesheet" href="{{ asset('css/storefront.css') }}?v={{ filemtime(public_path('css/storefront.css')) }}">
+    <link rel="stylesheet" href="{{ asset($variantStylesheets[$storefrontVariant]) }}?v={{ filemtime(public_path($variantStylesheets[$storefrontVariant])) }}">
 </head>
 
 <body
-    class="storefront-page storefront-page--{{ $storefrontVariant }}"
+    class="storefront-page storefront-page--{{ $storefrontVariant }} {{ $storefrontVariant === 'technology' ? 'storefront-page--minimal-grid' : '' }}"
     data-csrf="{{ csrf_token() }}"
     data-adding-text="{{ $isRestaurant ? 'Agregando al pedido...' : ($isReservationStore ? 'Agregando a la reserva...' : 'Agregando...') }}"
     data-feedback-added="{{ $isRestaurant ? 'Plato agregado al pedido' : ($isReservationStore ? 'Servicio agregado a la reserva' : 'Producto agregado al carrito') }}"
     data-feedback-error="{{ $isRestaurant ? 'No pudimos agregar el plato' : ($isReservationStore ? 'No pudimos agregar el servicio' : 'No pudimos agregar el producto') }}"
     style="{{ $store->storefrontCssVariables($brandTheme, $responsiveProductColumns) }}"
 >
-    @include('storefront.partials.header')
+    @if($storefrontVariant === 'technology')
+        @include('storefront.partials.header-minimal-grid')
+    @else
+        @include('storefront.partials.header')
+    @endif
 
     <main class="shell">
         @include('storefront.variants.' . $storefrontVariant)
     </main>
 
-    @include('storefront.partials.footer')
+    @if($storefrontVariant === 'technology')
+        @include('storefront.partials.footer-minimal-grid')
+    @else
+        @include('storefront.partials.footer')
+    @endif
 
     <div class="cart-feedback" id="cartFeedback" aria-live="polite">{{ $isRestaurant ? 'Plato agregado al pedido' : ($isReservationStore ? 'Servicio agregado a la reserva' : 'Producto agregado al carrito') }}</div>
 
     <script src="{{ asset('js/storefront.js') }}?v={{ filemtime(public_path('js/storefront.js')) }}" defer></script>
+    @if($storefrontVariant === 'technology')
+        <script src="{{ asset('js/minimal-shop.js') }}?v={{ filemtime(public_path('js/minimal-shop.js')) }}" defer></script>
+    @endif
 </body>
 
 </html>
+

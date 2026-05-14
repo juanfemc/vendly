@@ -7,7 +7,7 @@
 <div class="storefront-topbar" data-storefront-topbar>
     @if(! empty($announcementMessages))
         @php
-            $announcementStepSeconds = 22;
+            $announcementStepSeconds = 18;
         @endphp
         <section class="store-announcement-bar" aria-label="Avisos de la tienda" data-announcement-bar>
             <div class="shell store-announcement-shell">

@@ -57,6 +57,11 @@ class StorefrontUrlService
         return $this->storeUrl($store, $request, '/nosotros', fn () => route('store.about', $store->slug));
     }
 
+    public function favicon(Store $store, ?Request $request = null): string
+    {
+        return $this->storeUrl($store, $request, '/favicon.svg', fn () => route('store.favicon', $store->slug));
+    }
+
     public function usesCurrentSubdomain(Store $store, ?Request $request = null): bool
     {
         $request ??= request();

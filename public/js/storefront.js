@@ -65,13 +65,16 @@
     window.addEventListener('load', syncTopbarHeight);
     window.addEventListener('resize', syncTopbarHeight);
 
-    if (announcementMessages.length > 1 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (announcementMessages.length > 0 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         let currentAnnouncement = 0;
 
         const showAnnouncement = (index) => {
-            announcementMessages.forEach((message, messageIndex) => {
-                message.classList.toggle('is-marquee-active', messageIndex === index);
+            announcementMessages.forEach((message) => {
+                message.classList.remove('is-marquee-active');
             });
+
+            announcementMessages[index].offsetWidth;
+            announcementMessages[index].classList.add('is-marquee-active');
         };
 
         announcementMessages.forEach((message, index) => {

@@ -47,6 +47,7 @@
             $statusBadgeClass = match ($order->status) {
                 'pagado' => 'resource-badge--success',
                 'enviado' => 'resource-badge--active',
+                'devuelto' => 'resource-badge--danger',
                 default => 'resource-badge--warning',
             };
         @endphp

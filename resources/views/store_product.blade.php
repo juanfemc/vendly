@@ -13,7 +13,7 @@
         $isSupplementStore = $store->isSupplementStore();
         $isReservationStore = $store->isReservationStore();
         $logoImage = $absoluteStorageUrl($store->logo_image);
-        $faviconImage = $storageAssetUrl($store->logo_image) ?: asset('images/vendly-logo.svg');
+        $faviconImage = $storefrontUrls->favicon($store);
         $productImage = $absoluteStorageUrl($product->image);
         $productGallery = collect([$product->image])
             ->merge($store->allowsProductGallery() ? ($product->images ?? []) : [])
@@ -440,3 +440,4 @@
 </body>
 
 </html>
+

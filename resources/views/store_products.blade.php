@@ -34,7 +34,7 @@
             'default' => 'css/storefront-default.css',
         ];
         $cardClass = $isTechnologyStore ? 'tech-product-card' : ($isRestaurant ? 'restaurant-product-card' : ($isSupplementStore ? 'supplements-product-card' : ''));
-        $faviconImage = $storageAssetUrl($store->logo_image) ?: asset('images/vendly-logo.svg');
+        $faviconImage = $storefrontUrls->favicon($store);
         $seoImage = $absoluteStorageUrl($store->cover_image) ?: $absoluteStorageUrl($store->logo_image);
         $metaUrl = $storefrontUrls->products($store);
         $fallbackDescription = $isRestaurant
@@ -110,3 +110,4 @@
 </body>
 
 </html>
+

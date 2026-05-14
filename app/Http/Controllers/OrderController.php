@@ -63,6 +63,12 @@ class OrderController extends Controller
             'status' => ['required', 'in:' . implode(',', array_keys(Order::statusOptions()))],
         ]);
 
+        if ($validated['status'] === 'devuelto' && ! in_array($order->status, ['pagado', 'enviado'], true)) {
+            return back()->withErrors([
+                'status' => 'Solo puedes marcar como devuelto un pedido pagado o enviado.',
+            ]);
+        }
+
         if (! $user?->isAdmin()) {
             $store = $user?->store ?? $user?->stores()->first();
 

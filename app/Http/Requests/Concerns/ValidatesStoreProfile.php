@@ -107,7 +107,7 @@ trait ValidatesStoreProfile
             $data['custom_domain'] = Store::normalizeCustomDomain($data['custom_domain'] ?? null);
             $this->applyCustomDomainState($data, $effectivePlan);
         } else {
-            unset($data['custom_domain']);
+            unset($data['custom_domain'], $data['custom_domain_status'], $data['custom_domain_verified_at']);
         }
 
         $data['responsive_product_columns'] = (int) ($data['responsive_product_columns'] ?? 2);

@@ -23,6 +23,7 @@ class Order extends Model
         'pendiente' => 'Pendiente',
         'pagado' => 'Pagado',
         'enviado' => 'Enviado',
+        'devuelto' => 'Devuelto',
     ];
 
     public const PAYMENT_METHOD_LABELS = [

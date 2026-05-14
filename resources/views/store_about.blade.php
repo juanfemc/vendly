@@ -33,7 +33,7 @@
             'supplements' => 'css/storefront-supplements.css',
             'default' => 'css/storefront-default.css',
         ];
-        $faviconImage = $storageAssetUrl($store->logo_image) ?: asset('images/vendly-logo.svg');
+        $faviconImage = $storefrontUrls->favicon($store);
         $seoImage = $absoluteStorageUrl($store->cover_image) ?: $absoluteStorageUrl($store->logo_image);
         $metaUrl = $storefrontUrls->about($store);
         $fallbackDescription = 'Conoce la mision y vision de ' . $store->name . '.';
@@ -76,3 +76,4 @@
 </body>
 
 </html>
+

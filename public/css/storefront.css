@@ -88,7 +88,7 @@ body.storefront-page .product-detail-copy h1 {
 
 .store-announcement-viewport {
     position: relative;
-    width: min(100%, 820px);
+    width: min(100%, 920px);
     height: 24px;
     overflow: hidden;
 }
@@ -125,57 +125,29 @@ body.storefront-page .product-detail-copy h1 {
     font-size: 14px;
     font-weight: 800;
     line-height: 1.25;
-    opacity: 0;
-    transform: translateX(105%);
-    overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
+    opacity: 0;
+    transform: translateX(55%);
     will-change: transform, opacity;
 }
 
-.store-announcement-message::before {
-    content: "•";
-    margin-right: 9px;
-    color: currentColor;
-    opacity: 0.78;
-    font-size: 16px;
-    line-height: 1;
-}
-
 .store-announcement-message.is-marquee-active {
-    animation: store-announcement-marquee var(--announcement-step-duration, 22s) linear 1 both;
+    animation: store-announcement-marquee var(--announcement-step-duration, 18s) linear 1 both;
 }
 
 @keyframes store-announcement-marquee {
     0% {
-        opacity: 0;
-        transform: translateX(105%);
-    }
-
-    8% {
         opacity: 1;
-        transform: translateX(36%);
+        transform: translateX(55%);
     }
 
-    34% {
+    88% {
         opacity: 1;
-        transform: translateX(0);
     }
 
-    54% {
-        opacity: 1;
-        transform: translateX(0);
-    }
-
-    76% {
-        opacity: 1;
-        transform: translateX(-36%);
-    }
-
-    90%,
     100% {
         opacity: 0;
-        transform: translateX(-105%);
+        transform: translateX(-65%);
     }
 }
 
@@ -186,11 +158,10 @@ body.storefront-page .product-detail-copy h1 {
         transform: none;
     }
 
-    .store-announcement-message.is-marquee-active {
+    .store-announcement-message:first-child {
         opacity: 1;
     }
 }
-
 .navbar {
     --nav-text: var(--store-nav-text, var(--store-text));
     border-bottom: 1px solid var(--line);

@@ -18,6 +18,9 @@ class PaymentSettingsController extends Controller
     public function index(): View
     {
         $store = $this->currentStoreOrFail();
+
+        abort_unless($store->allowsOnlinePayments(), 403);
+
         $mercadoPagoAccount = $store->mercadoPagoAccount()->first();
 
         return view('admin.payments.index', compact('store', 'mercadoPagoAccount'));
@@ -26,6 +29,8 @@ class PaymentSettingsController extends Controller
     public function connectMercadoPago(MercadoPagoOAuthService $mercadoPago): RedirectResponse
     {
         $store = $this->currentStoreOrFail();
+
+        abort_unless($store->allowsOnlinePayments(), 403);
 
         if (! $mercadoPago->isConfigured()) {
             return redirect()
@@ -46,6 +51,9 @@ class PaymentSettingsController extends Controller
     public function mercadoPagoCallback(Request $request, MercadoPagoOAuthService $mercadoPago): RedirectResponse
     {
         $store = $this->currentStoreOrFail();
+
+        abort_unless($store->allowsOnlinePayments(), 403);
+
         $oauthSession = session()->pull(self::MERCADOPAGO_OAUTH_SESSION_KEY);
 
         if ($request->filled('error')) {

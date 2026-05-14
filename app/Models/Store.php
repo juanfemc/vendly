@@ -181,6 +181,11 @@ class Store extends Model
         return ($this->plan ?? self::PLAN_PRO) === self::PLAN_PREMIUM;
     }
 
+    public function allowsOnlinePayments(): bool
+    {
+        return ($this->plan ?? self::PLAN_PRO) === self::PLAN_PREMIUM;
+    }
+
     public static function reservedSubdomains(): array
     {
         return [

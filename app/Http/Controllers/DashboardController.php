@@ -28,7 +28,8 @@ class DashboardController extends Controller
                 ->whereDate('active_ends_at', '<=', now()->addDays(7)->toDateString())
                 ->orderBy('active_ends_at')
                 ->get();
-            $totalSales = (float) Order::whereIn('status', ['pagado', 'enviado'])->sum('total');
+            $totalSales = (float) Order::whereIn('status', ['pagado', 'enviado'])->sum('total')
+                - (float) Order::where('status', 'devuelto')->sum('total');
             $totalVisits = $hasVisitsColumn ? (int) Store::sum('views_count') : 0;
             $adminUpdates = Schema::hasTable('admin_updates')
                 ? AdminUpdate::orderByDesc('id')->take(10)->get()
@@ -55,6 +56,7 @@ class DashboardController extends Controller
             : 0;
         $totalSales = $store
             ? (float) $store->orders()->whereIn('status', ['pagado', 'enviado'])->sum('total')
+                - (float) $store->orders()->where('status', 'devuelto')->sum('total')
             : 0;
         $totalVisits = $store && $hasVisitsColumn ? (int) $store->views_count : 0;
         $accountExpiresSoon = $user?->active_ends_at

@@ -2,8 +2,8 @@
 <meta name="description" content="{{ $seo->description }}">
 <link rel="canonical" href="{{ $seo->url }}">
 @if($seo->favicon)
-    <link rel="icon" href="{{ $seo->favicon }}">
-    <link rel="shortcut icon" href="{{ $seo->favicon }}">
+    <link rel="icon" type="image/svg+xml" sizes="any" href="{{ $seo->favicon }}">
+    <link rel="shortcut icon" type="image/svg+xml" sizes="any" href="{{ $seo->favicon }}">
     <link rel="apple-touch-icon" href="{{ $seo->favicon }}">
 @endif
 <meta property="og:type" content="{{ $seo->type }}">

@@ -33,7 +33,7 @@
             'supplements' => 'css/storefront-supplements.css',
             'default' => 'css/storefront-default.css',
         ];
-        $faviconImage = $storageAssetUrl($store->logo_image) ?: asset('images/vendly-logo.svg');
+        $faviconImage = $storefrontUrls->favicon($store);
         $seoImage = $absoluteStorageUrl($category->image) ?: $absoluteStorageUrl($store->cover_image) ?: $absoluteStorageUrl($store->logo_image);
         $metaUrl = $storefrontUrls->category($store, $category);
         $fallbackDescription = $isRestaurant
@@ -115,3 +115,4 @@
 </body>
 
 </html>
+

@@ -8,6 +8,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\StoreController;
+use App\Http\Controllers\StoreFaviconController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminBannerController;
 use App\Http\Controllers\LandingTestimonialController;
@@ -150,6 +151,8 @@ Route::get('/categorias/{category}', [ProductController::class, 'categoryBySubdo
 Route::get('/nosotros', [ProductController::class, 'aboutBySubdomain'])->name('subdomain.store.about');
 Route::get('/productos', [ProductController::class, 'allProductsBySubdomain'])->name('subdomain.store.products.index');
 Route::get('/productos/{product}', [ProductController::class, 'showBySubdomain'])->name('subdomain.store.product.show');
+Route::get('/favicon.svg', [StoreFaviconController::class, 'current'])->name('store.favicon.current');
+Route::get('/{slug}/favicon.svg', [StoreFaviconController::class, 'show'])->name('store.favicon');
 Route::get('/{slug}/categorias/{category}', [ProductController::class, 'category'])->name('store.category.show');
 Route::get('/{slug}/nosotros', [ProductController::class, 'about'])->name('store.about');
 Route::get('/{slug}/productos', [ProductController::class, 'allProducts'])->name('store.products.index');

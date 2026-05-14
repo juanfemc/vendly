@@ -1074,7 +1074,9 @@
                     <summary>Tienda</summary>
                     <div class="sidebar-submenu">
                         <a href="/admin/store-settings">Configuracion</a>
-                        <a href="{{ route('admin.payments.index') }}">Metodos de pago</a>
+                        @if(($sidebarStore?->allowsOnlinePayments() ?? false))
+                            <a href="{{ route('admin.payments.index') }}">Metodos de pago</a>
+                        @endif
                         @if(($sidebarStore?->allowsCategories() ?? true))
                             <a href="/admin/categories">Categorias</a>
                         @endif

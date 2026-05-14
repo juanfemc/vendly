@@ -85,7 +85,8 @@ class CartController extends Controller
         $cart = $this->cartService->cartForStore($store);
         $total = $this->cartService->total($cart);
         $mercadoPagoAccount = $store?->mercadoPagoAccount()->first();
-        $mercadoPagoAvailable = $mercadoPagoAccount?->isConnected() ?? false;
+        $mercadoPagoAvailable = ($store?->allowsOnlinePayments() ?? false)
+            && ($mercadoPagoAccount?->isConnected() ?? false);
 
         return view('cart_checkout', compact('cart', 'store', 'total', 'mercadoPagoAvailable'));
     }
@@ -170,6 +171,11 @@ class CartController extends Controller
         }
 
         ['validated' => $validated, 'store' => $store, 'cart' => $cart] = $checkout;
+
+        if (! $store->allowsOnlinePayments()) {
+            return redirect()->route('cart.index', ['store' => $store->slug])->with('error', 'Los pagos en linea estan disponibles solo en el plan Premium.');
+        }
+
         $mercadoPagoAccount = $store->mercadoPagoAccount()->first();
 
         if (! ($mercadoPagoAccount?->isConnected() ?? false)) {

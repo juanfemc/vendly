@@ -1,112 +1,107 @@
-<section class="store-hero tech-hero">
-    @if($showHeroProductsAction)
-        <div class="store-hero-products-action">
-            <p class="store-hero-short-copy">{{ $heroShortCopy }}</p>
-            <a href="{{ $storefrontUrls->products($store) }}" class="catalog-all-link">
-                Ver todos los {{ $itemsLabel }}
-            </a>
-        </div>
-    @endif
+@php
+    $categoryLinks = ($activeCategories ?? collect())->values();
+    $fallbackCategories = collect(['All Product', 'For Home', 'For Music', 'For Phone', 'For Storage']);
+    $minimalProducts = ($allProducts ?? collect())->values();
+    $minimalCatalogProducts = $minimalProducts->take(9);
+    $minimalRecommendationProducts = $minimalProducts->skip(1)->take(4);
+@endphp
 
-    <div class="store-hero-media tech-hero-media">
+<section class="minimal-shop-hero">
+    <div class="minimal-shop-hero-media">
         @if($heroImage)
-            <img src="{{ $heroImage }}" alt="{{ $store->name }}" loading="eager" fetchpriority="high" decoding="async">
+            <img class="minimal-shop-hero-image" src="{{ $heroImage }}" alt="{{ $store->name }}" loading="eager" fetchpriority="high" decoding="async">
+            <div class="minimal-shop-hero-fallback" hidden>{{ $store->name }}</div>
         @else
-            <div class="hero-fallback">{{ $store->name }}</div>
+            <div class="minimal-shop-hero-fallback">{{ $store->name }}</div>
         @endif
+        <h1>Shop</h1>
     </div>
 </section>
 
-@include('storefront.partials.product-search', ['productSearchId' => 'home'])
+<div class="minimal-shop-content-panel">
+    <div class="minimal-shop-search-panel">
+        <h2>Give All You Need</h2>
+        <form action="{{ $storefrontUrls->products($store) }}" method="GET" role="search">
+            <label for="minimalShopSearch">Buscar en {{ $store->name }}</label>
+            <input id="minimalShopSearch" type="search" name="q" placeholder="Search on {{ $store->name }}" autocomplete="off">
+            <button type="submit">Search</button>
+        </form>
+    </div>
 
-<section class="tech-promo-grid" id="promos">
-    @foreach($allProducts->take(5)->values() as $index => $product)
-        <article class="tech-promo-card tech-promo-card-{{ $index + 1 }}">
-            <div class="tech-promo-copy">
-                <span>{{ $product->category ?: 'Tecnologia' }}</span>
-                <h3>{{ $product->name }}</h3>
-                <div class="tech-promo-media">
-                    @if($product->image)
-                        <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" loading="lazy" decoding="async">
-                    @endif
-                </div>
-                <a href="{{ $storefrontUrls->product($store, $product) }}">Explorar</a>
-            </div>
-        </article>
-    @endforeach
-</section>
-
-@include('storefront.partials.category-sections', ['cardClass' => 'tech-product-card'])
-
-@if($allProducts->count() > 1)
-    @php($secondaryProduct = $allProducts->skip(1)->first())
-    @if($secondaryProduct)
-        <section class="tech-sale-banner tech-sale-banner-secondary">
-            <div class="tech-sale-copy">
-                <span>{{ $secondaryProduct->category ?: 'Tecnologia seleccionada' }}</span>
-                <h2>{{ $secondaryProduct->name }}</h2>
-                <div class="tech-sale-actions">
-                    <form action="{{ route('cart.add', $secondaryProduct->id) }}" method="POST" class="add-to-cart-form">
-                        @csrf
-                        @if($secondaryProduct->hasSizes() || $secondaryProduct->hasColors())
-                            <div class="product-options product-options--card">
-                                @if($secondaryProduct->hasSizes())
-                                    <label>
-                                        <span>Talla</span>
-                                        <select name="size" required>
-                                            <option value="">Talla</option>
-                                            @foreach($secondaryProduct->sizes as $size)
-                                                <option value="{{ $size }}">{{ $size }}</option>
-                                            @endforeach
-                                        </select>
-                                    </label>
-                                @endif
-
-                                @if($secondaryProduct->hasColors())
-                                    <label>
-                                        <span>Color</span>
-                                        <select name="color" required>
-                                            <option value="">Color</option>
-                                            @foreach($secondaryProduct->colors as $color)
-                                                <option value="{{ $color }}">{{ $color }}</option>
-                                            @endforeach
-                                        </select>
-                                    </label>
-                                @endif
-                            </div>
-                        @endif
-                        <button type="submit">{{ $addLabel }}</button>
-                    </form>
-                    <a href="{{ $storefrontUrls->product($store, $secondaryProduct) }}" class="tech-detail-link">Comprar ahora</a>
-                </div>
-            </div>
-
-            <div class="tech-sale-media">
-                @if($secondaryProduct->image)
-                    <img src="{{ asset('storage/' . $secondaryProduct->image) }}" alt="{{ $secondaryProduct->name }}" loading="lazy" decoding="async">
+    <section class="minimal-shop-layout" aria-label="Catalogo">
+        <aside class="minimal-shop-sidebar">
+            <h2>Category</h2>
+            <nav aria-label="Categorias">
+                @if($categoryLinks->isNotEmpty())
+                    <a href="{{ $storefrontUrls->products($store) }}" class="is-active">
+                        <span class="minimal-shop-category-icon" aria-hidden="true"></span>
+                        All Product
+                        <span class="minimal-shop-category-count">{{ $productsTotal }}</span>
+                    </a>
+                    @foreach($categoryLinks->take(4) as $categoryLink)
+                        <a href="{{ $storefrontUrls->category($store, $categoryLink) }}">
+                            <span class="minimal-shop-category-icon" aria-hidden="true"></span>
+                            {{ $categoryLink->name }}
+                        </a>
+                    @endforeach
+                @else
+                    @foreach($fallbackCategories as $index => $categoryName)
+                        <a href="{{ $storefrontUrls->products($store) }}" @class(['is-active' => $index === 0])>
+                            <span class="minimal-shop-category-icon" aria-hidden="true"></span>
+                            {{ $categoryName }}
+                            @if($index === 0)
+                                <span class="minimal-shop-category-count">{{ $productsTotal }}</span>
+                            @endif
+                        </a>
+                    @endforeach
                 @endif
+            </nav>
+
+            <div class="minimal-shop-filter-links">
+                <a href="{{ $storefrontUrls->products($store) }}">New Arrival</a>
+                <a href="{{ $storefrontUrls->products($store) }}">Best Seller</a>
+                <a href="{{ $storefrontUrls->products($store) }}">On Discount</a>
             </div>
-        </section>
-    @endif
-@endif
+        </aside>
 
-<section class="tech-news-section" id="novedades">
-    <div class="catalog-head tech-section-head">
-        <h2>Novedades</h2>
-        <p>Historias, lanzamientos y productos que vale la pena destacar en la vitrina tech.</p>
-    </div>
+        <div class="minimal-shop-catalog-shell">
+            <div class="minimal-shop-product-grid">
+                @forelse($minimalCatalogProducts as $product)
+                    @include('storefront.partials.minimal-product-card', ['product' => $product, 'isRecommendation' => false])
+                @empty
+                    <div class="minimal-shop-empty-state">Aun no hay productos para mostrar.</div>
+                @endforelse
+            </div>
 
-    <div class="tech-news-grid">
-        @foreach($allProducts->take(3) as $product)
-            <article class="tech-news-card">
-                <div class="tech-news-image">
-                    @if($product->image)
-                        <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" loading="lazy" decoding="async">
-                    @endif
-                </div>
-                <span>{{ $product->category ?: 'Tecnologia' }}</span>
-                <h3>{{ $product->name }}</h3>
-            </article>
-        @endforeach
-    </div>
-</section>
+            <div class="minimal-shop-pagination" aria-hidden="true">
+                <span>Previous</span>
+                <span class="is-active">1</span>
+                <span>2</span>
+                <span>3</span>
+                <span>...</span>
+                <span>8</span>
+                <span>9</span>
+                <span>10</span>
+                <span>Next</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="minimal-shop-recommendations" aria-label="Recomendaciones">
+        <div class="minimal-shop-section-head">
+            <h2>Explore our recommendations</h2>
+            <div aria-hidden="true">
+                <span>&larr;</span>
+                <span>&rarr;</span>
+            </div>
+        </div>
+
+        <div class="minimal-shop-recommendation-track">
+            @forelse($minimalRecommendationProducts as $product)
+                @include('storefront.partials.minimal-product-card', ['product' => $product, 'isRecommendation' => true])
+            @empty
+                <div class="minimal-shop-empty-state">Aun no hay recomendaciones.</div>
+            @endforelse
+        </div>
+    </section>
+</div>

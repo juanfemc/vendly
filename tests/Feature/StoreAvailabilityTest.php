@@ -435,6 +435,33 @@ test('store settings save commercial notices and storefront shows rotating bar',
         ->assertSee('Entregas hoy hasta las 6:00 p.m.');
 });
 
+test('storefront animates a single commercial notice without duplicated markup', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Aviso Unico',
+        'slug' => 'tienda-aviso-unico',
+        'whatsapp' => '573001112233',
+        'business_type' => 'store',
+        'is_active' => true,
+        'announcement_items' => [
+            ['text' => 'Solo hoy 15% de descuento'],
+        ],
+    ]);
+
+    $response = $this->get('/tienda-aviso-unico')
+        ->assertOk()
+        ->assertSee('--announcement-step-duration: 18s', false)
+        ->assertSee('data-announcement-message', false)
+        ->assertSee('is-marquee-active', false);
+
+    expect(substr_count($response->getContent(), 'Solo hoy 15% de descuento'))->toBe(1);
+});
+
 test('basic plan hides commercial notices and clears them when settings are saved', function () {
     $storeUser = User::factory()->create([
         'active_starts_at' => now()->subDay(),
@@ -975,6 +1002,7 @@ test('store user can see payment methods panel', function () {
         'name' => 'Tienda Metodos Pago',
         'slug' => 'tienda-metodos-pago',
         'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
         'is_active' => true,
     ]);
 
@@ -995,6 +1023,35 @@ test('store user can see payment methods panel', function () {
         ->assertSessionHas('error');
 });
 
+test('pro store users cannot see or open payment methods', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pro Sin Pagos',
+        'slug' => 'tienda-pro-sin-pagos',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get('/dashboard')
+        ->assertOk()
+        ->assertDontSee('Metodos de pago')
+        ->assertDontSee(route('admin.payments.index'), false);
+
+    $this->actingAs($storeUser)
+        ->get('/admin/payments')
+        ->assertForbidden();
+
+    $this->actingAs($storeUser)
+        ->get(route('admin.payments.mercadopago.connect'))
+        ->assertForbidden();
+});
+
 test('cart shows mercadopago button only for connected stores', function () {
     $storeUser = User::factory()->create([
         'active_starts_at' => now()->subDay(),
@@ -1005,6 +1062,7 @@ test('cart shows mercadopago button only for connected stores', function () {
         'name' => 'Tienda Checkout Pago',
         'slug' => 'tienda-checkout-pago',
         'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
         'is_active' => true,
     ]);
     $product = Product::create([
@@ -1074,6 +1132,58 @@ test('cart shows mercadopago button only for connected stores', function () {
         ->and(session()->has('carts.' . $store->id))->toBeFalse();
 });
 
+test('pro stores cannot use mercadopago even with a connected account', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pro Checkout',
+        'slug' => 'tienda-pro-checkout',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'is_active' => true,
+    ]);
+    $product = Product::create([
+        'user_id' => $storeUser->id,
+        'store_id' => $store->id,
+        'name' => 'Producto pro pago',
+        'price' => 45000,
+    ]);
+    StorePaymentAccount::create([
+        'store_id' => $store->id,
+        'provider' => StorePaymentAccount::PROVIDER_MERCADOPAGO,
+        'access_token' => 'access-token',
+        'refresh_token' => 'refresh-token',
+        'provider_user_id' => '521008171',
+        'connected_at' => now(),
+        'status' => StorePaymentAccount::STATUS_CONNECTED,
+    ]);
+
+    $this->post(route('cart.add', $product->id))->assertRedirect();
+
+    $this->get(route('cart.index', ['store' => $store->slug]))
+        ->assertOk()
+        ->assertDontSee('Pagar con Mercado Pago')
+        ->assertDontSee(route('cart.mercadopago', ['store' => $store->slug]), false);
+
+    Http::fake();
+
+    $this->post(route('cart.mercadopago', ['store' => $store->slug]), [
+        'name' => 'Cliente',
+        'last_name' => 'Pro',
+        'phone' => '3001234567',
+        'address' => 'Calle 1',
+        'city' => 'Bogota',
+        'document' => '123456',
+    ])
+        ->assertRedirect(route('cart.index', ['store' => $store->slug]))
+        ->assertSessionHas('error', 'Los pagos en linea estan disponibles solo en el plan Premium.');
+
+    Http::assertNothingSent();
+});
+
 test('expired mercadopago account is not available at checkout', function () {
     $storeUser = User::factory()->create([
         'active_starts_at' => now()->subDay(),
@@ -1084,6 +1194,7 @@ test('expired mercadopago account is not available at checkout', function () {
         'name' => 'Tienda Pago Expirado',
         'slug' => 'tienda-pago-expirado',
         'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
         'is_active' => true,
     ]);
     $product = Product::create([
@@ -2627,6 +2738,7 @@ test('payment methods panel shows connected mercadopago account without exposing
         'name' => 'Tienda Mercado Pago',
         'slug' => 'tienda-mercado-pago',
         'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
         'is_active' => true,
     ]);
     StorePaymentAccount::create([
@@ -2665,6 +2777,7 @@ test('store user can start mercadopago oauth connection', function () {
         'name' => 'Tienda OAuth Inicio',
         'slug' => 'tienda-oauth-inicio',
         'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
         'is_active' => true,
     ]);
 
@@ -2705,6 +2818,7 @@ test('mercadopago oauth callback stores connected account tokens', function () {
         'name' => 'Tienda OAuth Callback',
         'slug' => 'tienda-oauth-callback',
         'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
         'is_active' => true,
     ]);
     $state = Str::random(48);
@@ -2763,6 +2877,7 @@ test('mercadopago oauth callback rejects incomplete credentials response', funct
         'name' => 'Tienda OAuth Incompleto',
         'slug' => 'tienda-oauth-incompleto',
         'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
         'is_active' => true,
     ]);
     $state = Str::random(48);
@@ -2809,6 +2924,7 @@ test('mercadopago oauth callback handles token connection failure', function () 
         'name' => 'Tienda OAuth Conexion',
         'slug' => 'tienda-oauth-conexion',
         'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
         'is_active' => true,
     ]);
     $state = Str::random(48);
@@ -2843,6 +2959,7 @@ test('mercadopago oauth callback rejects invalid state', function () {
         'name' => 'Tienda OAuth Invalido',
         'slug' => 'tienda-oauth-invalido',
         'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
         'is_active' => true,
     ]);
 
@@ -4052,6 +4169,40 @@ test('admin dashboard shows the latest ten updates and removes older ones', func
         ->assertDontSee('Actualizacion 1</strong>', false);
 });
 
+test('dashboard total sales subtracts returned orders', function () {
+    $storeUser = User::factory()->create(['role' => 'store']);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda ventas netas',
+        'slug' => 'tienda-ventas-netas',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    foreach ([
+        ['status' => 'pagado', 'total' => 100000],
+        ['status' => 'enviado', 'total' => 50000],
+        ['status' => 'devuelto', 'total' => 30000],
+        ['status' => 'pendiente', 'total' => 20000],
+    ] as $orderData) {
+        Order::create([
+            'customer_name' => 'Cliente Venta',
+            'customer_phone' => '3001112233',
+            'customer_address' => 'Calle 1',
+            'customer_city' => 'Bogota',
+            'customer_document' => '123456',
+            'status' => $orderData['status'],
+            'total' => $orderData['total'],
+            'store_id' => $store->id,
+        ]);
+    }
+
+    $this->actingAs($storeUser)
+        ->get('/dashboard')
+        ->assertOk()
+        ->assertSee('$ 120.000');
+});
+
 test('validation messages are shown in spanish', function () {
     $this->post('/login', [
         'email' => 'correo-mal-escrito',
@@ -4200,7 +4351,7 @@ test('deleting a sold product keeps the order item history', function () {
         'customer_address' => 'Calle 1',
         'customer_city' => 'Bogota',
         'customer_document' => '123456',
-        'status' => 'pendiente',
+        'status' => 'pagado',
         'total' => 12000,
         'store_id' => $store->id,
     ]);
@@ -4472,23 +4623,35 @@ test('admin can see orders from all stores', function () {
         'total' => 20000,
         'store_id' => $store->id,
     ]);
+    Order::create([
+        'customer_name' => 'Cliente Devuelto',
+        'customer_phone' => '3001112237',
+        'customer_address' => 'Calle 5',
+        'customer_city' => 'Pereira',
+        'customer_document' => '999999',
+        'status' => 'devuelto',
+        'total' => 21000,
+        'store_id' => $store->id,
+    ]);
 
     $this->actingAs($admin)
         ->get('/admin/orders')
         ->assertOk()
         ->assertSee('Filtrar por estado')
         ->assertSee('name="status"', false)
-        ->assertSee('Mostrando 4 de 4 pedidos')
+        ->assertSee('Mostrando 5 de 5 pedidos')
         ->assertDontSee('No hay pedidos con ese estado.')
         ->assertSee('Cliente Global')
         ->assertSee('Cliente Pagado')
         ->assertSee('Cliente Rechazado')
         ->assertSee('Cliente Cancelado')
+        ->assertSee('Cliente Devuelto')
         ->assertSee('Metodo de pago')
         ->assertSee('Estado de pago')
         ->assertSee('WhatsApp')
         ->assertSee('Mercado Pago')
         ->assertSee('Pendiente')
+        ->assertSee('Devuelto')
         ->assertSee('Aprobado')
         ->assertSee('Rechazado')
         ->assertSee('Cancelado')
@@ -4497,15 +4660,23 @@ test('admin can see orders from all stores', function () {
     $this->actingAs($admin)
         ->get('/admin/orders?status=pagado')
         ->assertOk()
-        ->assertSee('Mostrando 1 de 4 pedidos')
+        ->assertSee('Mostrando 1 de 5 pedidos')
         ->assertSee('Cliente Pagado')
         ->assertDontSee('Cliente Global')
         ->assertSee('value="pagado" selected', false);
 
     $this->actingAs($admin)
+        ->get('/admin/orders?status=devuelto')
+        ->assertOk()
+        ->assertSee('Mostrando 1 de 5 pedidos')
+        ->assertSee('Cliente Devuelto')
+        ->assertDontSee('Cliente Pagado')
+        ->assertSee('value="devuelto" selected', false);
+
+    $this->actingAs($admin)
         ->get('/admin/orders?status=enviado')
         ->assertOk()
-        ->assertSee('Mostrando 0 de 4 pedidos')
+        ->assertSee('Mostrando 0 de 5 pedidos')
         ->assertSee('No hay pedidos con ese estado.')
         ->assertDontSee('Cliente Global')
         ->assertDontSee('Cliente Pagado');
@@ -4528,18 +4699,51 @@ test('admin can update order status from global orders list', function () {
         'customer_address' => 'Calle 1',
         'customer_city' => 'Bogota',
         'customer_document' => '123456',
-        'status' => 'pendiente',
+        'status' => 'pagado',
         'total' => 12000,
         'store_id' => $store->id,
     ]);
 
     $this->actingAs($admin)
         ->patch(route('admin.orders.status', $order), [
-            'status' => 'pagado',
+            'status' => 'devuelto',
         ])
         ->assertRedirect('/admin/orders');
 
-    expect($order->refresh()->status)->toBe('pagado');
+    expect($order->refresh()->status)->toBe('devuelto');
+});
+
+test('pending orders cannot be marked as returned', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $storeUser = User::factory()->create();
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda devuelto pendiente',
+        'slug' => 'tienda-devuelto-pendiente',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $order = Order::create([
+        'customer_name' => 'Cliente Pendiente',
+        'customer_phone' => '3001112233',
+        'customer_address' => 'Calle 1',
+        'customer_city' => 'Bogota',
+        'customer_document' => '123456',
+        'status' => 'pendiente',
+        'total' => 12000,
+        'store_id' => $store->id,
+    ]);
+
+    $this->actingAs($admin)
+        ->from('/admin/orders')
+        ->patch(route('admin.orders.status', $order), [
+            'status' => 'devuelto',
+        ])
+        ->assertRedirect('/admin/orders')
+        ->assertSessionHasErrors('status');
+
+    expect($order->refresh()->status)->toBe('pendiente');
 });
 
 test('store user can delete an order from their panel', function () {
@@ -4892,7 +5096,13 @@ test('store home uses cover image for hero and social preview and logo as favico
         ->assertSee('<img src="' . asset('storage/stores/cover.webp') . '" alt="Tienda Visual"', false)
         ->assertSee('<meta property="og:image" content="' . config('app.url') . '/storage/stores/cover.webp">', false)
         ->assertSee('<meta property="og:image:alt" content="Portada de Tienda Visual">', false)
-        ->assertSee('<link rel="icon" href="' . asset('storage/stores/logo.webp') . '">', false);
+        ->assertSee('<link rel="icon" type="image/svg+xml" sizes="any" href="' . route('store.favicon', 'tienda-visual') . '">', false);
+
+    $this->get('/tienda-visual/favicon.svg')
+        ->assertOk()
+        ->assertHeader('Content-Type', 'image/svg+xml; charset=UTF-8')
+        ->assertSee('<svg', false)
+        ->assertSee('base64,' . base64_encode('fake-logo'), false);
 });
 
 test('store user can add material to a product and customers can see it', function () {
@@ -5567,4 +5777,3 @@ test('checkout clears the store cart without reviving the legacy cart', function
         ->assertSee('Tu carrito esta vacio')
         ->assertDontSee('Producto checkout');
 });
-
