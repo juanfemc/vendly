@@ -473,6 +473,12 @@ class ProductController extends Controller
     {
         $data = $request->baseData();
 
+        if (! Product::supportsOfferColumn()) {
+            unset($data['has_offer'], $data['offer_original_price']);
+        } elseif (! Product::supportsOfferPricingColumn()) {
+            unset($data['offer_original_price']);
+        }
+
         if (! $store->allowsCategories()) {
             $data['category'] = null;
         }

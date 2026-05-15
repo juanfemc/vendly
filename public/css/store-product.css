@@ -187,9 +187,19 @@
 }
 
 .product-detail-price {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 10px;
     margin-bottom: 18px;
     font-size: 28px;
     font-weight: 700;
+}
+
+.product-detail-price-before {
+    color: #8b8b8b;
+    font-size: 18px;
+    text-decoration: line-through;
 }
 
 .product-stock-state,

@@ -65,32 +65,6 @@
     window.addEventListener('load', syncTopbarHeight);
     window.addEventListener('resize', syncTopbarHeight);
 
-    if (announcementMessages.length > 0 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        let currentAnnouncement = 0;
-
-        const showAnnouncement = (index) => {
-            announcementMessages.forEach((message) => {
-                message.classList.remove('is-marquee-active');
-            });
-
-            announcementMessages[index].offsetWidth;
-            announcementMessages[index].classList.add('is-marquee-active');
-        };
-
-        announcementMessages.forEach((message, index) => {
-            message.addEventListener('animationend', () => {
-                if (index !== currentAnnouncement) {
-                    return;
-                }
-
-                currentAnnouncement = (currentAnnouncement + 1) % announcementMessages.length;
-                showAnnouncement(currentAnnouncement);
-            });
-        });
-
-        showAnnouncement(currentAnnouncement);
-    }
-
     const showFeedback = (message) => {
         if (!feedback) {
             return;

@@ -430,12 +430,14 @@ test('store settings save commercial notices and storefront shows rotating bar',
         ->assertOk()
         ->assertSee('store-announcement-bar', false)
         ->assertSee('data-storefront-topbar', false)
+        ->assertSee('<span>10% OFF pagando por transferencia</span>', false)
+        ->assertSee('<span>Entregas hoy hasta las 6:00 p.m.</span>', false)
         ->assertSee('Envio gratis desde $150.000')
         ->assertSee('10% OFF pagando por transferencia')
         ->assertSee('Entregas hoy hasta las 6:00 p.m.');
 });
 
-test('storefront animates a single commercial notice without duplicated markup', function () {
+test('storefront repeats a single commercial notice without leaving the bar empty', function () {
     $storeUser = User::factory()->create([
         'active_starts_at' => now()->subDay(),
         'active_ends_at' => now()->addDay(),
@@ -455,11 +457,12 @@ test('storefront animates a single commercial notice without duplicated markup',
 
     $response = $this->get('/tienda-aviso-unico')
         ->assertOk()
-        ->assertSee('--announcement-step-duration: 18s', false)
+        ->assertSee('--announcement-step-duration: 28s', false)
         ->assertSee('data-announcement-message', false)
-        ->assertSee('is-marquee-active', false);
+        ->assertSee('is-marquee-active', false)
+        ->assertSee('store-announcement-group', false);
 
-    expect(substr_count($response->getContent(), 'Solo hoy 15% de descuento'))->toBe(1);
+    expect(substr_count($response->getContent(), 'Solo hoy 15% de descuento'))->toBe(8);
 });
 
 test('basic plan hides commercial notices and clears them when settings are saved', function () {
@@ -1105,6 +1108,7 @@ test('cart shows mercadopago button only for connected stores', function () {
         'last_name' => 'Pago',
         'phone' => '3001234567',
         'address' => 'Calle 1',
+        'neighborhood' => 'Chapinero',
         'city' => 'Bogota',
         'document' => '123456',
     ])->assertRedirect('https://www.mercadopago.com.co/checkout/v1/redirect?pref_id=pref_123');
@@ -1175,6 +1179,7 @@ test('pro stores cannot use mercadopago even with a connected account', function
         'last_name' => 'Pro',
         'phone' => '3001234567',
         'address' => 'Calle 1',
+        'neighborhood' => 'Chapinero',
         'city' => 'Bogota',
         'document' => '123456',
     ])
@@ -1227,6 +1232,7 @@ test('expired mercadopago account is not available at checkout', function () {
         'last_name' => 'Pago',
         'phone' => '3001234567',
         'address' => 'Calle 1',
+        'neighborhood' => 'Chapinero',
         'city' => 'Bogota',
         'document' => '123456',
     ])
@@ -1783,6 +1789,7 @@ test('mercadopago checkout failure removes pending order and restores stock', fu
         'last_name' => 'Pago',
         'phone' => '3001234567',
         'address' => 'Calle 1',
+        'neighborhood' => 'Chapinero',
         'city' => 'Bogota',
         'document' => '123456',
     ])->assertRedirect(route('cart.index', ['store' => $store->slug]))
@@ -1834,6 +1841,7 @@ test('mercadopago checkout connection failure removes pending order and restores
         'last_name' => 'Conexion',
         'phone' => '3001234567',
         'address' => 'Calle 1',
+        'neighborhood' => 'Chapinero',
         'city' => 'Bogota',
         'document' => '123456',
     ])->assertRedirect(route('cart.index', ['store' => $store->slug]))
@@ -3649,6 +3657,7 @@ test('checkout rejects an old cart when owner account expires', function () {
             'last_name' => 'Prueba',
             'phone' => '3001112233',
             'address' => 'Calle 1',
+            'neighborhood' => 'Chapinero',
             'city' => 'Bogota',
             'document' => '123456',
         ])
@@ -3814,6 +3823,7 @@ test('reservation checkout asks for date and time and sends a reservation whatsa
         'last_name' => 'Reserva',
         'phone' => '3001234567',
         'address' => 'Consulta online',
+        'neighborhood' => 'Virtual',
         'city' => 'Bogota',
         'document' => '123456',
         'reservation_date' => '2026-05-20',
@@ -3865,6 +3875,7 @@ test('reservation checkout requires date and time even without store query param
         'last_name' => 'Reserva',
         'phone' => '3001234567',
         'address' => 'Consulta online',
+        'neighborhood' => 'Virtual',
         'city' => 'Bogota',
         'document' => '123456',
     ])->assertSessionHasErrors(['reservation_date', 'reservation_time']);
@@ -3905,6 +3916,7 @@ test('reservation checkout rejects past dates and invalid times', function () {
         'last_name' => 'Reserva',
         'phone' => '3001234567',
         'address' => 'Consulta online',
+        'neighborhood' => 'Virtual',
         'city' => 'Bogota',
         'document' => '123456',
         'reservation_date' => now()->subDay()->toDateString(),
@@ -3961,6 +3973,7 @@ test('reservation checkout rejects dates and times outside the store schedule', 
         'last_name' => 'Reserva',
         'phone' => '3001234567',
         'address' => 'Consulta online',
+        'neighborhood' => 'Virtual',
         'city' => 'Bogota',
         'document' => '123456',
         'reservation_date' => $unavailableDate->toDateString(),
@@ -4017,6 +4030,7 @@ test('non reservation products respect stock and are marked sold out after check
         'last_name' => 'Stock',
         'phone' => '3001234567',
         'address' => 'Calle 10',
+        'neighborhood' => 'Cedritos',
         'city' => 'Bogota',
         'document' => '123456',
     ])->assertRedirectContains('https://wa.me/573001112233');
@@ -4417,6 +4431,7 @@ test('checkout rejects a cart item whose product was deleted without creating an
             'last_name' => 'Prueba',
             'phone' => '3001112233',
             'address' => 'Calle 1',
+            'neighborhood' => 'Chapinero',
             'city' => 'Bogota',
             'document' => '123456',
         ])
@@ -4844,6 +4859,8 @@ test('admin can create edit and delete products for any store', function () {
             'name' => 'Producto desde Admin',
             'category' => 'Admin',
             'price' => 75000,
+            'has_offer' => '1',
+            'offer_original_price' => 90000,
             'description' => 'Creado desde el administrador.',
         ])
         ->assertRedirect('/admin/products');
@@ -4853,6 +4870,8 @@ test('admin can create edit and delete products for any store', function () {
         ->firstOrFail();
 
     expect($product->user_id)->toBe($storeUser->id);
+    expect($product->has_offer)->toBeTrue();
+    expect((float) $product->offer_original_price)->toBe(90000.0);
 
     $this->actingAs($admin)
         ->get(route('admin.stores.products.index', $store))
@@ -4866,12 +4885,16 @@ test('admin can create edit and delete products for any store', function () {
             'name' => 'Producto editado por Admin',
             'category' => 'Admin',
             'price' => 82000,
+            'has_offer' => '0',
+            'offer_original_price' => 95000,
             'description' => 'Editado desde el administrador.',
         ])
         ->assertRedirect('/admin/products');
 
     expect($product->refresh()->name)->toBe('Producto editado por Admin');
     expect((float) $product->price)->toBe(82000.0);
+    expect($product->has_offer)->toBeFalse();
+    expect($product->offer_original_price)->toBeNull();
 
     $this->actingAs($admin)
         ->delete(route('admin.products.destroy', $product))
@@ -5318,6 +5341,96 @@ test('public product route key regenerates missing slugs instead of exposing ids
     expect($product->refresh()->slug)->toBe($routeKey);
 });
 
+test('offer badge is shown only on premium stores', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $proStore = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Pro Etiqueta',
+        'slug' => 'tienda-pro-etiqueta',
+        'plan' => Store::PLAN_PRO,
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $premiumStore = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Premium Etiqueta',
+        'slug' => 'tienda-premium-etiqueta',
+        'plan' => Store::PLAN_PREMIUM,
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    Product::create([
+        'user_id' => $user->id,
+        'store_id' => $proStore->id,
+        'name' => 'Producto destacado pro',
+        'price' => 45000,
+        'has_offer' => true,
+        'offer_original_price' => 60000,
+    ]);
+
+    Product::create([
+        'user_id' => $user->id,
+        'store_id' => $premiumStore->id,
+        'name' => 'Producto destacado premium',
+        'price' => 45000,
+        'has_offer' => true,
+        'offer_original_price' => 60000,
+    ]);
+
+    Product::create([
+        'user_id' => $user->id,
+        'store_id' => $premiumStore->id,
+        'name' => 'Producto sin etiqueta premium',
+        'price' => 55000,
+        'has_offer' => false,
+        'offer_original_price' => null,
+    ]);
+
+    $basicStore = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Basic Etiqueta',
+        'slug' => 'tienda-basic-etiqueta',
+        'plan' => Store::PLAN_BASIC,
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    Product::create([
+        'user_id' => $user->id,
+        'store_id' => $basicStore->id,
+        'name' => 'Producto destacado basic',
+        'price' => 45000,
+        'has_offer' => true,
+        'offer_original_price' => 60000,
+    ]);
+
+    $this->get('/tienda-pro-etiqueta')
+        ->assertOk()
+        ->assertDontSee('product-offer-badge', false)
+        ->assertDontSee('Oferta');
+
+    $this->get('/tienda-basic-etiqueta')
+        ->assertOk()
+        ->assertDontSee('product-offer-badge', false)
+        ->assertDontSee('Oferta');
+
+    $premiumResponse = $this->get('/tienda-premium-etiqueta')
+        ->assertOk()
+        ->assertSee('product-offer-badge', false)
+        ->assertSee('Oferta')
+        ->assertSee('$60.000')
+        ->assertSee('$45.000')
+        ->assertSee('Producto sin etiqueta premium');
+
+    expect(substr_count($premiumResponse->getContent(), 'product-offer-badge'))->toBe(1);
+});
+
 test('store home groups products by three categories and category pages show the full list', function () {
     $user = User::factory()->create([
         'active_starts_at' => now()->subDay(),
@@ -5746,11 +5859,18 @@ test('checkout clears the store cart without reviving the legacy cart', function
 
     $this->post(route('cart.add', $product->id))->assertRedirect();
 
+    $this->get(route('cart.index', ['store' => $store->slug]))
+        ->assertOk()
+        ->assertSee('name="neighborhood"', false)
+        ->assertSee('placeholder="Barrio"', false)
+        ->assertSee('required', false);
+
     $this->post(route('cart.whatsapp', ['store' => $store->slug]), [
         'name' => 'Cliente',
         'last_name' => 'Prueba',
         'phone' => '3001234567',
         'address' => 'Calle 1',
+        'neighborhood' => 'San Fernando',
         'city' => 'Bogota',
         'document' => '123456',
     ])->assertRedirectContains('https://wa.me/573001112233');
@@ -5761,6 +5881,10 @@ test('checkout clears the store cart without reviving the legacy cart', function
     ]);
 
     $order = Order::where('store_id', $store->id)->latest('id')->first();
+
+    expect($order->customer_neighborhood)->toBe('San Fernando');
+    expect(app(\App\Services\WhatsAppOrderMessageBuilder::class)->message($order->load(['items', 'store'])))
+        ->toContain('Barrio: San Fernando');
 
     $this->assertDatabaseHas('admin_updates', [
         'title' => 'Pedido nuevo',
@@ -5776,4 +5900,10 @@ test('checkout clears the store cart without reviving the legacy cart', function
         ->assertOk()
         ->assertSee('Tu carrito esta vacio')
         ->assertDontSee('Producto checkout');
+
+    $this->actingAs($user)
+        ->get('/admin/orders')
+        ->assertOk()
+        ->assertSee('Barrio')
+        ->assertSee('San Fernando');
 });

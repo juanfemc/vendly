@@ -24,6 +24,8 @@ class ProductRequest extends FormRequest
             'material' => ['nullable', 'string', 'max:255'],
             'stock_quantity' => ['nullable', 'integer', 'min:0', 'max:999999'],
             'is_sold_out' => ['nullable', 'boolean'],
+            'has_offer' => ['nullable', 'boolean'],
+            'offer_original_price' => ['nullable', 'required_if:has_offer,1', 'numeric', 'gt:price'],
             'description' => ['nullable', 'string'],
             'features' => ['nullable', 'string'],
             'sizes' => ['nullable', 'string', 'max:1000'],
@@ -38,8 +40,13 @@ class ProductRequest extends FormRequest
 
     public function baseData(): array
     {
-        $data = $this->safe()->only(['name', 'category', 'material', 'price', 'description', 'stock_quantity']);
+        $data = $this->safe()->only(['name', 'category', 'material', 'price', 'description', 'stock_quantity', 'offer_original_price']);
         $data['is_sold_out'] = $this->boolean('is_sold_out');
+        $data['has_offer'] = $this->boolean('has_offer');
+
+        if (! $data['has_offer']) {
+            $data['offer_original_price'] = null;
+        }
 
         return $data;
     }

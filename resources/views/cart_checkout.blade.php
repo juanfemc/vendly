@@ -81,6 +81,10 @@
                                 <input class="field" type="text" name="apartment" placeholder="Casa, apartamento, etc. (opcional)" value="{{ old('apartment') }}">
                             </div>
 
+                            <div class="field-wrap">
+                                <input class="field" type="text" name="neighborhood" placeholder="Barrio" value="{{ old('neighborhood') }}" required>
+                            </div>
+
                             <div class="grid-two field-wrap">
                                 <input class="field" type="text" name="city" placeholder="Ciudad" value="{{ old('city') }}" required>
 

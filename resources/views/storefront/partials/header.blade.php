@@ -7,16 +7,20 @@
 <div class="storefront-topbar" data-storefront-topbar>
     @if(! empty($announcementMessages))
         @php
-            $announcementStepSeconds = 18;
+            $announcementStepSeconds = 28;
         @endphp
         <section class="store-announcement-bar" aria-label="Avisos de la tienda" data-announcement-bar>
             <div class="shell store-announcement-shell">
                 <div class="store-announcement-viewport" style="--announcement-step-duration: {{ $announcementStepSeconds }}s;">
-                    @foreach($announcementMessages as $announcementIndex => $announcementMessage)
-                        <p class="store-announcement-message {{ $announcementIndex === 0 ? 'is-marquee-active' : '' }}" data-announcement-message>
-                            {{ $announcementMessage }}
-                        </p>
-                    @endforeach
+                    <div class="store-announcement-message is-marquee-active" data-announcement-message>
+                        @for($announcementLoop = 0; $announcementLoop < 8; $announcementLoop++)
+                            <p class="store-announcement-group" @if($announcementLoop > 0) aria-hidden="true" @endif>
+                                @foreach($announcementMessages as $announcementMessage)
+                                    <span>{{ $announcementMessage }}</span>
+                                @endforeach
+                            </p>
+                        @endfor
+                    </div>
                 </div>
             </div>
         </section>

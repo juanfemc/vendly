@@ -186,6 +186,11 @@ class Store extends Model
         return ($this->plan ?? self::PLAN_PRO) === self::PLAN_PREMIUM;
     }
 
+    public function allowsOfferBadges(): bool
+    {
+        return ($this->plan ?? self::PLAN_PRO) === self::PLAN_PREMIUM;
+    }
+
     public static function reservedSubdomains(): array
     {
         return [
@@ -446,6 +451,7 @@ class Store extends Model
             '--store-nav-text: ' . BrandTheme::contrastFor($navBackground),
             '--responsive-product-columns: ' . $responsiveProductColumns,
             '--store-bg: ' . $this->themeBackgroundColor(),
+            '--store-secondary-color: ' . $this->themeBackgroundColor(),
             '--store-text: ' . $this->themeTextColor(),
             '--store-font: ' . $this->themeFontFamily(),
         ]) . ';';

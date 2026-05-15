@@ -37,6 +37,7 @@ class CheckoutService
                 'customer_name' => $fullName,
                 'customer_phone' => $customerData['phone'],
                 'customer_address' => $fullAddress,
+                'customer_neighborhood' => $customerData['neighborhood'] ?? null,
                 'customer_city' => $customerData['city'],
                 'customer_document' => $customerData['document'],
                 'reservation_date' => $customerData['reservation_date'] ?? null,

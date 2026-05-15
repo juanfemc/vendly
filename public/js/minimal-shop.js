@@ -1,8 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
     const showFallback = (image) => {
         const fallback = image.nextElementSibling;
+        const isActive = image.classList.contains('is-active');
 
         image.hidden = true;
+        image.classList.remove('is-active');
 
         if (fallback && fallback.classList.contains('minimal-shop-card-placeholder')) {
             fallback.hidden = false;
@@ -10,6 +12,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (fallback && fallback.classList.contains('minimal-shop-hero-fallback')) {
             fallback.hidden = false;
+        }
+
+        if (fallback && fallback.classList.contains('minimal-product-placeholder')) {
+            fallback.hidden = false;
+            fallback.classList.toggle('is-active', isActive);
         }
     };
 
@@ -21,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    document.querySelectorAll('.minimal-shop-card-image').forEach((image) => {
+    document.querySelectorAll('.minimal-shop-card-image, .minimal-product-image').forEach((image) => {
         image.addEventListener('error', () => showFallback(image), { once: true });
 
         if (image.complete && image.naturalWidth === 0) {

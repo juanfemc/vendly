@@ -12,6 +12,8 @@ class Product extends Model
     use HasAdminRouteKey;
 
     private static ?bool $supportsInventoryColumns = null;
+    private static ?bool $supportsOfferColumn = null;
+    private static ?bool $supportsOfferPricingColumn = null;
 
     protected $fillable = [
         'name',
@@ -21,6 +23,8 @@ class Product extends Model
         'price',
         'stock_quantity',
         'is_sold_out',
+        'has_offer',
+        'offer_original_price',
         'description',
         'features',
         'sizes',
@@ -38,6 +42,8 @@ class Product extends Model
         'images' => 'array',
         'stock_quantity' => 'integer',
         'is_sold_out' => 'boolean',
+        'has_offer' => 'boolean',
+        'offer_original_price' => 'decimal:2',
     ];
 
     protected static function booted(): void
@@ -108,6 +114,30 @@ class Product extends Model
     {
         return self::$supportsInventoryColumns ??= Schema::hasColumn('products', 'stock_quantity')
             && Schema::hasColumn('products', 'is_sold_out');
+    }
+
+    public static function supportsOfferColumn(): bool
+    {
+        return self::$supportsOfferColumn ??= Schema::hasColumn('products', 'has_offer');
+    }
+
+    public static function supportsOfferPricingColumn(): bool
+    {
+        return self::$supportsOfferPricingColumn ??= Schema::hasColumn('products', 'offer_original_price');
+    }
+
+    public function hasOfferBadge(): bool
+    {
+        return self::supportsOfferColumn() && (bool) $this->has_offer;
+    }
+
+    public function hasOfferPricing(): bool
+    {
+        if (! $this->hasOfferBadge() || ! self::supportsOfferPricingColumn() || $this->offer_original_price === null) {
+            return false;
+        }
+
+        return (float) $this->offer_original_price > (float) $this->price;
     }
 
     public function hasLimitedStock(): bool

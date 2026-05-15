@@ -57,6 +57,15 @@
         @endif
         <input type="text" name="material" value="{{ old('material') }}" placeholder="Material (ej: Algodon, Cuero, Acero)">
         <input type="number" step="0.01" name="price" value="{{ old('price') }}" placeholder="Precio" required>
+        <label style="display:flex; align-items:center; gap:8px; margin:0 0 12px; color:#374151; font-size:14px;">
+            <input type="checkbox" name="has_offer" value="1" @checked(old('has_offer')) style="width:auto; margin:0;" data-offer-toggle>
+            Mostrar etiqueta de oferta
+        </label>
+        <div data-offer-pricing>
+            <label class="field-label" for="offer_original_price">Precio antes de oferta</label>
+            <input id="offer_original_price" type="number" step="0.01" name="offer_original_price" value="{{ old('offer_original_price') }}" placeholder="Precio anterior">
+        </div>
+        <p class="settings-help" style="margin-top:-6px;">El precio actual queda como precio de oferta. La etiqueta se muestra en la tienda solo si el plan es Premium.</p>
         @if(! ($store?->isReservationStore() ?? false))
             <label class="field-label" for="stock_quantity">Stock disponible</label>
             <input id="stock_quantity" type="number" name="stock_quantity" min="0" step="1" value="{{ old('stock_quantity') }}" placeholder="Cantidad disponible (vacio = ilimitado)">
@@ -149,6 +158,22 @@
                 input.value = content.innerHTML;
             });
         });
+    })();
+
+    (() => {
+        const toggle = document.querySelector('[data-offer-toggle]');
+        const pricing = document.querySelector('[data-offer-pricing]');
+
+        if (!toggle || !pricing) {
+            return;
+        }
+
+        const syncOfferPricing = () => {
+            pricing.hidden = !toggle.checked;
+        };
+
+        toggle.addEventListener('change', syncOfferPricing);
+        syncOfferPricing();
     })();
 </script>
 @endsection

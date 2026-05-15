@@ -88,6 +88,10 @@
                         <span class="resource-metric__value">{{ $order->customer_address ?: 'Sin direccion' }}</span>
                     </div>
                     <div class="resource-metric">
+                        <span class="resource-metric__label">Barrio</span>
+                        <span class="resource-metric__value">{{ $order->customer_neighborhood ?: 'Sin barrio' }}</span>
+                    </div>
+                    <div class="resource-metric">
                         <span class="resource-metric__label">Documento</span>
                         <span class="resource-metric__value">{{ $order->customer_document ?: 'Sin documento' }}</span>
                     </div>

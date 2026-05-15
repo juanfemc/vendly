@@ -454,6 +454,25 @@
     white-space: nowrap;
 }
 
+.storefront-page--technology.storefront-page--minimal-grid .minimal-shop-offer-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 2;
+    min-height: 22px;
+    padding: 0 9px;
+    border-radius: 999px;
+    background: #111111;
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+}
+
 .storefront-page--technology.storefront-page--minimal-grid .minimal-shop-card-info {
     padding: 12px 2px 0;
 }
@@ -488,6 +507,20 @@
     flex: 0 0 auto;
     font-size: 15px;
     font-weight: 900;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-shop-price-stack {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-shop-price-before {
+    color: #777777;
+    font-size: 11px;
+    font-weight: 800;
+    text-decoration: line-through;
 }
 
 .storefront-page--technology.storefront-page--minimal-grid .minimal-shop-card-actions {
@@ -592,6 +625,469 @@
 }
 
 .storefront-page--technology.storefront-page--minimal-grid .minimal-shop-recommendation-track {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 24px;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-page {
+    width: min(calc(100% - (var(--minimal-shop-page-pad) * 2)), var(--minimal-shop-content-width));
+    margin: 0 auto;
+    padding: 118px 0 64px;
+    background: #ffffff;
+    box-sizing: border-box;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+    color: #696969;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-breadcrumb a,
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-breadcrumb strong {
+    color: #111111;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 0.98fr) minmax(0, 1fr);
+    gap: 38px;
+    align-items: start;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-stage {
+    position: relative;
+    min-height: 470px;
+    border-radius: 10px;
+    background: #f3f3f3;
+    overflow: hidden;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-image,
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-placeholder {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-image {
+    padding: 62px;
+    object-fit: contain;
+    filter: drop-shadow(0 22px 24px rgba(17, 17, 17, 0.14));
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-image.is-active,
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-placeholder.is-active {
+    opacity: 1;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-image[hidden],
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-placeholder[hidden] {
+    display: none;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-placeholder {
+    display: grid;
+    place-items: center;
+    color: #111111;
+    font-size: 56px;
+    font-weight: 900;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-badge {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    z-index: 3;
+    min-height: 26px;
+    padding: 0 12px;
+    border: 1px solid #e8e8e8;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #111111;
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 900;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-arrow {
+    position: absolute;
+    top: 50%;
+    z-index: 4;
+    width: 40px;
+    height: 40px;
+    border: 1px solid #eeeeee;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #111111;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 900;
+    transform: translateY(-50%);
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-arrow--prev {
+    left: 24px;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-arrow--next {
+    right: 24px;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-thumbs {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 22px;
+    margin-top: 22px;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-thumb {
+    aspect-ratio: 1;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: #f3f3f3;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-thumb.is-active {
+    border-color: #111111;
+    background: #ffffff;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-thumb img {
+    width: 100%;
+    height: 100%;
+    padding: 14px;
+    object-fit: contain;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-tabs {
+    margin-top: 54px;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-tabs nav {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-tabs a {
+    min-height: 46px;
+    color: #111111;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 900;
+    text-align: center;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-tabs a.is-active {
+    box-shadow: inset 0 -2px 0 #111111;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-copy {
+    padding: 26px 0 0;
+    color: #555555;
+    font-size: 14px;
+    line-height: 1.75;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-copy p {
+    margin: 0 0 20px;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-copy ul {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 44px;
+    margin: 0;
+    padding-left: 18px;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 190px;
+    gap: 24px;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-main h1 {
+    margin: 0 0 8px;
+    color: #111111;
+    font-size: 34px;
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: 0;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-rating {
+    margin-bottom: 18px;
+    color: #444444;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-rating span,
+.storefront-page--technology.storefront-page--minimal-grid .minimal-shop-rating {
+    color: #f6a800;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-price {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 16px;
+    color: #111111;
+    font-size: 32px;
+    font-weight: 900;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-price-before {
+    color: #777777;
+    font-size: 18px;
+    font-weight: 800;
+    text-decoration: line-through;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-main p {
+    margin: 0;
+    color: #626262;
+    font-size: 14px;
+    line-height: 1.75;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-divider {
+    height: 1px;
+    margin: 28px 0 24px;
+    background: #e5e5e5;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-colors,
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-size,
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-quantity-row {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 22px;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-colors legend,
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-colors strong,
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-size span,
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-quantity-row span:first-child {
+    color: #111111;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-colors {
+    border: 0;
+    padding: 0;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-colors > div {
+    display: flex;
+    gap: 14px;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-colors label {
+    position: relative;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-colors input {
+    position: absolute;
+    opacity: 0;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-colors span {
+    width: 30px;
+    height: 30px;
+    border: 1px solid #111111;
+    border-radius: 999px;
+    background: var(--swatch);
+    display: inline-flex;
+    cursor: pointer;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-colors input:checked + span {
+    outline: 2px solid #111111;
+    outline-offset: 3px;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-colors em {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-size select {
+    width: min(100%, 220px);
+    height: 42px;
+    border: 1px solid #e1e1e1;
+    border-radius: 8px;
+    padding: 0 12px;
+    background: #ffffff;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-quantity-row {
+    grid-template-columns: auto 1fr;
+    align-items: end;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-stepper {
+    width: 156px;
+    height: 48px;
+    border: 1px solid #dcdcdc;
+    border-radius: 999px;
+    display: grid;
+    grid-template-columns: 48px 1fr 48px;
+    overflow: hidden;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-stepper button,
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-stepper input {
+    width: 100%;
+    border: 0;
+    background: #ffffff;
+    color: #111111;
+    text-align: center;
+    font: inherit;
+    font-weight: 900;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-stepper button {
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-stepper input {
+    border-left: 1px solid #eeeeee;
+    border-right: 1px solid #eeeeee;
+    appearance: textfield;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-stock {
+    align-self: center;
+    color: #18a24a;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-stock.is-sold-out {
+    color: #b42318;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin: 8px 0 18px;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-actions form {
+    margin: 0;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-add,
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-buy {
+    width: 100%;
+    min-height: 54px;
+    border-radius: 10px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-add {
+    border: 1px solid #111111;
+    background: #ffffff;
+    color: #111111;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-buy {
+    border: 0;
+    background: #111111;
+    color: #ffffff;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-wishlist {
+    width: 100%;
+    min-height: 34px;
+    border: 0;
+    background: transparent;
+    color: #111111;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-benefits {
+    display: grid;
+    gap: 28px;
+    padding: 34px 28px;
+    border-radius: 10px;
+    background: #f4f4f4;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-benefits div {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 3px 14px;
+    align-items: center;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-benefits span {
+    grid-row: span 2;
+    width: 28px;
+    height: 28px;
+    border: 1px solid #111111;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #111111;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-benefits strong {
+    color: #111111;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-benefits small {
+    color: #666666;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-related {
+    grid-column: 1 / -1;
+    margin-top: 56px;
+    padding-top: 30px;
+    border-top: 1px solid #e8e8e8;
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-product-related-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 24px;
@@ -757,6 +1253,16 @@
     font-weight: 700;
 }
 
+@media (max-width: 1200px) {
+    .storefront-page--technology.storefront-page--minimal-grid .minimal-product-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .storefront-page--technology.storefront-page--minimal-grid .minimal-product-benefits {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 @media (max-width: 900px) {
     .storefront-page--technology.storefront-page--minimal-grid .minimal-shop-header {
         padding-top: 0;
@@ -793,6 +1299,17 @@
     }
 
     .storefront-page--technology.storefront-page--minimal-grid .minimal-shop-product-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .storefront-page--technology.storefront-page--minimal-grid .minimal-product-layout,
+    .storefront-page--technology.storefront-page--minimal-grid .minimal-product-summary {
+        grid-template-columns: 1fr;
+        gap: 34px;
+    }
+
+    .storefront-page--technology.storefront-page--minimal-grid .minimal-product-related-grid,
+    .storefront-page--technology.storefront-page--minimal-grid .minimal-product-benefits {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
@@ -835,6 +1352,45 @@
     .storefront-page--technology.storefront-page--minimal-grid .minimal-shop-hero-fallback {
         height: 260px;
         min-height: 260px;
+    }
+
+    .storefront-page--technology.storefront-page--minimal-grid .minimal-product-page {
+        padding-top: 118px;
+        padding-bottom: 44px;
+    }
+
+    .storefront-page--technology.storefront-page--minimal-grid .minimal-product-stage {
+        min-height: 340px;
+    }
+
+    .storefront-page--technology.storefront-page--minimal-grid .minimal-product-image {
+        padding: 42px;
+    }
+
+    .storefront-page--technology.storefront-page--minimal-grid .minimal-product-thumbs {
+        display: flex;
+        overflow-x: auto;
+    }
+
+    .storefront-page--technology.storefront-page--minimal-grid .minimal-product-thumb {
+        width: 88px;
+        flex: 0 0 88px;
+    }
+
+    .storefront-page--technology.storefront-page--minimal-grid .minimal-product-tabs nav,
+    .storefront-page--technology.storefront-page--minimal-grid .minimal-product-copy ul,
+    .storefront-page--technology.storefront-page--minimal-grid .minimal-product-actions,
+    .storefront-page--technology.storefront-page--minimal-grid .minimal-product-benefits,
+    .storefront-page--technology.storefront-page--minimal-grid .minimal-product-related-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .storefront-page--technology.storefront-page--minimal-grid .minimal-product-main h1 {
+        font-size: 30px;
+    }
+
+    .storefront-page--technology.storefront-page--minimal-grid .minimal-product-quantity-row {
+        grid-template-columns: 1fr;
     }
 
     .storefront-page--technology.storefront-page--minimal-grid .minimal-shop-search-panel {

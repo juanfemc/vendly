@@ -6,10 +6,15 @@
     $stockLabel = $product->stockLabel();
     $isSoldOut = $product->isSoldOut();
     $isRestaurantCard = isset($store) && $store->isRestaurant();
+    $showsOfferBadge = isset($store) && $store->allowsOfferBadges() && $product->hasOfferBadge();
+    $showsOfferPricing = $showsOfferBadge && $product->hasOfferPricing();
 @endphp
 
 <article class="product-card {{ $cardClass ?? '' }}">
     <div class="product-image">
+        @if($showsOfferBadge)
+            <span class="product-offer-badge">Oferta</span>
+        @endif
         @if($product->image)
             <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" loading="lazy" decoding="async">
         @endif
@@ -18,7 +23,14 @@
     <h3>{{ $product->name }}</h3>
 
     <div class="price-row">
-        <span class="price">${{ number_format($product->price, 0, ',', '.') }}</span>
+        @if($showsOfferPricing)
+            <span class="price-stack">
+                <span class="price-before">${{ number_format((float) $product->offer_original_price, 0, ',', '.') }}</span>
+                <span class="price">${{ number_format((float) $product->price, 0, ',', '.') }}</span>
+            </span>
+        @else
+            <span class="price">${{ number_format((float) $product->price, 0, ',', '.') }}</span>
+        @endif
     </div>
 
     @if($stockLabel)

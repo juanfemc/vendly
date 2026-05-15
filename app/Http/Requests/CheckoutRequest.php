@@ -23,6 +23,7 @@ class CheckoutRequest extends FormRequest
             'phone' => ['required', 'string', 'max:255'],
             'address' => ['required', 'string', 'max:255'],
             'apartment' => ['nullable', 'string', 'max:255'],
+            'neighborhood' => ['required', 'string', 'max:255'],
             'city' => ['required', 'string', 'max:255'],
             'region' => ['nullable', 'string', 'max:255'],
             'document' => ['required', 'string', 'max:255'],

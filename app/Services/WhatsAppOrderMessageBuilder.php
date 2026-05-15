@@ -24,6 +24,9 @@ class WhatsAppOrderMessageBuilder
         $message .= "Cliente: {$order->customer_name}\n";
         $message .= "Tel: {$order->customer_phone}\n";
         $message .= ($isReservationStore ? "Direccion o referencia: " : "Direccion: ") . "{$order->customer_address}\n";
+        if ($order->customer_neighborhood) {
+            $message .= "Barrio: {$order->customer_neighborhood}\n";
+        }
         $message .= "Ciudad: {$order->customer_city}\n";
         $message .= "Cedula: {$order->customer_document}\n";
 

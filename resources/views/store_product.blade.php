@@ -57,22 +57,27 @@
         $responsiveProductColumns = in_array((int) $store->responsive_product_columns, [1, 2, 3], true) ? (int) $store->responsive_product_columns : 2;
         $isProductSoldOut = $product->isSoldOut();
         $quantityMax = $product->stock_quantity !== null && ! $isReservationStore ? max(1, min(99, (int) $product->stock_quantity)) : 99;
+        $showsOfferPricing = $store->allowsOfferBadges() && $product->hasOfferPricing();
     @endphp
     @include('storefront.partials.seo', ['seo' => $seo])
-    <link rel="stylesheet" href="{{ asset('css/storefront.css') }}">
-    <link rel="stylesheet" href="{{ asset($variantStylesheets[$storefrontVariant]) }}">
-    <link rel="stylesheet" href="{{ asset('css/store-product.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/storefront.css') }}?v={{ filemtime(public_path('css/storefront.css')) }}">
+    <link rel="stylesheet" href="{{ asset($variantStylesheets[$storefrontVariant]) }}?v={{ filemtime(public_path($variantStylesheets[$storefrontVariant])) }}">
+    <link rel="stylesheet" href="{{ asset('css/store-product.css') }}?v={{ filemtime(public_path('css/store-product.css')) }}">
 </head>
 
 <body
-    class="storefront-page storefront-page--{{ $storefrontVariant }}"
+    class="storefront-page storefront-page--{{ $storefrontVariant }} {{ $storefrontVariant === 'technology' ? 'storefront-page--minimal-grid' : '' }}"
     data-csrf="{{ csrf_token() }}"
     data-adding-text="{{ $isRestaurant ? 'Agregando al pedido...' : ($isReservationStore ? 'Agregando a la reserva...' : 'Agregando...') }}"
     data-feedback-added="{{ $isRestaurant ? 'Plato agregado al pedido' : ($isReservationStore ? 'Servicio agregado a la reserva' : 'Producto agregado al carrito') }}"
     data-feedback-error="{{ $isRestaurant ? 'No pudimos agregar el plato' : ($isReservationStore ? 'No pudimos agregar el servicio' : 'No pudimos agregar el producto') }}"
     style="{{ $store->storefrontCssVariables($brandTheme, $responsiveProductColumns) }}"
 >
-    @include('storefront.partials.header')
+    @if($storefrontVariant === 'technology')
+        @include('storefront.partials.header-minimal-grid')
+        @include('storefront.partials.minimal-product-detail')
+    @else
+        @include('storefront.partials.header')
 
     <main class="shell product-shell">
         <section class="product-breadcrumb">
@@ -139,7 +144,12 @@
                     <h1>{{ $product->name }}</h1>
                 </div>
 
-                <div class="product-detail-price">${{ number_format($product->price, 0, ',', '.') }}</div>
+                <div class="product-detail-price">
+                    @if($showsOfferPricing)
+                        <span class="product-detail-price-before">${{ number_format((float) $product->offer_original_price, 0, ',', '.') }}</span>
+                    @endif
+                    <span>${{ number_format((float) $product->price, 0, ',', '.') }}</span>
+                </div>
 
                 @if($product->stockLabel())
                     <div class="product-stock-state {{ $isProductSoldOut ? 'is-sold-out' : '' }}">{{ $product->stockLabel() }}</div>
@@ -276,6 +286,9 @@
                     @foreach($relatedProducts as $relatedProduct)
                         <article class="product-card">
                             <div class="product-image">
+                                @if($store->allowsOfferBadges() && $relatedProduct->hasOfferBadge())
+                                    <span class="product-offer-badge">Oferta</span>
+                                @endif
                                 @if($relatedProduct->image)
                                     <img src="{{ asset('storage/' . $relatedProduct->image) }}" alt="{{ $relatedProduct->name }}" loading="lazy" decoding="async">
                                 @endif
@@ -284,7 +297,14 @@
                             <h3>{{ $relatedProduct->name }}</h3>
 
                             <div class="price-row">
-                                <span class="price">${{ number_format($relatedProduct->price, 0, ',', '.') }}</span>
+                                @if($store->allowsOfferBadges() && $relatedProduct->hasOfferPricing())
+                                    <span class="price-stack">
+                                        <span class="price-before">${{ number_format((float) $relatedProduct->offer_original_price, 0, ',', '.') }}</span>
+                                        <span class="price">${{ number_format((float) $relatedProduct->price, 0, ',', '.') }}</span>
+                                    </span>
+                                @else
+                                    <span class="price">${{ number_format((float) $relatedProduct->price, 0, ',', '.') }}</span>
+                                @endif
                             </div>
 
                             <a href="{{ $storefrontUrls->product($store, $relatedProduct) }}" class="product-preview-link">
@@ -297,11 +317,20 @@
         @endif
     </main>
 
-    @include('storefront.partials.footer')
+    @endif
+
+    @if($storefrontVariant === 'technology')
+        @include('storefront.partials.footer-minimal-grid')
+    @else
+        @include('storefront.partials.footer')
+    @endif
 
     <div class="cart-feedback" id="cartFeedback" aria-live="polite">{{ $isReservationStore ? 'Servicio agregado a la reserva' : 'Producto agregado al carrito' }}</div>
 
     <script src="{{ asset('js/storefront.js') }}?v={{ filemtime(public_path('js/storefront.js')) }}" defer></script>
+    @if($storefrontVariant === 'technology')
+        <script src="{{ asset('js/minimal-shop.js') }}?v={{ filemtime(public_path('js/minimal-shop.js')) }}" defer></script>
+    @endif
     <script>
         (() => {
             const carousel = document.querySelector('[data-product-carousel]');
@@ -311,6 +340,7 @@
             }
 
             const slides = [...carousel.querySelectorAll('[data-carousel-slide]')];
+            const fallbacks = [...carousel.querySelectorAll('[data-carousel-fallback]')];
             const thumbs = [...carousel.querySelectorAll('[data-carousel-thumb]')];
             const prev = carousel.querySelector('[data-carousel-prev]');
             const next = carousel.querySelector('[data-carousel-next]');
@@ -325,6 +355,10 @@
 
                 slides.forEach((slide, slideIndex) => {
                     slide.classList.toggle('is-active', slideIndex === current);
+                });
+
+                fallbacks.forEach((fallback) => {
+                    fallback.classList.toggle('is-active', Number(fallback.dataset.carouselFallback) === current);
                 });
 
                 thumbs.forEach((thumb, thumbIndex) => {
@@ -344,38 +378,77 @@
         (() => {
             const quantityInput = document.getElementById('quantity');
             const buyNowQuantity = document.querySelector('[data-role="buy-now-quantity"]');
+            const addQuantity = document.querySelector('[data-role="add-quantity"]');
             const selectedSize = document.querySelector('[data-role="selected-size"]');
             const selectedColor = document.querySelector('[data-role="selected-color"]');
+            const selectedColorRadio = () => document.querySelector('[data-role="selected-color-radio"]:checked');
             const buyNowSize = document.querySelector('[data-role="buy-now-size"]');
             const buyNowColor = document.querySelector('[data-role="buy-now-color"]');
+            const addSize = document.querySelector('[data-role="add-size"]');
+            const addColor = document.querySelector('[data-role="add-color"]');
             const buyNowForm = document.querySelector('[data-role="buy-now-form"]');
+            const addForm = document.querySelector('[data-role="minimal-add-form"]');
+            const quantityMinus = document.querySelector('[data-quantity-minus]');
+            const quantityPlus = document.querySelector('[data-quantity-plus]');
 
             if (!quantityInput || !buyNowQuantity) {
                 return;
             }
 
-            const syncBuyNowFields = () => {
-                buyNowQuantity.value = quantityInput.value || 1;
-
-                if (selectedSize && buyNowSize) {
-                    buyNowSize.value = selectedSize.value;
-                }
-
-                if (selectedColor && buyNowColor) {
-                    buyNowColor.value = selectedColor.value;
+            const syncField = (field, value) => {
+                if (field) {
+                    field.value = value;
                 }
             };
 
+            const syncBuyNowFields = () => {
+                const quantity = quantityInput.value || 1;
+                const size = selectedSize?.value || '';
+                const color = selectedColor?.value || selectedColorRadio()?.value || '';
+
+                syncField(buyNowQuantity, quantity);
+                syncField(addQuantity, quantity);
+                syncField(buyNowSize, size);
+                syncField(addSize, size);
+                syncField(buyNowColor, color);
+                syncField(addColor, color);
+            };
+
+            const requireOptions = (event) => {
+                syncBuyNowFields();
+                const invalidControl = (selectedSize && !selectedSize.value)
+                    ? selectedSize
+                    : ((selectedColor && !selectedColor.value) ? selectedColor : null);
+
+                if (invalidControl) {
+                    event.preventDefault();
+                    invalidControl.reportValidity();
+                    return false;
+                }
+
+                return true;
+            };
+
             quantityInput.addEventListener('input', syncBuyNowFields);
+            quantityMinus?.addEventListener('click', () => {
+                const min = Number(quantityInput.min || 1);
+                quantityInput.value = Math.max(min, Number(quantityInput.value || min) - 1);
+                syncBuyNowFields();
+            });
+            quantityPlus?.addEventListener('click', () => {
+                const max = Number(quantityInput.max || 99);
+                quantityInput.value = Math.min(max, Number(quantityInput.value || 1) + 1);
+                syncBuyNowFields();
+            });
             selectedSize?.addEventListener('change', syncBuyNowFields);
             selectedColor?.addEventListener('change', syncBuyNowFields);
+            document.querySelectorAll('[data-role="selected-color-radio"]').forEach((radio) => {
+                radio.addEventListener('change', syncBuyNowFields);
+            });
+            addForm?.addEventListener('submit', requireOptions);
             buyNowForm?.addEventListener('submit', (event) => {
-                syncBuyNowFields();
-
-                if ((selectedSize && !selectedSize.value) || (selectedColor && !selectedColor.value)) {
-                    event.preventDefault();
-                    selectedSize?.reportValidity();
-                    selectedColor?.reportValidity();
+                if (!requireOptions(event)) {
+                    return;
                 }
             });
             syncBuyNowFields();
