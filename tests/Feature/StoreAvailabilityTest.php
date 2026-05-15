@@ -4844,6 +4844,7 @@ test('admin can create edit and delete products for any store', function () {
         'name' => 'Tienda Productos Admin',
         'slug' => 'tienda-productos-admin',
         'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
         'is_active' => true,
     ]);
 
@@ -4901,6 +4902,50 @@ test('admin can create edit and delete products for any store', function () {
         ->assertRedirect();
 
     $this->assertDatabaseMissing('products', ['id' => $product->id]);
+});
+
+test('pro stores cannot see or force product offer fields', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pro Sin Ofertas',
+        'slug' => 'tienda-pro-sin-ofertas',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get('/admin/products/create')
+        ->assertOk()
+        ->assertDontSee('Mostrar etiqueta de oferta')
+        ->assertDontSee('Precio antes de oferta');
+
+    $this->actingAs($storeUser)
+        ->post('/admin/products', [
+            'name' => 'Producto Pro Forzado',
+            'price' => 50000,
+            'has_offer' => '1',
+            'offer_original_price' => 70000,
+        ])
+        ->assertRedirect('/admin/products');
+
+    $product = Product::where('store_id', $store->id)
+        ->where('name', 'Producto Pro Forzado')
+        ->firstOrFail();
+
+    expect($product->has_offer)->toBeFalse();
+    expect($product->offer_original_price)->toBeNull();
+
+    $this->actingAs($storeUser)
+        ->get(route('admin.products.edit', $product))
+        ->assertOk()
+        ->assertDontSee('Mostrar etiqueta de oferta')
+        ->assertDontSee('Precio antes de oferta');
 });
 
 test('admin can browse stores before managing categories for one store', function () {

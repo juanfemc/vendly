@@ -479,6 +479,11 @@ class ProductController extends Controller
             unset($data['offer_original_price']);
         }
 
+        if (! $store->allowsOfferBadges()) {
+            $data['has_offer'] = false;
+            $data['offer_original_price'] = null;
+        }
+
         if (! $store->allowsCategories()) {
             $data['category'] = null;
         }
