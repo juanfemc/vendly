@@ -7,12 +7,17 @@
 
     const feedback = document.getElementById('cartFeedback');
     const totalEl = document.querySelector('[data-role="total"]');
+    const grandTotalEl = document.querySelector('[data-role="grand-total"]');
+    const shippingTotalEl = document.querySelector('[data-role="shipping-total"]');
+    const shippingOptions = Array.from(document.querySelectorAll('[data-shipping-option]'));
     const clearCartButton = document.getElementById('clearCartButton');
     const csrfToken = page.dataset.csrf || '';
     const updatedText = page.dataset.feedbackUpdated || 'Carrito actualizado';
     const updateErrorText = page.dataset.feedbackUpdateError || 'No se pudo actualizar el carrito.';
     const emptyErrorText = page.dataset.feedbackEmptyError || 'No se pudo vaciar el carrito.';
     const storeSlug = page.dataset.storeSlug || '';
+    const freeShippingMinimum = Number(page.dataset.freeShippingMinimum || 0);
+    let subtotal = Number(page.dataset.cartSubtotal || 0);
     let feedbackTimer;
 
     const money = (value) => `$ ${new Intl.NumberFormat('es-CO').format(value || 0)}`;
@@ -25,8 +30,44 @@
         feedbackTimer = setTimeout(() => feedback.classList.remove('is-visible'), 1800);
     };
 
-    const updateSummary = (data) => {
-        if (totalEl) totalEl.textContent = money(data.total);
+    const shippingCost = () => {
+        const selected = shippingOptions.find((option) => option.checked);
+
+        if (!selected) {
+            return 0;
+        }
+
+        const baseCost = Number(selected.dataset.shippingCost || 0);
+
+        return freeShippingMinimum > 0 && subtotal >= freeShippingMinimum ? 0 : baseCost;
+    };
+
+    const updateShippingLabels = () => {
+        shippingOptions.forEach((option) => {
+            const price = option.closest('.shipping-option')?.querySelector('[data-shipping-price]');
+
+            if (!price) {
+                return;
+            }
+
+            const baseCost = Number(option.dataset.shippingCost || 0);
+            const nextCost = freeShippingMinimum > 0 && subtotal >= freeShippingMinimum ? 0 : baseCost;
+            price.textContent = nextCost > 0 ? money(nextCost) : 'Gratis';
+        });
+    };
+
+    const updateSummary = (data = null) => {
+        if (data && typeof data.total !== 'undefined') {
+            subtotal = Number(data.total || 0);
+            page.dataset.cartSubtotal = String(subtotal);
+        }
+
+        const cost = shippingCost();
+
+        updateShippingLabels();
+        if (totalEl) totalEl.textContent = money(subtotal);
+        if (shippingTotalEl) shippingTotalEl.textContent = cost > 0 ? money(cost) : 'Gratis';
+        if (grandTotalEl) grandTotalEl.textContent = money(subtotal + cost);
     };
 
     const updateItemQuantity = (item, quantity) => {
@@ -135,4 +176,10 @@
             }
         });
     }
+
+    shippingOptions.forEach((option) => {
+        option.addEventListener('change', () => updateSummary());
+    });
+
+    updateSummary();
 })();

@@ -137,7 +137,13 @@ class MercadoPagoCheckoutService
                 'quantity' => (int) $item->quantity,
                 'unit_price' => (float) $item->price,
                 'currency_id' => 'COP',
-            ])->values()->all(),
+            ])->when((float) ($order->shipping_cost ?? 0) > 0, fn ($items) => $items->push([
+                'id' => 'shipping',
+                'title' => 'Envio: ' . ($order->shipping_method ?: 'Envio'),
+                'quantity' => 1,
+                'unit_price' => (float) $order->shipping_cost,
+                'currency_id' => 'COP',
+            ]))->values()->all(),
             'payer' => $this->payer($order),
             'back_urls' => [
                 'success' => route('cart.mercadopago.return', ['order' => $order, 'result' => 'success']),

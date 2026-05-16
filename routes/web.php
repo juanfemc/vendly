@@ -149,12 +149,14 @@ Route::get('/', function () {
 require __DIR__.'/auth.php';
 Route::get('/categorias/{category}', [ProductController::class, 'categoryBySubdomain'])->name('subdomain.store.category.show');
 Route::get('/nosotros', [ProductController::class, 'aboutBySubdomain'])->name('subdomain.store.about');
+Route::get('/ofertas', [ProductController::class, 'offersBySubdomain'])->name('subdomain.store.offers.index');
 Route::get('/productos', [ProductController::class, 'allProductsBySubdomain'])->name('subdomain.store.products.index');
 Route::get('/productos/{product}', [ProductController::class, 'showBySubdomain'])->name('subdomain.store.product.show');
 Route::get('/favicon.svg', [StoreFaviconController::class, 'current'])->name('store.favicon.current');
 Route::get('/{slug}/favicon.svg', [StoreFaviconController::class, 'show'])->name('store.favicon');
 Route::get('/{slug}/categorias/{category}', [ProductController::class, 'category'])->name('store.category.show');
 Route::get('/{slug}/nosotros', [ProductController::class, 'about'])->name('store.about');
+Route::get('/{slug}/ofertas', [ProductController::class, 'offers'])->name('store.offers.index');
 Route::get('/{slug}/productos', [ProductController::class, 'allProducts'])->name('store.products.index');
 Route::get('/{slug}/productos/{product}', [ProductController::class, 'show'])->name('store.product.show');
 Route::get('/{slug}', [ProductController::class, 'storeBySlug'])->name('store.show');

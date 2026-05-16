@@ -84,11 +84,19 @@ class CartController extends Controller
         $store = $this->cartService->storeForRequest($request);
         $cart = $this->cartService->cartForStore($store);
         $total = $this->cartService->total($cart);
+        $shippingMethods = $store && ! $store->isReservationStore()
+            ? collect($store->shippingMethods())
+                ->map(fn (array $method) => array_merge($method, [
+                    'checkout_cost' => $store->shippingCostForSubtotal($method, $total),
+                ]))
+                ->values()
+                ->all()
+            : [];
         $mercadoPagoAccount = $store?->mercadoPagoAccount()->first();
         $mercadoPagoAvailable = ($store?->allowsOnlinePayments() ?? false)
             && ($mercadoPagoAccount?->isConnected() ?? false);
 
-        return view('cart_checkout', compact('cart', 'store', 'total', 'mercadoPagoAvailable'));
+        return view('cart_checkout', compact('cart', 'store', 'total', 'shippingMethods', 'mercadoPagoAvailable'));
     }
 
     public function updateItem(Request $request, $id)

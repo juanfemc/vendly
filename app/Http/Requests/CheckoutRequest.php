@@ -27,6 +27,7 @@ class CheckoutRequest extends FormRequest
             'city' => ['required', 'string', 'max:255'],
             'region' => ['nullable', 'string', 'max:255'],
             'document' => ['required', 'string', 'max:255'],
+            'shipping_method' => ['nullable', 'string', 'max:20'],
             ...self::reservationRules($isReservationStore),
             'notes' => ['nullable', 'string', 'max:1000'],
         ];

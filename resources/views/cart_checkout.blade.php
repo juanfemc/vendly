@@ -14,6 +14,11 @@
     $itemsLabel = $isRestaurant ? 'platos' : ($isReservationStore ? 'servicios' : 'productos');
     $itemLabel = $isRestaurant ? 'plato' : ($isReservationStore ? 'servicio' : 'producto');
     $brandTheme = \App\Support\BrandTheme::from($store?->brand_color);
+    $shippingMethods = collect($shippingMethods ?? []);
+    $selectedShippingKey = old('shipping_method', $shippingMethods->first()['key'] ?? null);
+    $selectedShipping = $shippingMethods->firstWhere('key', (string) $selectedShippingKey) ?? $shippingMethods->first();
+    $shippingCost = (float) ($selectedShipping['checkout_cost'] ?? 0);
+    $checkoutTotal = $total + $shippingCost;
 @endphp
 <body
     class="cart-page"
@@ -22,6 +27,8 @@
     data-feedback-update-error="{{ $isRestaurant ? 'No se pudo actualizar el pedido.' : ($isReservationStore ? 'No se pudo actualizar la reserva.' : 'No se pudo actualizar el carrito.') }}"
     data-feedback-empty-error="{{ $isRestaurant ? 'No se pudo vaciar el pedido.' : ($isReservationStore ? 'No se pudo vaciar la reserva.' : 'No se pudo vaciar el carrito.') }}"
     data-store-slug="{{ $store?->slug }}"
+    data-cart-subtotal="{{ $total }}"
+    data-free-shipping-minimum="{{ $store?->free_shipping_minimum ?? '' }}"
     style="--accent: {{ $brandTheme->color }};"
 >
     @if (empty($cart))
@@ -116,6 +123,31 @@
                                 </div>
                             @endif
 
+                            @if($shippingMethods->isNotEmpty())
+                                <div class="field-wrap">
+                                    <div class="checkout-field-label">Metodo de envio</div>
+                                    <div class="shipping-options">
+                                        @foreach($shippingMethods as $method)
+                                            <label class="shipping-option">
+                                                <input
+                                                    type="radio"
+                                                    name="shipping_method"
+                                                    value="{{ $method['key'] }}"
+                                                    data-shipping-option
+                                                    data-shipping-cost="{{ $method['cost'] }}"
+                                                    @checked((string) $selectedShippingKey === (string) $method['key'])
+                                                    required
+                                                >
+                                                <span>
+                                                    <strong>{{ $method['name'] }}</strong>
+                                                    <small data-shipping-price>{{ ((float) $method['checkout_cost']) > 0 ? '$ ' . number_format((float) $method['checkout_cost'], 0, ',', '.') : 'Gratis' }}</small>
+                                                </span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
+
                             <div class="field-wrap">
                                 <textarea class="textarea" name="notes" placeholder="{{ $isRestaurant ? 'Instrucciones del pedido (opcional)' : ($isReservationStore ? 'Fecha, hora o detalles de la reserva (opcional)' : 'Notas del pedido (opcional)') }}">{{ old('notes') }}</textarea>
                             </div>
@@ -206,12 +238,27 @@
                     </div>
 
                     <div class="summary-total">
-                        <div class="summary-total-label">Total</div>
+                        <div class="summary-total-label">{{ $shippingMethods->isNotEmpty() ? 'Subtotal' : 'Total' }}</div>
                         <div class="summary-total-price">
                             <small>COP</small>
                             <strong data-role="total">$ {{ number_format($total, 0, ',', '.') }}</strong>
                         </div>
                     </div>
+
+                    @if($shippingMethods->isNotEmpty())
+                        <div class="summary-line">
+                            <span>Envio</span>
+                            <strong data-role="shipping-total">{{ $shippingCost > 0 ? '$ ' . number_format($shippingCost, 0, ',', '.') : 'Gratis' }}</strong>
+                        </div>
+
+                        <div class="summary-total summary-total--grand">
+                            <div class="summary-total-label">Total</div>
+                            <div class="summary-total-price">
+                                <small>COP</small>
+                                <strong data-role="grand-total">$ {{ number_format($checkoutTotal, 0, ',', '.') }}</strong>
+                            </div>
+                        </div>
+                    @endif
                 </div>
             </aside>
         </div>

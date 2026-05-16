@@ -237,6 +237,23 @@ body.storefront-page .product-detail-copy h1 {
     font-weight: 600;
 }
 
+.nav-offer-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--brand-color, #111);
+}
+
+.nav-offer-icon {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 .nav-links > a::after,
 .nav-dropdown-button::after {
     content: "";

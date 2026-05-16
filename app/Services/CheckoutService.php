@@ -30,9 +30,11 @@ class CheckoutService
         }
 
         $notes = $this->notes($customerData);
-        $total = $this->cartService->total($cart);
+        $subtotal = $this->cartService->total($cart);
+        $shipping = $this->shipping($store, $customerData, $subtotal);
+        $total = $subtotal + $shipping['cost'];
 
-        return DB::transaction(function () use ($fullName, $customerData, $fullAddress, $notes, $total, $store, $cart, $paymentData) {
+        return DB::transaction(function () use ($fullName, $customerData, $fullAddress, $notes, $total, $shipping, $store, $cart, $paymentData) {
             $orderData = array_merge([
                 'customer_name' => $fullName,
                 'customer_phone' => $customerData['phone'],
@@ -47,6 +49,11 @@ class CheckoutService
                 'total' => $total,
                 'store_id' => $store->id,
             ], $paymentData);
+
+            if (Order::supportsShippingColumns()) {
+                $orderData['shipping_method'] = $shipping['name'];
+                $orderData['shipping_cost'] = $shipping['cost'];
+            }
 
             $order = Order::create($orderData);
 
@@ -287,5 +294,31 @@ class CheckoutService
         }
 
         return ! empty($notes) ? implode("\n", $notes) : null;
+    }
+
+    private function shipping(Store $store, array $customerData, float $subtotal): array
+    {
+        if ($store->isReservationStore()) {
+            return ['name' => null, 'cost' => 0];
+        }
+
+        $methods = $store->shippingMethods();
+
+        if ($methods === []) {
+            return ['name' => null, 'cost' => 0];
+        }
+
+        $method = $store->shippingMethodByKey($customerData['shipping_method'] ?? null);
+
+        if (! $method) {
+            throw ValidationException::withMessages([
+                'shipping_method' => 'Selecciona un metodo de envio.',
+            ]);
+        }
+
+        return [
+            'name' => $method['name'],
+            'cost' => $store->shippingCostForSubtotal($method, $subtotal),
+        ];
     }
 }

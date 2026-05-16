@@ -2,6 +2,7 @@
     $announcementMessages = \App\Models\Store::supportsCommercialNoticeColumns()
         ? $store->announcementMessages()
         : [];
+    $hasOfferProducts = $store->hasOfferProducts();
 @endphp
 
 <div class="storefront-topbar" data-storefront-topbar>
@@ -77,6 +78,15 @@
                     <a href="{{ $storefrontUrls->about($store) }}">Nosotros</a>
                 @endif
                 <a href="{{ $storefrontUrls->products($store) }}">{{ $isRestaurant ? 'Carta completa' : ($isReservationStore ? 'Todos los servicios' : 'Productos') }}</a>
+                @if($hasOfferProducts)
+                    <a href="{{ $storefrontUrls->offers($store) }}" class="nav-offer-link">
+                        <svg class="nav-offer-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M20.2 12.4 12.4 20.2a2.2 2.2 0 0 1-3.1 0l-5.5-5.5a2.2 2.2 0 0 1 0-3.1l7.8-7.8H20v8.6Z"></path>
+                            <circle cx="16.5" cy="7.5" r="1.4"></circle>
+                        </svg>
+                        <span>Ofertas</span>
+                    </a>
+                @endif
                 @if(($activeCategories ?? collect())->isNotEmpty())
                     <div class="nav-dropdown">
                         <button type="button" class="nav-dropdown-button" aria-haspopup="true" aria-expanded="false" aria-controls="storefrontCategoryMenu">

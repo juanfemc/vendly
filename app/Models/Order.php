@@ -49,6 +49,8 @@ class Order extends Model
         'reservation_date',
         'reservation_time',
         'notes',
+        'shipping_method',
+        'shipping_cost',
         'status',
         'payment_method',
         'payment_provider',
@@ -65,6 +67,7 @@ class Order extends Model
 
     protected $casts = [
         'reservation_date' => 'date',
+        'shipping_cost' => 'decimal:2',
         'paid_at' => 'datetime',
         'payment_expires_at' => 'datetime',
     ];
@@ -82,6 +85,12 @@ class Order extends Model
     public static function supportsPaymentExpirationColumn(): bool
     {
         return Schema::hasColumn('orders', 'payment_expires_at');
+    }
+
+    public static function supportsShippingColumns(): bool
+    {
+        return Schema::hasColumn('orders', 'shipping_method')
+            && Schema::hasColumn('orders', 'shipping_cost');
     }
 
     public function paymentMethodLabel(): string

@@ -43,6 +43,10 @@ class WhatsAppOrderMessageBuilder
             $message .= "Notas: {$order->notes}\n";
         }
 
+        if ($order->shipping_method) {
+            $message .= "Envio: {$order->shipping_method} ($" . number_format((float) $order->shipping_cost, 0, ',', '.') . ")\n";
+        }
+
         $message .= 'Total: $' . number_format((float) $order->total, 0, ',', '.') . "\n";
 
         foreach ($order->items as $item) {

@@ -81,6 +81,23 @@
     color: #111111;
 }
 
+.storefront-page--technology.storefront-page--minimal-grid .minimal-shop-offers-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--brand-color, #111111);
+}
+
+.storefront-page--technology.storefront-page--minimal-grid .minimal-shop-offers-link svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 .storefront-page--technology.storefront-page--minimal-grid .minimal-shop-actions {
     display: flex;
     align-items: center;

@@ -32,14 +32,10 @@ class AppServiceProvider extends ServiceProvider
     {
         if (! $this->app->runningInConsole()) {
             $request = request();
-            $forwardedProto = $request->header('x-forwarded-proto');
-            $forwardedHost = $request->header('x-forwarded-host');
-            $scheme = $forwardedProto ?: $request->getScheme();
-            $host = $forwardedHost ?: $request->getHttpHost();
 
-            URL::forceRootUrl(sprintf('%s://%s', $scheme, $host));
+            URL::forceRootUrl($request->getSchemeAndHttpHost());
 
-            if ($scheme === 'https') {
+            if ($request->isSecure()) {
                 URL::forceScheme('https');
             }
         }

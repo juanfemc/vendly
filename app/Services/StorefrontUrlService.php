@@ -27,6 +27,14 @@ class StorefrontUrlService
         );
     }
 
+    public function offers(Store $store, ?Request $request = null, array $query = []): string
+    {
+        return $this->withQuery(
+            $this->storeUrl($store, $request, '/ofertas', fn () => route('store.offers.index', $store->slug)),
+            $query
+        );
+    }
+
     public function product(Store $store, Product $product, ?Request $request = null): string
     {
         return $this->storeUrl($store, $request, '/productos/' . $product->publicRouteKey(), fn () => route(

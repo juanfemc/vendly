@@ -1,3 +1,5 @@
+@php($hasOfferProducts = $store->hasOfferProducts())
+
 <header class="minimal-shop-header">
     <div class="shell minimal-shop-nav">
         <a href="{{ $storefrontUrls->home($store) }}" class="minimal-shop-brand" aria-label="{{ $store->name }}">
@@ -12,6 +14,15 @@
         <nav class="minimal-shop-links" aria-label="Navegacion principal">
             <a href="{{ $storefrontUrls->home($store) }}">Inicio</a>
             <a href="{{ $storefrontUrls->products($store) }}">Shop</a>
+            @if($hasOfferProducts)
+                <a href="{{ $storefrontUrls->offers($store) }}" class="minimal-shop-offers-link">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M20.2 12.4 12.4 20.2a2.2 2.2 0 0 1-3.1 0l-5.5-5.5a2.2 2.2 0 0 1 0-3.1l7.8-7.8H20v8.6Z"></path>
+                        <circle cx="16.5" cy="7.5" r="1.4"></circle>
+                    </svg>
+                    <span>Ofertas</span>
+                </a>
+            @endif
             @if($showAboutSection ?? false)
                 <a href="{{ $storefrontUrls->about($store) }}">Blog</a>
             @else

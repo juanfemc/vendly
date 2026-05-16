@@ -258,6 +258,16 @@ class ProductController extends Controller
         return $this->storeProducts($this->storeFromSubdomainOrFail($request, $subdomains));
     }
 
+    public function offers($slug)
+    {
+        return $this->storeOffers($this->storeFromSlugOrFail($slug));
+    }
+
+    public function offersBySubdomain(Request $request, StoreSubdomainService $subdomains)
+    {
+        return $this->storeOffers($this->storeFromSubdomainOrFail($request, $subdomains));
+    }
+
     public function show($slug, string $product)
     {
         return $this->storeProduct($this->storeFromSlugOrFail($slug), $product);
@@ -339,6 +349,27 @@ class ProductController extends Controller
             ->withQueryString();
 
         return view('store_products', array_merge($this->storefrontNavigationPayload($store), [
+            'products' => $products,
+            'productSearchEnabled' => $productSearchEnabled,
+            'searchQuery' => $searchQuery,
+        ]));
+    }
+
+    private function storeOffers(Store $store)
+    {
+        abort_unless($store->hasOfferProducts(), 404);
+
+        $this->countStoreVisit($store);
+
+        $productSearchEnabled = $store->hasProductSearch();
+        $searchQuery = $productSearchEnabled ? $this->searchQuery() : '';
+
+        $products = $this->publicProductsQuery($store, $searchQuery)
+            ->where('has_offer', true)
+            ->paginate(24)
+            ->withQueryString();
+
+        return view('store_offers', array_merge($this->storefrontNavigationPayload($store), [
             'products' => $products,
             'productSearchEnabled' => $productSearchEnabled,
             'searchQuery' => $searchQuery,

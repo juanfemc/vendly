@@ -61,6 +61,9 @@ trait ValidatesStoreProfile
             'announcement_items' => ['nullable', 'array', 'max:5'],
             'announcement_items.*.text' => ['nullable', 'string', 'max:140'],
             'free_shipping_minimum' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'shipping_methods' => ['nullable', 'array', 'max:5'],
+            'shipping_methods.*.name' => ['nullable', 'string', 'max:80'],
+            'shipping_methods.*.cost' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
             'reservation_available_days' => ['nullable', 'array'],
             'reservation_available_days.*' => ['string', Rule::in(array_keys(Store::reservationDayOptions()))],
             'reservation_time_start' => ['nullable', 'date_format:H:i'],
@@ -133,7 +136,7 @@ trait ValidatesStoreProfile
                 $data['announcement_items'] = [];
                 $data['free_shipping_minimum'] = null;
             } else {
-                unset($data['announcement_items'], $data['free_shipping_minimum']);
+                unset($data['announcement_items'], $data['free_shipping_minimum'], $data['shipping_methods']);
             }
         } elseif (! Store::supportsCommercialNoticeColumns()) {
             unset($data['announcement_items'], $data['free_shipping_minimum']);
@@ -149,6 +152,28 @@ trait ValidatesStoreProfile
             $data['free_shipping_minimum'] = $this->filled('free_shipping_minimum')
                 ? (float) $this->input('free_shipping_minimum')
                 : null;
+        }
+
+        if (Store::supportsShippingMethodsColumn()) {
+            $data['shipping_methods'] = collect($data['shipping_methods'] ?? [])
+                ->map(function ($method) {
+                    $name = trim((string) ($method['name'] ?? ''));
+
+                    if ($name === '') {
+                        return null;
+                    }
+
+                    return [
+                        'name' => $name,
+                        'cost' => max(0, (float) ($method['cost'] ?? 0)),
+                    ];
+                })
+                ->filter()
+                ->take(5)
+                ->values()
+                ->all();
+        } else {
+            unset($data['shipping_methods']);
         }
 
         if (! Store::supportsReservationScheduleColumns()) {

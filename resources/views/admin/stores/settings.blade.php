@@ -400,6 +400,47 @@
         </section>
     @endif
 
+    @if(\App\Models\Store::supportsShippingMethodsColumn())
+        <section class="settings-section">
+            <div class="settings-section-head">
+                <div>
+                    <h3 class="settings-section-title">Metodos de envio</h3>
+                    <p class="settings-section-copy">Define las opciones que el cliente podra elegir en checkout. Usa costo 0 para recogida o envio gratis.</p>
+                </div>
+            </div>
+
+            @php
+                $shippingMethods = old('shipping_methods', $store->shipping_methods ?? []);
+            @endphp
+
+            <div class="announcement-list">
+                @for($shippingIndex = 0; $shippingIndex < 5; $shippingIndex++)
+                    @php($shippingMethod = $shippingMethods[$shippingIndex] ?? [])
+                    <label class="announcement-row">
+                        <span class="announcement-number">{{ $shippingIndex + 1 }}</span>
+                        <input
+                            type="text"
+                            name="shipping_methods[{{ $shippingIndex }}][name]"
+                            value="{{ old('shipping_methods.' . $shippingIndex . '.name', $shippingMethod['name'] ?? '') }}"
+                            maxlength="80"
+                            placeholder="{{ ['Domicilio local', 'Envio nacional', 'Recoger en tienda', 'Mensajeria express', 'Contra entrega'][$shippingIndex] }}"
+                        >
+                        <input
+                            type="number"
+                            name="shipping_methods[{{ $shippingIndex }}][cost]"
+                            value="{{ old('shipping_methods.' . $shippingIndex . '.cost', $shippingMethod['cost'] ?? '') }}"
+                            min="0"
+                            step="1000"
+                            placeholder="Costo"
+                            style="max-width:150px;"
+                        >
+                    </label>
+                @endfor
+            </div>
+            <p class="settings-help">Si el pedido supera el monto de envio gratis, el costo del metodo elegido se calculara en $0.</p>
+        </section>
+    @endif
+
     @if($store->allowsFullCustomization())
         <section class="settings-section">
             <div class="settings-section-head">

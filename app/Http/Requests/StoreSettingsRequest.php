@@ -40,6 +40,7 @@ class StoreSettingsRequest extends FormRequest
             'business_hours',
             'announcement_items',
             'free_shipping_minimum',
+            'shipping_methods',
             'reservation_available_days',
             'reservation_time_start',
             'reservation_time_end',

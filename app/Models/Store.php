@@ -16,6 +16,7 @@ class Store extends Model
     private static ?bool $supportsCommercialNoticeColumns = null;
     private static ?bool $supportsSubdomainColumn = null;
     private static ?bool $supportsCustomDomainColumns = null;
+    private static ?bool $supportsShippingMethodsColumn = null;
 
     public const PRODUCT_SEARCH_THRESHOLD = 20;
 
@@ -75,6 +76,7 @@ class Store extends Model
         'business_hours',
         'announcement_items',
         'free_shipping_minimum',
+        'shipping_methods',
         'reservation_available_days',
         'reservation_time_start',
         'reservation_time_end',
@@ -100,6 +102,7 @@ class Store extends Model
         'views_count' => 'integer',
         'announcement_items' => 'array',
         'free_shipping_minimum' => 'decimal:2',
+        'shipping_methods' => 'array',
         'reservation_available_days' => 'array',
         'responsive_product_columns' => 'integer',
         'show_hero_products_action' => 'boolean',
@@ -189,6 +192,63 @@ class Store extends Model
     public function allowsOfferBadges(): bool
     {
         return ($this->plan ?? self::PLAN_PRO) === self::PLAN_PREMIUM;
+    }
+
+    public function hasOfferProducts(): bool
+    {
+        return $this->allowsOfferBadges()
+            && Product::supportsOfferColumn()
+            && $this->products()->where('has_offer', true)->exists();
+    }
+
+    public static function supportsShippingMethodsColumn(): bool
+    {
+        return self::$supportsShippingMethodsColumn ??= Schema::hasColumn('stores', 'shipping_methods');
+    }
+
+    public function shippingMethods(): array
+    {
+        if (! self::supportsShippingMethodsColumn()) {
+            return [];
+        }
+
+        return collect($this->shipping_methods ?? [])
+            ->map(function ($method, int $index) {
+                $name = trim((string) ($method['name'] ?? ''));
+                $cost = max(0, (float) ($method['cost'] ?? 0));
+
+                if ($name === '') {
+                    return null;
+                }
+
+                return [
+                    'key' => (string) $index,
+                    'name' => $name,
+                    'cost' => $cost,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    public function shippingMethodByKey(?string $key): ?array
+    {
+        return collect($this->shippingMethods())->firstWhere('key', (string) $key);
+    }
+
+    public function shippingCostForSubtotal(array $method, float $subtotal): float
+    {
+        $cost = max(0, (float) ($method['cost'] ?? 0));
+
+        if ($this->free_shipping_minimum !== null
+            && $this->free_shipping_minimum > 0
+            && $subtotal >= (float) $this->free_shipping_minimum
+        ) {
+            return 0;
+        }
+
+        return $cost;
     }
 
     public static function reservedSubdomains(): array

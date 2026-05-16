@@ -5476,6 +5476,80 @@ test('offer badge is shown only on premium stores', function () {
     expect(substr_count($premiumResponse->getContent(), 'product-offer-badge'))->toBe(1);
 });
 
+test('offer menu and page are available only for premium stores with offer products', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $proStore = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Pro Menu Oferta',
+        'slug' => 'tienda-pro-menu-oferta',
+        'plan' => Store::PLAN_PRO,
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    Product::create([
+        'user_id' => $user->id,
+        'store_id' => $proStore->id,
+        'name' => 'Oferta forzada pro',
+        'price' => 45000,
+        'has_offer' => true,
+        'offer_original_price' => 60000,
+    ]);
+
+    $premiumStore = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Premium Menu Oferta',
+        'slug' => 'tienda-premium-menu-oferta',
+        'plan' => Store::PLAN_PREMIUM,
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    Product::create([
+        'user_id' => $user->id,
+        'store_id' => $premiumStore->id,
+        'name' => 'Audifonos en oferta',
+        'price' => 45000,
+        'has_offer' => true,
+        'offer_original_price' => 60000,
+    ]);
+
+    Product::create([
+        'user_id' => $user->id,
+        'store_id' => $premiumStore->id,
+        'name' => 'Audifonos precio normal',
+        'price' => 55000,
+        'has_offer' => false,
+        'offer_original_price' => null,
+    ]);
+
+    $this->get('/tienda-pro-menu-oferta')
+        ->assertOk()
+        ->assertDontSee('nav-offer-link', false)
+        ->assertDontSee('Ofertas');
+
+    $this->get('/tienda-pro-menu-oferta/ofertas')
+        ->assertNotFound();
+
+    $this->get('/tienda-premium-menu-oferta')
+        ->assertOk()
+        ->assertSee('nav-offer-link', false)
+        ->assertSee('/tienda-premium-menu-oferta/ofertas', false)
+        ->assertSee('Ofertas');
+
+    $this->get('/tienda-premium-menu-oferta/ofertas')
+        ->assertOk()
+        ->assertSee('Audifonos en oferta')
+        ->assertDontSee('Audifonos precio normal')
+        ->assertSee('product-offer-badge', false)
+        ->assertSee('$60.000')
+        ->assertSee('$45.000');
+});
+
 test('store home groups products by three categories and category pages show the full list', function () {
     $user = User::factory()->create([
         'active_starts_at' => now()->subDay(),
@@ -5951,4 +6025,71 @@ test('checkout clears the store cart without reviving the legacy cart', function
         ->assertOk()
         ->assertSee('Barrio')
         ->assertSee('San Fernando');
+});
+
+test('checkout applies selected shipping method cost to orders and whatsapp message', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Envios',
+        'slug' => 'tienda-envios',
+        'whatsapp' => '573001112233',
+        'shipping_methods' => [
+            ['name' => 'Domicilio local', 'cost' => 8000],
+            ['name' => 'Recoger en tienda', 'cost' => 0],
+        ],
+        'is_active' => true,
+    ]);
+
+    $product = Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Producto con envio',
+        'price' => 30000,
+    ]);
+
+    $this->post(route('cart.add', $product->id))->assertRedirect();
+
+    $this->get(route('cart.index', ['store' => $store->slug]))
+        ->assertOk()
+        ->assertSee('Metodo de envio')
+        ->assertSee('Domicilio local')
+        ->assertSee('$ 8.000')
+        ->assertSee('Recoger en tienda')
+        ->assertSee('Gratis');
+
+    $this->post(route('cart.whatsapp', ['store' => $store->slug]), [
+        'name' => 'Cliente',
+        'last_name' => 'Envio',
+        'phone' => '3001234567',
+        'address' => 'Calle 1',
+        'neighborhood' => 'San Fernando',
+        'city' => 'Bogota',
+        'document' => '123456',
+    ])->assertSessionHasErrors('shipping_method');
+
+    $this->post(route('cart.whatsapp', ['store' => $store->slug]), [
+        'name' => 'Cliente',
+        'last_name' => 'Envio',
+        'phone' => '3001234567',
+        'address' => 'Calle 1',
+        'neighborhood' => 'San Fernando',
+        'city' => 'Bogota',
+        'document' => '123456',
+        'shipping_method' => '0',
+    ])->assertRedirectContains('https://wa.me/573001112233');
+
+    $order = Order::where('store_id', $store->id)->latest('id')->firstOrFail();
+
+    expect($order->shipping_method)->toBe('Domicilio local')
+        ->and((float) $order->shipping_cost)->toBe(8000.0)
+        ->and((float) $order->total)->toBe(38000.0);
+
+    expect(app(\App\Services\WhatsAppOrderMessageBuilder::class)->message($order->load(['items', 'store'])))
+        ->toContain('Envio: Domicilio local ($8.000)')
+        ->toContain('Total: $38.000');
 });
