@@ -124,8 +124,8 @@
                             @endif
 
                             @if($shippingMethods->isNotEmpty())
-                                <div class="field-wrap">
-                                    <div class="checkout-field-label">Metodo de envio</div>
+                                <fieldset class="field-wrap shipping-fieldset">
+                                    <legend class="checkout-field-label">Metodo de envio</legend>
                                     <div class="shipping-options">
                                         @foreach($shippingMethods as $method)
                                             <label class="shipping-option">
@@ -138,14 +138,18 @@
                                                     @checked((string) $selectedShippingKey === (string) $method['key'])
                                                     required
                                                 >
-                                                <span>
+                                                <span class="shipping-option-mark" aria-hidden="true"></span>
+                                                <span class="shipping-option-copy">
                                                     <strong>{{ $method['name'] }}</strong>
-                                                    <small data-shipping-price>{{ ((float) $method['checkout_cost']) > 0 ? '$ ' . number_format((float) $method['checkout_cost'], 0, ',', '.') : 'Gratis' }}</small>
+                                                    <small>{{ ((float) $method['cost']) > 0 ? 'Costo de envio' : 'Sin costo adicional' }}</small>
+                                                </span>
+                                                <span class="shipping-option-price" data-shipping-price>
+                                                    {{ ((float) $method['checkout_cost']) > 0 ? '$ ' . number_format((float) $method['checkout_cost'], 0, ',', '.') : 'Gratis' }}
                                                 </span>
                                             </label>
                                         @endforeach
                                     </div>
-                                </div>
+                                </fieldset>
                             @endif
 
                             <div class="field-wrap">

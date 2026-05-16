@@ -116,6 +116,13 @@ body.cart-page {
     font-weight: 700;
 }
 
+.shipping-fieldset {
+    min-width: 0;
+    margin-inline: 0;
+    padding: 0;
+    border: 0;
+}
+
 .field,
 .select,
 .textarea {
@@ -438,6 +445,7 @@ body.cart-page {
 }
 
 .shipping-option {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -446,30 +454,68 @@ body.cart-page {
     background: #ffffff;
     padding: 13px 14px;
     cursor: pointer;
+    transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
 }
 
 .shipping-option input {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--accent);
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
 }
 
-.shipping-option span {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    width: 100%;
+.shipping-option:has(input:checked) {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 4%, #ffffff);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.shipping-option-mark {
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #ffffff;
+    flex: 0 0 auto;
+    box-shadow: inset 0 0 0 5px #ffffff;
+}
+
+.shipping-option:has(input:checked) .shipping-option-mark {
+    border-color: var(--accent);
+    background: var(--accent);
+}
+
+.shipping-option-copy {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
 }
 
 .shipping-option strong {
     font-size: 15px;
+    line-height: 1.25;
 }
 
 .shipping-option small {
     color: var(--muted);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
+}
+
+.shipping-option-price {
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: var(--ink);
+    padding: 7px 10px;
+    font-size: 14px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.shipping-option:has(input:checked) .shipping-option-price {
+    background: var(--accent);
+    color: #ffffff;
 }
 
 .cart-feedback {
@@ -621,5 +667,13 @@ body.cart-page {
 
     .payment-return-grid {
         grid-template-columns: 1fr;
+    }
+
+    .shipping-option {
+        align-items: flex-start;
+    }
+
+    .shipping-option-price {
+        align-self: flex-start;
     }
 }

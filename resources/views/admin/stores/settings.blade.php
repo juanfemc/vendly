@@ -134,6 +134,58 @@
         font-weight: 800;
     }
 
+    .shipping-method-list {
+        display: grid;
+        gap: 12px;
+    }
+
+    .shipping-method-row {
+        display: grid;
+        grid-template-columns: 36px minmax(0, 1fr) minmax(140px, 180px);
+        gap: 12px;
+        align-items: end;
+        padding: 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        background: #f9fafb;
+    }
+
+    .shipping-method-number {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #111827;
+        color: #ffffff;
+        font-size: 13px;
+        font-weight: 800;
+    }
+
+    .shipping-method-field {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+    }
+
+    .shipping-method-field span {
+        color: #6b7280;
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+    .shipping-method-field input {
+        margin: 0;
+        background: #ffffff;
+    }
+
+    .shipping-method-field--cost input {
+        text-align: right;
+    }
+
     .settings-media-preview {
         width: 100%;
         border: 1px solid #e5e7eb;
@@ -178,8 +230,14 @@
 
         .settings-grid,
         .settings-grid--three,
-        .settings-media-grid {
+        .settings-media-grid,
+        .shipping-method-row {
             grid-template-columns: 1fr;
+        }
+
+        .shipping-method-number {
+            width: 32px;
+            height: 32px;
         }
 
         .settings-actions .btn {
@@ -413,28 +471,33 @@
                 $shippingMethods = old('shipping_methods', $store->shipping_methods ?? []);
             @endphp
 
-            <div class="announcement-list">
+            <div class="shipping-method-list">
                 @for($shippingIndex = 0; $shippingIndex < 5; $shippingIndex++)
                     @php($shippingMethod = $shippingMethods[$shippingIndex] ?? [])
-                    <label class="announcement-row">
-                        <span class="announcement-number">{{ $shippingIndex + 1 }}</span>
-                        <input
-                            type="text"
-                            name="shipping_methods[{{ $shippingIndex }}][name]"
-                            value="{{ old('shipping_methods.' . $shippingIndex . '.name', $shippingMethod['name'] ?? '') }}"
-                            maxlength="80"
-                            placeholder="{{ ['Domicilio local', 'Envio nacional', 'Recoger en tienda', 'Mensajeria express', 'Contra entrega'][$shippingIndex] }}"
-                        >
-                        <input
-                            type="number"
-                            name="shipping_methods[{{ $shippingIndex }}][cost]"
-                            value="{{ old('shipping_methods.' . $shippingIndex . '.cost', $shippingMethod['cost'] ?? '') }}"
-                            min="0"
-                            step="1000"
-                            placeholder="Costo"
-                            style="max-width:150px;"
-                        >
-                    </label>
+                    <div class="shipping-method-row">
+                        <span class="shipping-method-number">{{ $shippingIndex + 1 }}</span>
+                        <label class="shipping-method-field shipping-method-field--name">
+                            <span>Metodo</span>
+                            <input
+                                type="text"
+                                name="shipping_methods[{{ $shippingIndex }}][name]"
+                                value="{{ old('shipping_methods.' . $shippingIndex . '.name', $shippingMethod['name'] ?? '') }}"
+                                maxlength="80"
+                                placeholder="{{ ['Domicilio local', 'Envio nacional', 'Recoger en tienda', 'Mensajeria express', 'Contra entrega'][$shippingIndex] }}"
+                            >
+                        </label>
+                        <label class="shipping-method-field shipping-method-field--cost">
+                            <span>Costo</span>
+                            <input
+                                type="number"
+                                name="shipping_methods[{{ $shippingIndex }}][cost]"
+                                value="{{ old('shipping_methods.' . $shippingIndex . '.cost', $shippingMethod['cost'] ?? '') }}"
+                                min="0"
+                                step="1000"
+                                placeholder="0"
+                            >
+                        </label>
+                    </div>
                 @endfor
             </div>
             <p class="settings-help">Si el pedido supera el monto de envio gratis, el costo del metodo elegido se calculara en $0.</p>

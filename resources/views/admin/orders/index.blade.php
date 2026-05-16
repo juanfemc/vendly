@@ -93,13 +93,17 @@
                     </div>
                     <div class="resource-metric">
                         <span class="resource-metric__label">Envio</span>
-                        <span class="resource-metric__value">
-                            {{ $order->shipping_method ?: 'Sin envio' }}
-                            @if((float) ($order->shipping_cost ?? 0) > 0)
-                                - ${{ number_format((float) $order->shipping_cost, 0, ',', '.') }}
-                            @elseif($order->shipping_method)
-                                - Gratis
-                            @endif
+                        <span class="resource-metric__value order-shipping-value">
+                            <span>{{ $order->shipping_method ?: 'Sin envio' }}</span>
+                            <strong>
+                                @if((float) ($order->shipping_cost ?? 0) > 0)
+                                    ${{ number_format((float) $order->shipping_cost, 0, ',', '.') }}
+                                @elseif($order->shipping_method)
+                                    Gratis
+                                @else
+                                    -
+                                @endif
+                            </strong>
                         </span>
                     </div>
                     <div class="resource-metric">
