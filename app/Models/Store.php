@@ -159,6 +159,11 @@ class Store extends Model
         return ! $this->isBasicPlan();
     }
 
+    public function allowsShippingMethods(): bool
+    {
+        return ! $this->isBasicPlan();
+    }
+
     public function allowsVisitStats(): bool
     {
         return ! $this->isBasicPlan();
@@ -208,7 +213,7 @@ class Store extends Model
 
     public function shippingMethods(): array
     {
-        if (! self::supportsShippingMethodsColumn()) {
+        if (! $this->allowsShippingMethods() || ! self::supportsShippingMethodsColumn()) {
             return [];
         }
 

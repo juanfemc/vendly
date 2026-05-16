@@ -6093,3 +6093,77 @@ test('checkout applies selected shipping method cost to orders and whatsapp mess
         ->toContain('Envio: Domicilio local ($8.000)')
         ->toContain('Total: $38.000');
 });
+
+test('shipping methods are only available on pro and premium plans', function () {
+    $basicUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $basicStore = Store::create([
+        'user_id' => $basicUser->id,
+        'name' => 'Tienda Basica Envios',
+        'slug' => 'tienda-basica-envios',
+        'plan' => Store::PLAN_BASIC,
+        'whatsapp' => '573001112233',
+        'shipping_methods' => [
+            ['name' => 'Domicilio bloqueado', 'cost' => 12000],
+        ],
+        'is_active' => true,
+    ]);
+
+    $basicProduct = Product::create([
+        'user_id' => $basicUser->id,
+        'store_id' => $basicStore->id,
+        'name' => 'Producto basico',
+        'price' => 30000,
+    ]);
+
+    $this->actingAs($basicUser)
+        ->get('/admin/store-settings')
+        ->assertOk()
+        ->assertSee('Actualiza a Pro o Premium')
+        ->assertDontSee('name="shipping_methods[0][name]"', false);
+
+    $this->post(route('cart.add', $basicProduct->id))->assertRedirect();
+
+    $this->get(route('cart.index', ['store' => $basicStore->slug]))
+        ->assertOk()
+        ->assertDontSee('Metodo de envio')
+        ->assertDontSee('Domicilio bloqueado');
+
+    $this->post(route('cart.whatsapp', ['store' => $basicStore->slug]), [
+        'name' => 'Cliente',
+        'last_name' => 'Basico',
+        'phone' => '3001234567',
+        'address' => 'Calle 1',
+        'neighborhood' => 'San Fernando',
+        'city' => 'Bogota',
+        'document' => '123456',
+    ])->assertRedirectContains('https://wa.me/573001112233');
+
+    $basicOrder = Order::where('store_id', $basicStore->id)->latest('id')->firstOrFail();
+
+    expect($basicOrder->shipping_method)->toBeNull()
+        ->and((float) $basicOrder->shipping_cost)->toBe(0.0)
+        ->and((float) $basicOrder->total)->toBe(30000.0);
+
+    $proUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    Store::create([
+        'user_id' => $proUser->id,
+        'name' => 'Tienda Pro Envios',
+        'slug' => 'tienda-pro-envios',
+        'plan' => Store::PLAN_PRO,
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($proUser)
+        ->get('/admin/store-settings')
+        ->assertOk()
+        ->assertSee('name="shipping_methods[0][name]"', false);
+});

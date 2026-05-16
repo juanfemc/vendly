@@ -154,7 +154,9 @@ trait ValidatesStoreProfile
                 : null;
         }
 
-        if (Store::supportsShippingMethodsColumn()) {
+        if (! Store::supportsShippingMethodsColumn()) {
+            unset($data['shipping_methods']);
+        } elseif ($effectivePlan !== Store::PLAN_BASIC) {
             $data['shipping_methods'] = collect($data['shipping_methods'] ?? [])
                 ->map(function ($method) {
                     $name = trim((string) ($method['name'] ?? ''));
@@ -173,7 +175,7 @@ trait ValidatesStoreProfile
                 ->values()
                 ->all();
         } else {
-            unset($data['shipping_methods']);
+            $data['shipping_methods'] = [];
         }
 
         if (! Store::supportsReservationScheduleColumns()) {

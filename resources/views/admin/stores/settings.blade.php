@@ -458,7 +458,7 @@
         </section>
     @endif
 
-    @if(\App\Models\Store::supportsShippingMethodsColumn())
+    @if(\App\Models\Store::supportsShippingMethodsColumn() && $store->allowsShippingMethods())
         <section class="settings-section">
             <div class="settings-section-head">
                 <div>
@@ -501,6 +501,16 @@
                 @endfor
             </div>
             <p class="settings-help">Si el pedido supera el monto de envio gratis, el costo del metodo elegido se calculara en $0.</p>
+        </section>
+    @elseif(\App\Models\Store::supportsShippingMethodsColumn())
+        <section class="settings-section">
+            <div class="settings-section-head">
+                <div>
+                    <h3 class="settings-section-title">Metodos de envio</h3>
+                    <p class="settings-section-copy">Tu plan actual no incluye costos ni metodos de envio personalizados.</p>
+                </div>
+            </div>
+            <p class="settings-help">Actualiza a Pro o Premium para ofrecer opciones como domicilio local, envio nacional o recogida en tienda.</p>
         </section>
     @endif
 

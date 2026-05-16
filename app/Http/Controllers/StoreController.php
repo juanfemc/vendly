@@ -202,6 +202,10 @@ class StoreController extends Controller
             Product::where('store_id', $store->id)->update(['images' => null]);
         }
 
+        if (Store::supportsShippingMethodsColumn() && ! $store->allowsShippingMethods()) {
+            $store->forceFill(['shipping_methods' => []])->save();
+        }
+
         if (! $store->allowsFullCustomization()) {
             $store->forceFill([
                 'brand_color' => null,
