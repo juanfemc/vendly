@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreRequest;
 use App\Http\Requests\StoreSettingsRequest;
+use App\Models\ColombiaLocation;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\User;
@@ -168,8 +169,9 @@ class StoreController extends Controller
         $this->authorize('update', $store);
 
         $businessTypeOptions = Store::businessTypeOptions();
+        $colombiaLocations = ColombiaLocation::citiesForSelect();
 
-        return view('admin.stores.settings', compact('store', 'businessTypeOptions'));
+        return view('admin.stores.settings', compact('store', 'businessTypeOptions', 'colombiaLocations'));
     }
 
     public function updateSettings(StoreSettingsRequest $request)
@@ -203,7 +205,18 @@ class StoreController extends Controller
         }
 
         if (Store::supportsShippingMethodsColumn() && ! $store->allowsShippingMethods()) {
-            $store->forceFill(['shipping_methods' => []])->save();
+            $data = ['shipping_methods' => []];
+
+            if (Store::supportsLocalDeliveryColumns()) {
+                $data['local_delivery_area'] = null;
+                if (Store::supportsLocalDeliveryCityCodeColumn()) {
+                    $data['local_delivery_city_code'] = null;
+                }
+                $data['local_delivery_cost'] = null;
+                $data['outside_delivery_cost'] = null;
+            }
+
+            $store->forceFill($data)->save();
         }
 
         if (! $store->allowsFullCustomization()) {

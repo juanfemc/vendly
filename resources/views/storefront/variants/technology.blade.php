@@ -1,9 +1,11 @@
 @php
     $categoryLinks = ($activeCategories ?? collect())->values();
-    $fallbackCategories = collect(['All Product', 'For Home', 'For Music', 'For Phone', 'For Storage']);
     $minimalProducts = ($allProducts ?? collect())->values();
-    $minimalCatalogProducts = $minimalProducts->take(9);
-    $minimalRecommendationProducts = $minimalProducts->skip(1)->take(4);
+    $minimalRecommendationProducts = $minimalProducts->skip(1)->take(8);
+    $icons = \App\Support\MinimalShopIcons::class;
+    $minimalHomeUrl = $storefrontUrls->home($store);
+    $minimalCategoryUrl = fn (array $query = []) => $minimalHomeUrl . ($query ? '?' . http_build_query($query) : '') . '#catalogo';
+    $selectedHomeCategorySlug = $selectedHomeCategory?->slug;
 @endphp
 
 <section class="minimal-shop-hero">
@@ -14,82 +16,45 @@
         @else
             <div class="minimal-shop-hero-fallback">{{ $store->name }}</div>
         @endif
-        <h1>Shop</h1>
     </div>
 </section>
 
 <div class="minimal-shop-content-panel">
     <div class="minimal-shop-search-panel">
-        <h2>Give All You Need</h2>
+        <h2>Todo lo que necesitas</h2>
         <form action="{{ $storefrontUrls->products($store) }}" method="GET" role="search">
             <label for="minimalShopSearch">Buscar en {{ $store->name }}</label>
-            <input id="minimalShopSearch" type="search" name="q" placeholder="Search on {{ $store->name }}" autocomplete="off">
-            <button type="submit">Search</button>
+            <input id="minimalShopSearch" type="search" name="q" placeholder="Buscar en {{ $store->name }}" autocomplete="off">
+            <button type="submit">Buscar</button>
         </form>
     </div>
 
-    <section class="minimal-shop-layout" aria-label="Catalogo">
+    <section class="minimal-shop-layout" id="catalogo" aria-label="Catalogo">
         <aside class="minimal-shop-sidebar">
-            <h2>Category</h2>
+            <h2>Categorias</h2>
             <nav aria-label="Categorias">
-                @if($categoryLinks->isNotEmpty())
-                    <a href="{{ $storefrontUrls->products($store) }}" class="is-active">
-                        <span class="minimal-shop-category-icon" aria-hidden="true"></span>
-                        All Product
-                        <span class="minimal-shop-category-count">{{ $productsTotal }}</span>
+                <a href="{{ $minimalCategoryUrl() }}" data-minimal-category-link @class(['is-active' => ! $selectedHomeCategorySlug])>
+                    <span class="minimal-shop-category-icon">{!! $icons::categoryIcon('Todos los productos') !!}</span>
+                    <span class="minimal-shop-category-label">Todos los productos</span>
+                    <span class="minimal-shop-category-count">{{ $productsTotal }}</span>
+                </a>
+
+                @foreach($categoryLinks as $categoryLink)
+                    <a href="{{ $minimalCategoryUrl(['categoria' => $categoryLink->slug]) }}" data-minimal-category-link @class(['is-active' => $selectedHomeCategorySlug === $categoryLink->slug])>
+                        <span class="minimal-shop-category-icon">{!! $icons::categoryIcon($categoryLink->name) !!}</span>
+                        <span class="minimal-shop-category-label">{{ $categoryLink->name }}</span>
                     </a>
-                    @foreach($categoryLinks->take(4) as $categoryLink)
-                        <a href="{{ $storefrontUrls->category($store, $categoryLink) }}">
-                            <span class="minimal-shop-category-icon" aria-hidden="true"></span>
-                            {{ $categoryLink->name }}
-                        </a>
-                    @endforeach
-                @else
-                    @foreach($fallbackCategories as $index => $categoryName)
-                        <a href="{{ $storefrontUrls->products($store) }}" @class(['is-active' => $index === 0])>
-                            <span class="minimal-shop-category-icon" aria-hidden="true"></span>
-                            {{ $categoryName }}
-                            @if($index === 0)
-                                <span class="minimal-shop-category-count">{{ $productsTotal }}</span>
-                            @endif
-                        </a>
-                    @endforeach
-                @endif
+                @endforeach
             </nav>
 
-            <div class="minimal-shop-filter-links">
-                <a href="{{ $storefrontUrls->products($store) }}">New Arrival</a>
-                <a href="{{ $storefrontUrls->products($store) }}">Best Seller</a>
-                <a href="{{ $storefrontUrls->products($store) }}">On Discount</a>
-            </div>
         </aside>
 
-        <div class="minimal-shop-catalog-shell">
-            <div class="minimal-shop-product-grid">
-                @forelse($minimalCatalogProducts as $product)
-                    @include('storefront.partials.minimal-product-card', ['product' => $product, 'isRecommendation' => false])
-                @empty
-                    <div class="minimal-shop-empty-state">Aun no hay productos para mostrar.</div>
-                @endforelse
-            </div>
-
-            <div class="minimal-shop-pagination" aria-hidden="true">
-                <span>Previous</span>
-                <span class="is-active">1</span>
-                <span>2</span>
-                <span>3</span>
-                <span>...</span>
-                <span>8</span>
-                <span>9</span>
-                <span>10</span>
-                <span>Next</span>
-            </div>
-        </div>
+        @include('storefront.partials.minimal-catalog', ['catalogProducts' => $catalogProducts])
     </section>
 
     <section class="minimal-shop-recommendations" aria-label="Recomendaciones">
         <div class="minimal-shop-section-head">
-            <h2>Explore our recommendations</h2>
+            <h2>Explora nuestras recomendaciones</h2>
             <div aria-hidden="true">
                 <span>&larr;</span>
                 <span>&rarr;</span>

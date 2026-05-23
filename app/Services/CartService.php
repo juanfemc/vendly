@@ -301,6 +301,7 @@ class CartService
             'cart_count' => collect($cart)->sum('quantity'),
             'cart_is_empty' => empty($cart),
             'total' => $this->total($cart),
+            'cart_items' => $this->itemsPayload($cart),
             'item_quantity' => $productId && isset($cart[$productId])
                 ? $cart[$productId]['quantity']
                 : null,
@@ -308,6 +309,29 @@ class CartService
                 ? $cart[$productId]['price'] * $cart[$productId]['quantity']
                 : null,
         ];
+    }
+
+    private function itemsPayload(array $cart): array
+    {
+        return collect($cart)
+            ->map(function (array $item, string|int $cartKey) {
+                $price = (float) ($item['price'] ?? 0);
+                $quantity = (int) ($item['quantity'] ?? 1);
+                $image = trim((string) ($item['image'] ?? ''));
+
+                return [
+                    'key' => (string) $cartKey,
+                    'name' => (string) ($item['name'] ?? 'Producto'),
+                    'price' => $price,
+                    'quantity' => $quantity,
+                    'image_url' => $image !== '' ? asset('storage/' . $image) : null,
+                    'size' => $item['size'] ?? null,
+                    'color' => $item['color'] ?? null,
+                    'item_total' => $price * $quantity,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     private function storeCarts(): Collection

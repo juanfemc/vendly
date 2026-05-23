@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\StorePaymentAccount;
+use App\Models\ColombiaLocation;
 use App\Services\AdminUpdateService;
 use App\Services\CartService;
 use App\Services\CheckoutService;
@@ -44,20 +45,14 @@ class CartController extends Controller
 
         if ($message) {
             if ($request->expectsJson()) {
-                return response()->json([
-                    'message' => $message,
-                    'cart_count' => collect($cart)->sum('quantity'),
-                ], 422);
+                return response()->json($this->cartService->responsePayload($cart, null, $message), 422);
             }
 
             return back()->with('error', $message);
         }
 
         if ($request->expectsJson()) {
-            return response()->json([
-                'message' => 'Producto agregado',
-                'cart_count' => collect($cart)->sum('quantity'),
-            ]);
+            return response()->json($this->cartService->responsePayload($cart, null, 'Producto agregado'));
         }
 
         return back()->with('success', 'Producto agregado');
@@ -92,11 +87,16 @@ class CartController extends Controller
                 ->values()
                 ->all()
             : [];
+        $localDelivery = $store && ! $store->isReservationStore() && $store->localDeliveryEnabled()
+            ? $store->deliveryByCity(old('city'), $total, old('city_code'))
+            : null;
+        $colombiaDepartments = ColombiaLocation::departmentsForSelect();
+        $colombiaLocations = ColombiaLocation::citiesForSelect();
         $mercadoPagoAccount = $store?->mercadoPagoAccount()->first();
         $mercadoPagoAvailable = ($store?->allowsOnlinePayments() ?? false)
             && ($mercadoPagoAccount?->isConnected() ?? false);
 
-        return view('cart_checkout', compact('cart', 'store', 'total', 'shippingMethods', 'mercadoPagoAvailable'));
+        return view('cart_checkout', compact('cart', 'store', 'total', 'shippingMethods', 'localDelivery', 'colombiaDepartments', 'colombiaLocations', 'mercadoPagoAvailable'));
     }
 
     public function updateItem(Request $request, $id)

@@ -1,11 +1,21 @@
 @php
-    $minimalProductCategory = trim((string) $product->category) !== '' ? $product->category : 'Other';
+    $minimalProductCategory = trim((string) $product->category) !== '' ? $product->category : 'Otros';
     $minimalGallery = $productGallery->isNotEmpty() ? $productGallery : collect([null]);
     $minimalRelated = $relatedProducts->take(4);
     $minimalAllowsOnlinePayments = $store->allowsOnlinePayments();
+    $minimalReviewsEnabled = $store->allowsProductReviews();
+    $minimalReviews = $minimalReviewsEnabled
+        ? $product->approvedReviews()->latest()->take(6)->get()
+        : collect();
+    $minimalReviewCount = $minimalReviewsEnabled ? $product->reviewCount() : 0;
+    $minimalReviewAverage = $minimalReviewsEnabled ? $product->reviewAverage() : null;
+    $minimalReviewLabel = $minimalReviewCount > 0
+        ? number_format($minimalReviewAverage, 1) . ' (' . $minimalReviewCount . ' ' . \Illuminate\Support\Str::plural('resena', $minimalReviewCount) . ')'
+        : null;
     $minimalInitials = strtoupper(substr($product->name, 0, 2));
+    $minimalBadges = $product->displayBadges($store);
     $minimalSwatches = ['#111111', '#ffffff', '#33415f'];
-    $minimalDescription = $product->description ?: 'Experience pure performance with ' . $product->name . '. Designed for comfort, simple shopping, and everyday use.';
+    $minimalDescription = $product->description ?: 'Disfruta ' . $product->name . ' con una experiencia pensada para comprar facil, rapido y con confianza.';
     $plainFeatures = trim(strip_tags(str_replace(['</li>', '<br>', '<br/>', '<br />'], "\n", (string) $product->features)));
     $minimalFeatureItems = collect(preg_split('/\R+/', $plainFeatures) ?: [])
         ->map(fn ($feature) => trim($feature, " \t\n\r\0\x0B-*"))
@@ -15,28 +25,28 @@
 
     if ($minimalFeatureItems->isEmpty()) {
         $minimalFeatureItems = collect([
-            'Active Noise Cancellation',
-            'Bluetooth 5.3 Connectivity',
-            'Built-in Microphone for Calls',
-            'Foldable and Lightweight Design',
+            'Cancelacion activa de ruido',
+            'Conectividad Bluetooth 5.3',
+            'Microfono integrado para llamadas',
+            'Diseno plegable y liviano',
         ]);
     }
 
     $minimalBenefits = [
-        ['icon' => 'S', 'title' => 'Free Shipping', 'copy' => 'On orders over $50'],
-        ['icon' => 'R', 'title' => 'Easy Returns', 'copy' => '30-day return policy'],
+        ['icon' => 'E', 'title' => 'Envio gratis', 'copy' => 'En pedidos seleccionados'],
+        ['icon' => 'D', 'title' => 'Devoluciones faciles', 'copy' => 'Politica de devolucion disponible'],
         $minimalAllowsOnlinePayments
-            ? ['icon' => 'P', 'title' => 'Secure Payment', 'copy' => '100% secure checkout']
-            : ['icon' => 'W', 'title' => 'WhatsApp Checkout', 'copy' => 'Confirm your order directly'],
-        ['icon' => 'W', 'title' => '2 Year Warranty', 'copy' => 'Quality guaranteed'],
+            ? ['icon' => 'P', 'title' => 'Pago seguro', 'copy' => 'Compra protegida']
+            : ['icon' => 'W', 'title' => 'Compra por WhatsApp', 'copy' => 'Confirma tu pedido directo'],
+        ['icon' => 'G', 'title' => 'Garantia', 'copy' => 'Calidad garantizada'],
     ];
 @endphp
 
 <main class="shell minimal-product-page">
     <section class="minimal-product-breadcrumb" aria-label="Ruta del producto">
-        <a href="{{ $storefrontUrls->home($store) }}">Home</a>
+        <a href="{{ $storefrontUrls->home($store) }}">Inicio</a>
         <span aria-hidden="true">&rsaquo;</span>
-        <a href="{{ $storefrontUrls->products($store) }}">Shop</a>
+        <a href="{{ $storefrontUrls->products($store) }}">Tienda</a>
         @if($product->category)
             <span aria-hidden="true">&rsaquo;</span>
             <span>{{ $product->category }}</span>
@@ -49,6 +59,13 @@
         <div class="minimal-product-gallery" data-product-carousel>
             <div class="minimal-product-stage">
                 <span class="minimal-product-badge">{{ $minimalProductCategory }}</span>
+                @if($minimalBadges !== [])
+                    <div class="minimal-product-badges">
+                        @foreach($minimalBadges as $badge)
+                            <span class="minimal-product-badge">{{ $badge }}</span>
+                        @endforeach
+                    </div>
+                @endif
                 @foreach($minimalGallery as $index => $galleryImage)
                     @if($galleryImage)
                         <img
@@ -94,10 +111,12 @@
 
             <section class="minimal-product-tabs">
                 <nav aria-label="Informacion del producto">
-                    <a class="is-active" href="#minimalProductDescription">Description</a>
-                    <a href="#minimalProductDescription">Specifications</a>
-                    <a href="#minimalProductDescription">Reviews (1.2k)</a>
-                    <a href="#minimalProductDescription">Shipping and Returns</a>
+                    <a class="is-active" href="#minimalProductDescription">Descripcion</a>
+                    <a href="#minimalProductDescription">Especificaciones</a>
+                    @if($minimalReviewsEnabled && $minimalReviewCount > 0)
+                        <a href="#minimalProductReviews">Resenas ({{ $minimalReviewCount }})</a>
+                    @endif
+                    <a href="#minimalProductDescription">Envios y devoluciones</a>
                 </nav>
                 <div id="minimalProductDescription" class="minimal-product-copy">
                     <p>{{ $minimalDescription }}</p>
@@ -107,13 +126,76 @@
                         @endforeach
                     </ul>
                 </div>
+
+                @if($minimalReviewsEnabled)
+                    <section id="minimalProductReviews" class="minimal-product-reviews">
+                        <div class="minimal-product-reviews-head">
+                            <div>
+                                <h2>Resenas</h2>
+                                <p>Opiniones de clientes sobre este producto.</p>
+                            </div>
+                            @if($minimalReviewCount > 0)
+                                <div class="minimal-product-review-score" aria-label="{{ $minimalReviewLabel }}">
+                                    <span aria-hidden="true">&#9733;</span>
+                                    <strong>{{ number_format($minimalReviewAverage, 1) }}</strong>
+                                    <small>{{ $minimalReviewCount }} {{ \Illuminate\Support\Str::plural('resena', $minimalReviewCount) }}</small>
+                                </div>
+                            @endif
+                        </div>
+
+                        @if(session('review_success'))
+                            <div class="minimal-product-review-alert">{{ session('review_success') }}</div>
+                        @endif
+
+                        <div class="minimal-product-review-list">
+                            @foreach($minimalReviews as $review)
+                                <article>
+                                    <div>
+                                        <strong>{{ $review->name }}</strong>
+                                        <span>{{ number_format((float) $review->rating, 1) }} &#9733;</span>
+                                    </div>
+                                    @if($review->comment)
+                                        <p>{{ $review->comment }}</p>
+                                    @endif
+                                </article>
+                            @endforeach
+                        </div>
+
+                        <form action="{{ route('product.reviews.store', $product) }}" method="POST" class="minimal-product-review-form">
+                            @csrf
+                            <div class="minimal-product-review-form-head">
+                                <h3>Comparte tu experiencia</h3>
+                                <p>Tu resena sera revisada antes de publicarse.</p>
+                            </div>
+                            <label>
+                                <span>Nombre</span>
+                                <input type="text" name="name" value="{{ old('name') }}" maxlength="80" required>
+                            </label>
+                            <label>
+                                <span>Calificacion</span>
+                                <select name="rating" required>
+                                    @for($rating = 5; $rating >= 1; $rating--)
+                                        <option value="{{ $rating }}" @selected((int) old('rating', 5) === $rating)>{{ $rating }} estrellas</option>
+                                    @endfor
+                                </select>
+                            </label>
+                            <label class="minimal-product-review-form-comment">
+                                <span>Comentario</span>
+                                <textarea name="comment" rows="3" maxlength="1000">{{ old('comment') }}</textarea>
+                            </label>
+                            <button type="submit">Publicar resena</button>
+                        </form>
+                    </section>
+                @endif
             </section>
         </div>
 
         <aside class="minimal-product-summary">
             <div class="minimal-product-main">
                 <h1>{{ $product->name }}</h1>
-                <div class="minimal-product-rating"><span aria-hidden="true">&#9733;</span> 5.0 (1.2k Reviews)</div>
+                @if($minimalReviewsEnabled && $minimalReviewCount > 0)
+                    <div class="minimal-product-rating"><span aria-hidden="true">&#9733;</span> {{ $minimalReviewLabel }}</div>
+                @endif
                 <div class="minimal-product-price">
                     @if($store->allowsOfferBadges() && $product->hasOfferPricing())
                         <span class="minimal-product-price-before">${{ number_format((float) $product->offer_original_price, 2, '.', ',') }}</span>
@@ -162,7 +244,7 @@
 
                 <div class="minimal-product-quantity-row">
                     <div>
-                        <span>Quantity</span>
+                        <span>Cantidad</span>
                         <div class="minimal-product-stepper">
                             <button type="button" data-quantity-minus aria-label="Restar cantidad">&minus;</button>
                             <input id="quantity" type="number" name="quantity" min="1" max="{{ $quantityMax }}" value="{{ old('quantity', 1) }}" class="product-quantity-input">
@@ -183,7 +265,7 @@
                             <input type="hidden" name="quantity" value="{{ old('quantity', 1) }}" data-role="add-quantity">
                             <input type="hidden" name="size" value="" data-role="add-size">
                             <input type="hidden" name="color" value="" data-role="add-color">
-                            <button type="submit" class="minimal-product-add">Add to Cart</button>
+                            <button type="submit" class="minimal-product-add">Agregar al carrito</button>
                         </form>
 
                         <form action="{{ route('cart.buy_now', $product->id) }}" method="POST" data-role="buy-now-form">
@@ -191,12 +273,12 @@
                             <input type="hidden" name="quantity" value="{{ old('quantity', 1) }}" data-role="buy-now-quantity">
                             <input type="hidden" name="size" value="" data-role="buy-now-size">
                             <input type="hidden" name="color" value="" data-role="buy-now-color">
-                            <button type="submit" class="minimal-product-buy">Buy Now</button>
+                            <button type="submit" class="minimal-product-buy">Comprar ahora</button>
                         </form>
                     </div>
                 @endif
 
-                <button type="button" class="minimal-product-wishlist">&hearts; Add to Wishlist</button>
+                <button type="button" class="minimal-product-wishlist">&hearts; Agregar a favoritos</button>
             </div>
 
             <section class="minimal-product-benefits" aria-label="Beneficios">
@@ -212,7 +294,7 @@
             @if($minimalRelated->isNotEmpty())
                 <section class="minimal-product-related">
                     <div class="minimal-shop-section-head">
-                        <h2>You may also like</h2>
+                        <h2>Tambien te puede gustar</h2>
                         <div aria-hidden="true">&lsaquo; &rsaquo;</div>
                     </div>
                     <div class="minimal-product-related-grid">

@@ -8,12 +8,17 @@
     $isRestaurantCard = isset($store) && $store->isRestaurant();
     $showsOfferBadge = isset($store) && $store->allowsOfferBadges() && $product->hasOfferBadge();
     $showsOfferPricing = $showsOfferBadge && $product->hasOfferPricing();
+    $displayBadges = $product->displayBadges($store ?? null);
 @endphp
 
 <article class="product-card {{ $cardClass ?? '' }}">
     <div class="product-image">
-        @if($showsOfferBadge)
-            <span class="product-offer-badge">Oferta</span>
+        @if($displayBadges !== [])
+            <div class="product-badges">
+                @foreach($displayBadges as $badge)
+                    <span class="product-offer-badge">{{ $badge }}</span>
+                @endforeach
+            </div>
         @endif
         @if($product->image)
             <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" loading="lazy" decoding="async">

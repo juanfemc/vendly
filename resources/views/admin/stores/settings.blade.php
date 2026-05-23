@@ -462,8 +462,53 @@
         <section class="settings-section">
             <div class="settings-section-head">
                 <div>
-                    <h3 class="settings-section-title">Metodos de envio</h3>
-                    <p class="settings-section-copy">Define las opciones que el cliente podra elegir en checkout. Usa costo 0 para recogida o envio gratis.</p>
+                    <h3 class="settings-section-title">Costos de envio por ciudad</h3>
+                    <p class="settings-section-copy">Define una ciudad local con precio especial. Si el cliente escribe otra ciudad, se aplica el costo fuera de ciudad.</p>
+                </div>
+            </div>
+
+            @if(\App\Models\Store::supportsLocalDeliveryColumns())
+                @php
+                    $colombiaLocations = collect($colombiaLocations ?? []);
+                @endphp
+                <div class="settings-grid settings-grid--three">
+                    <div class="settings-field">
+                        <label class="field-label" for="local_delivery_area">Ciudad local</label>
+                        @if($colombiaLocations->isNotEmpty())
+                            <select id="local_delivery_area" name="local_delivery_city_code">
+                                <option value="">Selecciona ciudad</option>
+                                @foreach($colombiaLocations->groupBy('department_name') as $departmentName => $locations)
+                                    <optgroup label="{{ $departmentName }}">
+                                        @foreach($locations as $location)
+                                            <option value="{{ $location->city_code }}" @selected(old('local_delivery_city_code', $store->local_delivery_city_code) === $location->city_code || old('local_delivery_area', $store->local_delivery_area) === $location->city_name)>
+                                                {{ $location->city_name }}
+                                            </option>
+                                        @endforeach
+                                    </optgroup>
+                                @endforeach
+                            </select>
+                        @else
+                            <input id="local_delivery_area" type="text" name="local_delivery_area" value="{{ old('local_delivery_area', $store->local_delivery_area) }}" maxlength="120" placeholder="Ej: Cali">
+                        @endif
+                    </div>
+                    <div class="settings-field">
+                        <label class="field-label" for="local_delivery_cost">Precio local</label>
+                        <input id="local_delivery_cost" type="number" name="local_delivery_cost" value="{{ old('local_delivery_cost', $store->local_delivery_cost) }}" min="0" step="1000" placeholder="5000">
+                    </div>
+                    <div class="settings-field">
+                        <label class="field-label" for="outside_delivery_cost">Precio fuera de ciudad</label>
+                        <input id="outside_delivery_cost" type="number" name="outside_delivery_cost" value="{{ old('outside_delivery_cost', $store->outside_delivery_cost) }}" min="0" step="1000" placeholder="10000">
+                    </div>
+                </div>
+                <p class="settings-help">Ejemplo: si la ciudad local es Cali y el cliente escribe Cali, cobra el precio local. Si escribe otra ciudad, cobra el precio fuera de ciudad.</p>
+            @endif
+        </section>
+
+        <section class="settings-section">
+            <div class="settings-section-head">
+                <div>
+                    <h3 class="settings-section-title">Metodos de envio manuales</h3>
+                    <p class="settings-section-copy">Opcional: define opciones que el cliente podra elegir si no usas costos por ciudad. Usa costo 0 para recogida o envio gratis.</p>
                 </div>
             </div>
 

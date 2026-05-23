@@ -14,6 +14,7 @@ class Product extends Model
     private static ?bool $supportsInventoryColumns = null;
     private static ?bool $supportsOfferColumn = null;
     private static ?bool $supportsOfferPricingColumn = null;
+    private static ?bool $supportsCustomBadgesColumn = null;
 
     protected $fillable = [
         'name',
@@ -25,6 +26,7 @@ class Product extends Model
         'is_sold_out',
         'has_offer',
         'offer_original_price',
+        'custom_badges',
         'description',
         'features',
         'sizes',
@@ -44,6 +46,7 @@ class Product extends Model
         'is_sold_out' => 'boolean',
         'has_offer' => 'boolean',
         'offer_original_price' => 'decimal:2',
+        'custom_badges' => 'array',
     ];
 
     protected static function booted(): void
@@ -90,6 +93,69 @@ class Product extends Model
         return $this->belongsTo(Store::class);
     }
 
+    public function reviews()
+    {
+        return $this->hasMany(ProductReview::class);
+    }
+
+    public function approvedReviews()
+    {
+        return $this->reviews()->where('is_approved', true);
+    }
+
+    public function scopeWithReviewStats($query)
+    {
+        if (! ProductReview::supportsTable()) {
+            return $query;
+        }
+
+        return $query
+            ->withCount([
+                'reviews as approved_reviews_count' => fn ($query) => $query->where('is_approved', true),
+            ])
+            ->withAvg([
+                'reviews as approved_reviews_avg_rating' => fn ($query) => $query->where('is_approved', true),
+            ], 'rating');
+    }
+
+    public function reviewCount(): int
+    {
+        if (! ProductReview::supportsTable()) {
+            return 0;
+        }
+
+        if (array_key_exists('approved_reviews_count', $this->attributes)) {
+            return (int) $this->approved_reviews_count;
+        }
+
+        if ($this->relationLoaded('approvedReviews')) {
+            return $this->approvedReviews->count();
+        }
+
+        return $this->approvedReviews()->count();
+    }
+
+    public function reviewAverage(): ?float
+    {
+        if (! ProductReview::supportsTable()) {
+            return null;
+        }
+
+        if (array_key_exists('approved_reviews_avg_rating', $this->attributes)) {
+            return $this->approved_reviews_avg_rating === null ? null : round((float) $this->approved_reviews_avg_rating, 1);
+        }
+
+        if ($this->relationLoaded('approvedReviews')) {
+            $average = $this->approvedReviews->avg('rating');
+
+            return $average === null ? null : round((float) $average, 1);
+        }
+
+        $average = $this->approvedReviews()->avg('rating');
+
+        return $average === null ? null : round((float) $average, 1);
+    }
+
     public function hasSizes(): bool
     {
         return ! empty($this->sizes);
@@ -126,6 +192,11 @@ class Product extends Model
         return self::$supportsOfferPricingColumn ??= Schema::hasColumn('products', 'offer_original_price');
     }
 
+    public static function supportsCustomBadgesColumn(): bool
+    {
+        return self::$supportsCustomBadgesColumn ??= Schema::hasColumn('products', 'custom_badges');
+    }
+
     public function hasOfferBadge(): bool
     {
         return self::supportsOfferColumn() && (bool) $this->has_offer;
@@ -138,6 +209,42 @@ class Product extends Model
         }
 
         return (float) $this->offer_original_price > (float) $this->price;
+    }
+
+    public function customBadges(): array
+    {
+        if (! self::supportsCustomBadgesColumn()) {
+            return [];
+        }
+
+        return collect($this->custom_badges ?? [])
+            ->map(fn ($badge) => trim((string) $badge))
+            ->filter()
+            ->take(3)
+            ->values()
+            ->all();
+    }
+
+    public function displayBadges(?Store $store = null): array
+    {
+        $store ??= $this->store;
+        $badges = [];
+
+        if ($store?->allowsOfferBadges() && $this->hasOfferBadge()) {
+            $badges[] = 'Oferta';
+        }
+
+        if ($store?->allowsCustomProductBadges()) {
+            $badges = array_merge($badges, $this->customBadges());
+        }
+
+        return collect($badges)
+            ->map(fn ($badge) => trim((string) $badge))
+            ->filter()
+            ->unique()
+            ->take(4)
+            ->values()
+            ->all();
     }
 
     public function hasLimitedStock(): bool

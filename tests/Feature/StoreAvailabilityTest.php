@@ -2,10 +2,12 @@
 
 use App\Models\Store;
 use App\Models\AdminUpdate;
+use App\Models\ColombiaLocation;
 use App\Models\LandingTestimonial;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\ProductReview;
 use App\Models\StoreBanner;
 use App\Models\StoreCategory;
 use App\Models\StorePaymentAccount;
@@ -1052,6 +1054,232 @@ test('pro store users cannot see or open payment methods', function () {
 
     $this->actingAs($storeUser)
         ->get(route('admin.payments.mercadopago.connect'))
+        ->assertForbidden();
+});
+
+test('pro store users can manage templates', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Plantillas',
+        'slug' => 'tienda-plantillas',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'business_type' => 'store',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get('/dashboard')
+        ->assertOk()
+        ->assertSee('Plantillas')
+        ->assertSee(route('admin.templates.index'), false);
+
+    $this->actingAs($storeUser)
+        ->get(route('admin.templates.index'))
+        ->assertOk()
+        ->assertSee('Plantilla Tecnologia')
+        ->assertSee('Pro y Premium');
+
+    $this->actingAs($storeUser)
+        ->post(route('admin.templates.apply', 'technology'))
+        ->assertRedirect(route('admin.templates.index', ['store_id' => $store->id]))
+        ->assertSessionHas('success');
+
+    expect($store->fresh()->business_type)->toBe('technology');
+    $this->assertDatabaseHas('store_categories', [
+        'store_id' => $store->id,
+        'name' => 'Audio',
+    ]);
+});
+
+test('premium store users can manage templates', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Premium Plantillas',
+        'slug' => 'tienda-premium-plantillas',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'business_type' => 'store',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get(route('admin.templates.index'))
+        ->assertOk()
+        ->assertSee('Plantilla Tecnologia')
+        ->assertSee('Pro y Premium');
+
+    $this->actingAs($storeUser)
+        ->post(route('admin.templates.apply', 'technology'))
+        ->assertRedirect(route('admin.templates.index', ['store_id' => $store->id]))
+        ->assertSessionHas('success');
+
+    expect($store->fresh()->business_type)->toBe('technology');
+});
+
+test('template selection applies to the selected owned store', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $firstStore = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Primera Tienda',
+        'slug' => 'primera-tienda',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'business_type' => 'store',
+        'is_active' => true,
+    ]);
+    $secondStore = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Segunda Tienda',
+        'slug' => 'segunda-tienda',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'business_type' => 'store',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get(route('admin.templates.index', ['store_id' => $secondStore->id]))
+        ->assertOk()
+        ->assertSee('Segunda Tienda')
+        ->assertSee('Primera Tienda');
+
+    $this->actingAs($storeUser)
+        ->post(route('admin.templates.apply', 'technology'), [
+            'store_id' => $secondStore->id,
+        ])
+        ->assertRedirect(route('admin.templates.index', ['store_id' => $secondStore->id]))
+        ->assertSessionHas('success');
+
+    expect($firstStore->fresh()->business_type)->toBe('store')
+        ->and($secondStore->fresh()->business_type)->toBe('technology');
+});
+
+test('template panel defaults to an eligible store when user also has a basic store', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $basicStore = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Basica Principal',
+        'slug' => 'tienda-basica-principal',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_BASIC,
+        'business_type' => 'store',
+        'is_active' => true,
+    ]);
+    $proStore = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pro Elegible',
+        'slug' => 'tienda-pro-elegible',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'business_type' => 'store',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get(route('admin.templates.index'))
+        ->assertOk()
+        ->assertSee('Tienda Pro Elegible')
+        ->assertDontSee('Tienda Basica Principal')
+        ->assertSee(route('admin.templates.index'), false);
+
+    $this->actingAs($storeUser)
+        ->post(route('admin.templates.apply', 'technology'), [
+            'store_id' => $basicStore->id,
+        ])
+        ->assertNotFound();
+
+    $this->actingAs($storeUser)
+        ->post(route('admin.templates.apply', 'technology'), [
+            'store_id' => $proStore->id,
+        ])
+        ->assertRedirect(route('admin.templates.index', ['store_id' => $proStore->id]));
+
+    expect($basicStore->fresh()->business_type)->toBe('store')
+        ->and($proStore->fresh()->business_type)->toBe('technology');
+});
+
+test('template selection cannot target another users store', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $otherUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Propia',
+        'slug' => 'tienda-propia',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'business_type' => 'store',
+        'is_active' => true,
+    ]);
+    $otherStore = Store::create([
+        'user_id' => $otherUser->id,
+        'name' => 'Tienda Ajena',
+        'slug' => 'tienda-ajena',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'business_type' => 'store',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get(route('admin.templates.index', ['store_id' => $otherStore->id]))
+        ->assertNotFound();
+
+    $this->actingAs($storeUser)
+        ->post(route('admin.templates.apply', 'technology'), [
+            'store_id' => $otherStore->id,
+        ])
+        ->assertNotFound();
+
+    expect($otherStore->fresh()->business_type)->toBe('store');
+});
+
+test('basic store users cannot manage templates', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Basica Sin Plantillas',
+        'slug' => 'tienda-basica-sin-plantillas',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_BASIC,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get('/dashboard')
+        ->assertOk()
+        ->assertDontSee('Plantillas')
+        ->assertDontSee(route('admin.templates.index'), false);
+
+    $this->actingAs($storeUser)
+        ->get(route('admin.templates.index'))
+        ->assertForbidden();
+
+    $this->actingAs($storeUser)
+        ->post(route('admin.templates.apply', 'technology'))
         ->assertForbidden();
 });
 
@@ -3785,6 +4013,7 @@ test('reservation stores use service and reservation language', function () {
 });
 
 test('reservation checkout asks for date and time and sends a reservation whatsapp message', function () {
+    $reservationDate = now()->addWeek()->toDateString();
     $user = User::factory()->create([
         'active_starts_at' => now()->subDay(),
         'active_ends_at' => now()->addDay(),
@@ -3826,20 +4055,20 @@ test('reservation checkout asks for date and time and sends a reservation whatsa
         'neighborhood' => 'Virtual',
         'city' => 'Bogota',
         'document' => '123456',
-        'reservation_date' => '2026-05-20',
+        'reservation_date' => $reservationDate,
         'reservation_time' => '14:30',
         'notes' => 'Prefiere atencion virtual',
     ])->assertRedirectContains('https://wa.me/573001112233');
 
     $order = Order::where('store_id', $store->id)->latest('id')->firstOrFail();
 
-    expect($order->reservation_date->toDateString())->toBe('2026-05-20');
+    expect($order->reservation_date->toDateString())->toBe($reservationDate);
     expect($order->reservation_time)->toBe('14:30');
 
     $message = app(\App\Services\WhatsAppOrderMessageBuilder::class)->message($order->load(['items', 'store']));
 
     expect($message)->toContain('Nueva reserva');
-    expect($message)->toContain('Fecha deseada: 2026-05-20');
+    expect($message)->toContain('Fecha deseada: ' . $reservationDate);
     expect($message)->toContain('Hora deseada: 14:30');
     expect($message)->toContain('Horario de atencion: Lunes a viernes 8:00 AM - 4:00 PM');
     expect($message)->toContain('Servicio: Consulta inicial x1');
@@ -4862,6 +5091,7 @@ test('admin can create edit and delete products for any store', function () {
             'price' => 75000,
             'has_offer' => '1',
             'offer_original_price' => 90000,
+            'custom_badges' => 'Nuevo, Mas vendido, Edicion limitada, Ignorada',
             'description' => 'Creado desde el administrador.',
         ])
         ->assertRedirect('/admin/products');
@@ -4873,6 +5103,7 @@ test('admin can create edit and delete products for any store', function () {
     expect($product->user_id)->toBe($storeUser->id);
     expect($product->has_offer)->toBeTrue();
     expect((float) $product->offer_original_price)->toBe(90000.0);
+    expect($product->custom_badges)->toBe(['Nuevo', 'Mas vendido', 'Edicion limitada']);
 
     $this->actingAs($admin)
         ->get(route('admin.stores.products.index', $store))
@@ -4888,6 +5119,7 @@ test('admin can create edit and delete products for any store', function () {
             'price' => 82000,
             'has_offer' => '0',
             'offer_original_price' => 95000,
+            'custom_badges' => 'Ultimas unidades',
             'description' => 'Editado desde el administrador.',
         ])
         ->assertRedirect('/admin/products');
@@ -4896,6 +5128,7 @@ test('admin can create edit and delete products for any store', function () {
     expect((float) $product->price)->toBe(82000.0);
     expect($product->has_offer)->toBeFalse();
     expect($product->offer_original_price)->toBeNull();
+    expect($product->custom_badges)->toBe(['Ultimas unidades']);
 
     $this->actingAs($admin)
         ->delete(route('admin.products.destroy', $product))
@@ -4923,7 +5156,8 @@ test('pro stores cannot see or force product offer fields', function () {
         ->get('/admin/products/create')
         ->assertOk()
         ->assertDontSee('Mostrar etiqueta de oferta')
-        ->assertDontSee('Precio antes de oferta');
+        ->assertDontSee('Precio antes de oferta')
+        ->assertDontSee('Etiquetas personalizadas');
 
     $this->actingAs($storeUser)
         ->post('/admin/products', [
@@ -4931,6 +5165,7 @@ test('pro stores cannot see or force product offer fields', function () {
             'price' => 50000,
             'has_offer' => '1',
             'offer_original_price' => 70000,
+            'custom_badges' => 'Nuevo, Premium',
         ])
         ->assertRedirect('/admin/products');
 
@@ -4940,12 +5175,14 @@ test('pro stores cannot see or force product offer fields', function () {
 
     expect($product->has_offer)->toBeFalse();
     expect($product->offer_original_price)->toBeNull();
+    expect($product->custom_badges)->toBe([]);
 
     $this->actingAs($storeUser)
         ->get(route('admin.products.edit', $product))
         ->assertOk()
         ->assertDontSee('Mostrar etiqueta de oferta')
-        ->assertDontSee('Precio antes de oferta');
+        ->assertDontSee('Precio antes de oferta')
+        ->assertDontSee('Etiquetas personalizadas');
 });
 
 test('admin can browse stores before managing categories for one store', function () {
@@ -5417,6 +5654,7 @@ test('offer badge is shown only on premium stores', function () {
         'price' => 45000,
         'has_offer' => true,
         'offer_original_price' => 60000,
+        'custom_badges' => ['Nuevo'],
     ]);
 
     Product::create([
@@ -5426,6 +5664,7 @@ test('offer badge is shown only on premium stores', function () {
         'price' => 45000,
         'has_offer' => true,
         'offer_original_price' => 60000,
+        'custom_badges' => ['Nuevo', 'Mas vendido'],
     ]);
 
     Product::create([
@@ -5453,27 +5692,32 @@ test('offer badge is shown only on premium stores', function () {
         'price' => 45000,
         'has_offer' => true,
         'offer_original_price' => 60000,
+        'custom_badges' => ['Nuevo'],
     ]);
 
     $this->get('/tienda-pro-etiqueta')
         ->assertOk()
         ->assertDontSee('product-offer-badge', false)
-        ->assertDontSee('Oferta');
+        ->assertDontSee('Oferta')
+        ->assertDontSee('Nuevo');
 
     $this->get('/tienda-basic-etiqueta')
         ->assertOk()
         ->assertDontSee('product-offer-badge', false)
-        ->assertDontSee('Oferta');
+        ->assertDontSee('Oferta')
+        ->assertDontSee('Nuevo');
 
     $premiumResponse = $this->get('/tienda-premium-etiqueta')
         ->assertOk()
         ->assertSee('product-offer-badge', false)
         ->assertSee('Oferta')
+        ->assertSee('Nuevo')
+        ->assertSee('Mas vendido')
         ->assertSee('$60.000')
         ->assertSee('$45.000')
         ->assertSee('Producto sin etiqueta premium');
 
-    expect(substr_count($premiumResponse->getContent(), 'product-offer-badge'))->toBe(1);
+    expect(substr_count($premiumResponse->getContent(), 'product-offer-badge'))->toBe(3);
 });
 
 test('offer menu and page are available only for premium stores with offer products', function () {
@@ -6027,6 +6271,39 @@ test('checkout clears the store cart without reviving the legacy cart', function
         ->assertSee('San Fernando');
 });
 
+test('technology store checkout uses the minimal storefront shell', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tech Checkout',
+        'slug' => 'tech-checkout',
+        'business_type' => 'technology',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $product = Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Audifonos Tech',
+        'price' => 90000,
+    ]);
+
+    $this->post(route('cart.add', $product->id))->assertRedirect();
+
+    $this->get(route('cart.index', ['store' => $store->slug]))
+        ->assertOk()
+        ->assertSee('minimal-shop-header', false)
+        ->assertSee('tech-checkout-shell', false)
+        ->assertSee('Resumen del pedido')
+        ->assertSee('minimal-shop-footer', false)
+        ->assertSee('Audifonos Tech');
+});
+
 test('checkout applies selected shipping method cost to orders and whatsapp message', function () {
     $user = User::factory()->create([
         'active_starts_at' => now()->subDay(),
@@ -6166,4 +6443,347 @@ test('shipping methods are only available on pro and premium plans', function ()
         ->get('/admin/store-settings')
         ->assertOk()
         ->assertSee('name="shipping_methods[0][name]"', false);
+});
+
+test('local delivery pricing uses city before manual shipping methods', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Zonas',
+        'slug' => 'tienda-zonas',
+        'plan' => Store::PLAN_PRO,
+        'whatsapp' => '573001112233',
+        'local_delivery_area' => 'Bogota',
+        'local_delivery_cost' => 5000,
+        'outside_delivery_cost' => 12000,
+        'shipping_methods' => [
+            ['name' => 'Metodo manual ignorado', 'cost' => 30000],
+        ],
+        'is_active' => true,
+    ]);
+
+    $product = Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Producto por zona',
+        'price' => 30000,
+    ]);
+
+    $this->post(route('cart.add', $product->id))->assertRedirect();
+
+    $this->get(route('cart.index', ['store' => $store->slug]))
+        ->assertOk()
+        ->assertSee('Envio por ciudad')
+        ->assertSee('data-local-delivery-enabled="1"', false)
+        ->assertDontSee('Metodo manual ignorado');
+
+    $this->post(route('cart.whatsapp', ['store' => $store->slug]), [
+        'name' => 'Cliente',
+        'last_name' => 'Local',
+        'phone' => '3001234567',
+        'address' => 'Calle 1',
+        'neighborhood' => 'Cedritos',
+        'city' => 'bogota',
+        'document' => '123456',
+    ])->assertRedirectContains('https://wa.me/573001112233');
+
+    $localOrder = Order::where('store_id', $store->id)->latest('id')->firstOrFail();
+
+    expect($localOrder->shipping_method)->toBe('Envio local: Bogota')
+        ->and((float) $localOrder->shipping_cost)->toBe(5000.0)
+        ->and((float) $localOrder->total)->toBe(35000.0);
+
+    $this->post(route('cart.add', $product->id))->assertRedirect();
+
+    $this->post(route('cart.whatsapp', ['store' => $store->slug]), [
+        'name' => 'Cliente',
+        'last_name' => 'Fuera',
+        'phone' => '3001234567',
+        'address' => 'Calle 2',
+        'neighborhood' => 'Cedritos',
+        'city' => 'Cali',
+        'document' => '789123',
+    ])->assertRedirectContains('https://wa.me/573001112233');
+
+    $outsideOrder = Order::where('store_id', $store->id)->latest('id')->firstOrFail();
+
+    expect($outsideOrder->shipping_method)->toBe('Envio fuera de Bogota')
+        ->and((float) $outsideOrder->shipping_cost)->toBe(12000.0)
+        ->and((float) $outsideOrder->total)->toBe(42000.0);
+});
+
+test('checkout can require official colombia city selections', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    ColombiaLocation::create([
+        'department_code' => '11',
+        'department_name' => 'Bogota D.C.',
+        'city_code' => '11001',
+        'city_name' => 'Bogota',
+        'normalized_city_name' => ColombiaLocation::normalizeName('Bogota'),
+    ]);
+
+    ColombiaLocation::create([
+        'department_code' => '76',
+        'department_name' => 'Valle Del Cauca',
+        'city_code' => '76001',
+        'city_name' => 'Cali',
+        'normalized_city_name' => ColombiaLocation::normalizeName('Cali'),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Ciudades',
+        'slug' => 'tienda-ciudades',
+        'plan' => Store::PLAN_PRO,
+        'whatsapp' => '573001112233',
+        'local_delivery_area' => 'Bogota',
+        'local_delivery_city_code' => '11001',
+        'local_delivery_cost' => 5000,
+        'outside_delivery_cost' => 12000,
+        'is_active' => true,
+    ]);
+
+    $product = Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Producto ciudad oficial',
+        'price' => 30000,
+    ]);
+
+    $this->post(route('cart.add', $product->id))->assertRedirect();
+
+    $this->get(route('cart.index', ['store' => $store->slug]))
+        ->assertOk()
+        ->assertSee('name="department_code"', false)
+        ->assertSee('name="city_code"', false)
+        ->assertSee('data-city-select data-city-input disabled', false)
+        ->assertSee('Bogota')
+        ->assertSee('Cali');
+
+    $this->post(route('cart.whatsapp', ['store' => $store->slug]), [
+        'name' => 'Cliente',
+        'last_name' => 'Invalido',
+        'phone' => '3001234567',
+        'address' => 'Calle 1',
+        'neighborhood' => 'Cedritos',
+        'department_code' => '11',
+        'city_code' => '76001',
+        'document' => '123456',
+    ])->assertSessionHasErrors('city_code');
+
+    $this->post(route('cart.whatsapp', ['store' => $store->slug]), [
+        'name' => 'Cliente',
+        'last_name' => 'Oficial',
+        'phone' => '3001234567',
+        'address' => 'Calle 1',
+        'neighborhood' => 'Cedritos',
+        'department_code' => '11',
+        'city_code' => '11001',
+        'document' => '123456',
+    ])->assertRedirectContains('https://wa.me/573001112233');
+
+    $order = Order::where('store_id', $store->id)->latest('id')->firstOrFail();
+
+    expect($order->customer_city)->toBe('Bogota')
+        ->and($order->notes)->toContain('Provincia/Estado: Bogota D.C.')
+        ->and($order->shipping_method)->toBe('Envio local: Bogota')
+        ->and((float) $order->shipping_cost)->toBe(5000.0);
+});
+
+test('local delivery pricing uses official city code when city names are duplicated', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    ColombiaLocation::create([
+        'department_code' => '52',
+        'department_name' => 'Narino',
+        'city_code' => '52399',
+        'city_name' => 'La Union',
+        'normalized_city_name' => ColombiaLocation::normalizeName('La Union'),
+    ]);
+
+    ColombiaLocation::create([
+        'department_code' => '76',
+        'department_name' => 'Valle Del Cauca',
+        'city_code' => '76400',
+        'city_name' => 'La Union',
+        'normalized_city_name' => ColombiaLocation::normalizeName('La Union'),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Ciudad Duplicada',
+        'slug' => 'tienda-ciudad-duplicada',
+        'plan' => Store::PLAN_PRO,
+        'whatsapp' => '573001112233',
+        'local_delivery_area' => 'La Union',
+        'local_delivery_city_code' => '52399',
+        'local_delivery_cost' => 4000,
+        'outside_delivery_cost' => 11000,
+        'is_active' => true,
+    ]);
+
+    $product = Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Producto ciudad repetida',
+        'price' => 30000,
+    ]);
+
+    $this->post(route('cart.add', $product->id))->assertRedirect();
+
+    $this->post(route('cart.whatsapp', ['store' => $store->slug]), [
+        'name' => 'Cliente',
+        'last_name' => 'Fuera',
+        'phone' => '3001234567',
+        'address' => 'Calle 2',
+        'neighborhood' => 'Centro',
+        'department_code' => '76',
+        'city_code' => '76400',
+        'document' => '789123',
+    ])->assertRedirectContains('https://wa.me/573001112233');
+
+    $order = Order::where('store_id', $store->id)->latest('id')->firstOrFail();
+
+    expect($order->customer_city)->toBe('La Union')
+        ->and($order->notes)->toContain('Provincia/Estado: Valle Del Cauca')
+        ->and($order->shipping_method)->toBe('Envio fuera de La Union')
+        ->and((float) $order->shipping_cost)->toBe(11000.0)
+        ->and((float) $order->total)->toBe(41000.0);
+});
+
+test('product reviews are available on pro and premium stores', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Reviews Pro',
+        'slug' => 'tienda-reviews-pro',
+        'plan' => Store::PLAN_PRO,
+        'business_type' => 'technology',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $product = Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Producto con reviews',
+        'price' => 120000,
+    ]);
+
+    $this->post(route('product.reviews.store', $product), [
+        'name' => 'Cliente feliz',
+        'rating' => 5,
+        'comment' => 'Muy buen producto.',
+    ])->assertRedirect();
+
+    $review = ProductReview::where('product_id', $product->id)->firstOrFail();
+
+    $this->assertDatabaseHas('product_reviews', [
+        'store_id' => $store->id,
+        'product_id' => $product->id,
+        'name' => 'Cliente feliz',
+        'rating' => 5,
+        'comment' => 'Muy buen producto.',
+        'is_approved' => false,
+    ]);
+
+    $this->get(route('store.product.show', [
+        'slug' => $store->slug,
+        'product' => $product->fresh()->publicRouteKey(),
+    ]))
+        ->assertOk()
+        ->assertDontSee('Resenas (0)')
+        ->assertDontSee('Aun no hay resenas')
+        ->assertDontSee('Cliente feliz')
+        ->assertDontSee('Muy buen producto.')
+        ->assertSee('Publicar resena');
+
+    $this->actingAs($user)
+        ->get(route('admin.products.edit', $product))
+        ->assertOk()
+        ->assertSee('Resenas del producto')
+        ->assertSee('Pendiente')
+        ->assertSee('Cliente feliz')
+        ->assertSee('Aprobar');
+
+    $this->actingAs($user)
+        ->patch(route('admin.product-reviews.approve', $review))
+        ->assertRedirect();
+
+    expect($review->fresh()->is_approved)->toBeTrue();
+
+    $this->get(route('store.product.show', [
+        'slug' => $store->slug,
+        'product' => $product->fresh()->publicRouteKey(),
+    ]))
+        ->assertOk()
+        ->assertSee('Resenas (1)')
+        ->assertSee('Cliente feliz')
+        ->assertSee('Muy buen producto.');
+
+    $premiumStore = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Reviews Premium',
+        'slug' => 'tienda-reviews-premium',
+        'plan' => Store::PLAN_PREMIUM,
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    expect($premiumStore->allowsProductReviews())->toBeTrue();
+});
+
+test('product reviews are blocked on basic stores', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Reviews Basic',
+        'slug' => 'tienda-reviews-basic',
+        'plan' => Store::PLAN_BASIC,
+        'business_type' => 'technology',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+    ]);
+
+    $product = Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Producto sin reviews',
+        'price' => 120000,
+    ]);
+
+    $this->post(route('product.reviews.store', $product), [
+        'name' => 'Cliente',
+        'rating' => 5,
+        'comment' => 'No debe entrar.',
+    ])->assertNotFound();
+
+    expect(ProductReview::where('product_id', $product->id)->exists())->toBeFalse();
+
+    $this->get(route('store.product.show', [
+        'slug' => $store->slug,
+        'product' => $product->fresh()->publicRouteKey(),
+    ]))
+        ->assertOk()
+        ->assertDontSee('Publicar resena')
+        ->assertDontSee('Resenas (');
 });

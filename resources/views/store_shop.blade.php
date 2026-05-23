@@ -30,7 +30,7 @@
         $collectionLabel = $isRestaurant ? 'menu' : ($isReservationStore ? 'servicios' : 'catalogo');
         $collectionLabelTitle = $isRestaurant ? 'Carta' : ($isReservationStore ? 'Servicios' : 'Catalogo');
         $itemsLabel = $isRestaurant ? 'platos' : ($isReservationStore ? 'servicios' : 'productos');
-        $productsTotal = method_exists($catalogProducts, 'total') ? $catalogProducts->total() : $allProducts->count();
+        $productsTotal = $storeProductsTotal ?? (method_exists($catalogProducts, 'total') ? $catalogProducts->total() : $allProducts->count());
         $buyNowLabel = $isRestaurant ? 'Pedir ahora' : ($isReservationStore ? 'Reservar ahora' : 'Comprar ahora');
         $addLabel = $isRestaurant ? 'Agregar al pedido' : ($isReservationStore ? 'Agregar a la reserva' : 'Agregar al carrito');
         $heroEyebrow = $isRestaurant

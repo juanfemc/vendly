@@ -58,6 +58,14 @@
         $isProductSoldOut = $product->isSoldOut();
         $quantityMax = $product->stock_quantity !== null && ! $isReservationStore ? max(1, min(99, (int) $product->stock_quantity)) : 99;
         $showsOfferPricing = $store->allowsOfferBadges() && $product->hasOfferPricing();
+        $productBadges = $product->displayBadges($store);
+        $reviewsEnabled = $store->allowsProductReviews();
+        $reviews = $reviewsEnabled ? $product->approvedReviews()->latest()->take(6)->get() : collect();
+        $reviewCount = $reviewsEnabled ? $product->reviewCount() : 0;
+        $reviewAverage = $reviewsEnabled ? $product->reviewAverage() : null;
+        $reviewLabel = $reviewCount > 0
+            ? number_format($reviewAverage, 1) . ' (' . $reviewCount . ' ' . \Illuminate\Support\Str::plural('resena', $reviewCount) . ')'
+            : null;
     @endphp
     @include('storefront.partials.seo', ['seo' => $seo])
     <link rel="stylesheet" href="{{ asset('css/storefront.css') }}?v={{ filemtime(public_path('css/storefront.css')) }}">
@@ -138,6 +146,13 @@
                 @if($product->category)
                     <span class="product-detail-tag">{{ $product->category }}</span>
                 @endif
+                @if($productBadges !== [])
+                    <div class="product-detail-badges">
+                        @foreach($productBadges as $badge)
+                            <span class="product-detail-tag">{{ $badge }}</span>
+                        @endforeach
+                    </div>
+                @endif
 
                 <div class="product-detail-head">
                     <span class="product-detail-label">{{ $previewTitle }}</span>
@@ -172,6 +187,67 @@
                         <h2>{{ $isRestaurant ? 'Ingredientes y detalles' : 'Características' }}</h2>
                         <div class="product-rich-content">{!! $product->features !!}</div>
                     </div>
+                @endif
+
+                @if($reviewsEnabled)
+                    <section class="product-reviews" aria-label="Resenas del producto">
+                        <div class="product-reviews-head">
+                            <div>
+                                <h2>Resenas</h2>
+                                <p>Opiniones de clientes sobre este producto.</p>
+                            </div>
+                            @if($reviewCount > 0)
+                                <div class="product-review-score" aria-label="{{ $reviewLabel }}">
+                                    <span aria-hidden="true">&#9733;</span>
+                                    <strong>{{ number_format($reviewAverage, 1) }}</strong>
+                                    <small>{{ $reviewCount }} {{ \Illuminate\Support\Str::plural('resena', $reviewCount) }}</small>
+                                </div>
+                            @endif
+                        </div>
+
+                        @if(session('review_success'))
+                            <div class="product-review-alert">{{ session('review_success') }}</div>
+                        @endif
+
+                        <div class="product-review-list">
+                            @foreach($reviews as $review)
+                                <article>
+                                    <div>
+                                        <strong>{{ $review->name }}</strong>
+                                        <span>{{ number_format((float) $review->rating, 1) }} &#9733;</span>
+                                    </div>
+                                    @if($review->comment)
+                                        <p>{{ $review->comment }}</p>
+                                    @endif
+                                </article>
+                            @endforeach
+                        </div>
+
+                        <form action="{{ route('product.reviews.store', $product) }}" method="POST" class="product-review-form">
+                            @csrf
+                            <div class="product-review-form-head">
+                                <h3>Comparte tu experiencia</h3>
+                                <p>Tu resena sera revisada antes de publicarse.</p>
+                            </div>
+                            <label>
+                                <span>Nombre</span>
+                                <input type="text" name="name" value="{{ old('name') }}" maxlength="80" required>
+                            </label>
+                            <label>
+                                <span>Calificacion</span>
+                                <select name="rating" required>
+                                    @for($rating = 5; $rating >= 1; $rating--)
+                                        <option value="{{ $rating }}" @selected((int) old('rating', 5) === $rating)>{{ $rating }} estrellas</option>
+                                    @endfor
+                                </select>
+                            </label>
+                            <label class="product-review-form-comment">
+                                <span>Comentario</span>
+                                <textarea name="comment" rows="3" maxlength="1000">{{ old('comment') }}</textarea>
+                            </label>
+                            <button type="submit">Publicar resena</button>
+                        </form>
+                    </section>
                 @endif
 
                 <section class="product-share" aria-label="Compartir producto">
@@ -285,9 +361,14 @@
                 <div class="products-grid">
                     @foreach($relatedProducts as $relatedProduct)
                         <article class="product-card">
+                            @php($relatedBadges = $relatedProduct->displayBadges($store))
                             <div class="product-image">
-                                @if($store->allowsOfferBadges() && $relatedProduct->hasOfferBadge())
-                                    <span class="product-offer-badge">Oferta</span>
+                                @if($relatedBadges !== [])
+                                    <div class="product-badges">
+                                        @foreach($relatedBadges as $badge)
+                                            <span class="product-offer-badge">{{ $badge }}</span>
+                                        @endforeach
+                                    </div>
                                 @endif
                                 @if($relatedProduct->image)
                                     <img src="{{ asset('storage/' . $relatedProduct->image) }}" alt="{{ $relatedProduct->name }}" loading="lazy" decoding="async">

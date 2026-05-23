@@ -156,8 +156,11 @@ class ProductController extends Controller
         $categoryOptions = auth()->user()?->isAdmin()
             ? StoreCategory::orderBy('name')->pluck('name')->unique()->values()->all()
             : ($product->store?->productCategoryOptions() ?? []);
+        $productReviews = ($product->store?->allowsProductReviews() ?? false)
+            ? $product->reviews()->latest()->get()
+            : collect();
 
-        return view('admin.products.edit', compact('product', 'stores', 'categoryOptions'));
+        return view('admin.products.edit', compact('product', 'stores', 'categoryOptions', 'productReviews'));
     }
 
     public function update(ProductRequest $request, Product $product)
@@ -296,9 +299,19 @@ class ProductController extends Controller
 
     private function storeHome(Store $store)
     {
-        $this->countStoreVisit($store);
+        $isCatalogPartial = $store->isTechnologyStore() && request('partial') === 'catalogo';
 
-        return view('store_shop', $this->storefrontPayload($store));
+        if (! $isCatalogPartial) {
+            $this->countStoreVisit($store);
+        }
+
+        $payload = $this->storefrontPayload($store);
+
+        if ($isCatalogPartial) {
+            return view('storefront.partials.minimal-catalog', $payload);
+        }
+
+        return view('store_shop', $payload);
     }
 
     private function storeAbout(Store $store)
@@ -383,6 +396,7 @@ class ProductController extends Controller
         $this->countStoreVisit($store);
 
         $relatedProducts = Product::where('store_id', $store->id)
+            ->withReviewStats()
             ->whereKeyNot($product->id)
             ->latest()
             ->take(4)
@@ -397,6 +411,7 @@ class ProductController extends Controller
     private function publicProductFromKey(Store $store, string $productKey): Product
     {
         return Product::where('store_id', $store->id)
+            ->withReviewStats()
             ->where(function ($query) use ($productKey) {
                 $query->where('slug', $productKey);
 
@@ -426,6 +441,7 @@ class ProductController extends Controller
                 return [
                     'category' => $category,
                     'products' => Product::where('store_id', $store->id)
+                        ->withReviewStats()
                         ->where('category', $category->name)
                         ->latest()
                         ->take(4)
@@ -437,6 +453,7 @@ class ProductController extends Controller
 
         $visibleCategorySections = $categorySections;
         $otherProducts = Product::where('store_id', $store->id)
+            ->withReviewStats()
             ->where(function ($query) {
                 $query->whereNull('category')->orWhere('category', '');
             })
@@ -444,11 +461,23 @@ class ProductController extends Controller
             ->take(4)
             ->get();
 
-        $products = Product::where('store_id', $store->id)
-            ->latest()
-            ->paginate(7)
+        $homeProductPageSize = $store->isTechnologyStore() ? 6 : 7;
+        $customBadgeFilters = $this->customBadgeFilters($store);
+        $selectedHomeCategory = $store->isTechnologyStore()
+            ? $activeCategories->firstWhere('slug', request('categoria'))
+            : null;
+        $selectedHomeBadge = $store->isTechnologyStore()
+            ? $customBadgeFilters->first(fn ($badge) => $badge === trim((string) request('etiqueta')))
+            : null;
+
+        $products = $this->publicProductsQuery($store)
+            ->when($selectedHomeCategory, fn ($query) => $query->where('category', $selectedHomeCategory->name))
+            ->when($selectedHomeBadge, fn ($query) => $query->whereJsonContains('custom_badges', $selectedHomeBadge))
+            ->paginate($homeProductPageSize)
             ->withQueryString();
+        $storeProductsTotal = Product::where('store_id', $store->id)->count();
         $allProducts = Product::where('store_id', $store->id)
+            ->withReviewStats()
             ->latest()
             ->take(12)
             ->get();
@@ -464,7 +493,11 @@ class ProductController extends Controller
             'categorySections',
             'visibleCategorySections',
             'otherProducts',
-            'productSearchEnabled'
+            'productSearchEnabled',
+            'selectedHomeCategory',
+            'selectedHomeBadge',
+            'customBadgeFilters',
+            'storeProductsTotal'
         );
     }
 
@@ -474,9 +507,27 @@ class ProductController extends Controller
             'store' => $store,
             'storefrontUrls' => app(StorefrontUrlService::class),
             'activeCategories' => $this->activeCategories($store),
+            'customBadgeFilters' => $this->customBadgeFilters($store),
             'showAboutSection' => $store->hasAboutContent(),
             'productSearchEnabled' => $store->hasProductSearch(),
         ];
+    }
+
+    private function customBadgeFilters(Store $store)
+    {
+        if (! $store->allowsCustomProductBadges() || ! Product::supportsCustomBadgesColumn()) {
+            return collect();
+        }
+
+        return Product::where('store_id', $store->id)
+            ->whereNotNull('custom_badges')
+            ->get(['custom_badges'])
+            ->flatMap(fn (Product $product) => $product->customBadges())
+            ->map(fn ($badge) => trim((string) $badge))
+            ->filter()
+            ->unique()
+            ->take(8)
+            ->values();
     }
 
     private function searchQuery(): string
@@ -496,6 +547,7 @@ class ProductController extends Controller
     private function publicProductsQuery(Store $store, string $searchQuery = '')
     {
         return Product::where('store_id', $store->id)
+            ->withReviewStats()
             ->when($searchQuery !== '', fn ($query) => $this->applyProductSearch($query, $searchQuery))
             ->latest();
     }
@@ -513,6 +565,12 @@ class ProductController extends Controller
         if (! $store->allowsOfferBadges()) {
             $data['has_offer'] = false;
             $data['offer_original_price'] = null;
+        }
+
+        if (! Product::supportsCustomBadgesColumn()) {
+            unset($data['custom_badges']);
+        } elseif (! $store->allowsCustomProductBadges()) {
+            $data['custom_badges'] = [];
         }
 
         if (! $store->allowsCategories()) {

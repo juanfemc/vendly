@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Concerns;
 
+use App\Models\ColombiaLocation;
 use App\Models\Store;
 use App\Support\BrandTheme;
 use Illuminate\Validation\Rule;
@@ -64,6 +65,35 @@ trait ValidatesStoreProfile
             'shipping_methods' => ['nullable', 'array', 'max:5'],
             'shipping_methods.*.name' => ['nullable', 'string', 'max:80'],
             'shipping_methods.*.cost' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'local_delivery_area' => [
+                'nullable',
+                'string',
+                'max:120',
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if (trim((string) $value) === '' || ! ColombiaLocation::hasCatalog()) {
+                        return;
+                    }
+
+                    $exists = ColombiaLocation::query()
+                        ->where('city_name', $value)
+                        ->orWhere('city_code', $value)
+                        ->exists();
+
+                    if (! $exists) {
+                        $fail('Selecciona una ciudad local valida.');
+                    }
+                },
+            ],
+            'local_delivery_city_code' => array_filter([
+                'nullable',
+                'string',
+                'max:12',
+                ColombiaLocation::hasCatalog()
+                    ? Rule::exists('colombia_locations', 'city_code')
+                    : null,
+            ]),
+            'local_delivery_cost' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'outside_delivery_cost' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
             'reservation_available_days' => ['nullable', 'array'],
             'reservation_available_days.*' => ['string', Rule::in(array_keys(Store::reservationDayOptions()))],
             'reservation_time_start' => ['nullable', 'date_format:H:i'],
@@ -136,46 +166,24 @@ trait ValidatesStoreProfile
                 $data['announcement_items'] = [];
                 $data['free_shipping_minimum'] = null;
             } else {
-                unset($data['announcement_items'], $data['free_shipping_minimum'], $data['shipping_methods']);
+                $this->forgetShippingData($data);
+                unset($data['announcement_items'], $data['free_shipping_minimum']);
             }
         } elseif (! Store::supportsCommercialNoticeColumns()) {
             unset($data['announcement_items'], $data['free_shipping_minimum']);
         } else {
-            $data['announcement_items'] = collect($data['announcement_items'] ?? [])
-                ->pluck('text')
-                ->map(fn ($text) => trim((string) $text))
-                ->filter()
-                ->take(5)
-                ->map(fn (string $text) => ['text' => $text])
-                ->values()
-                ->all();
+            $data['announcement_items'] = $this->cleanAnnouncementItems($data['announcement_items'] ?? []);
             $data['free_shipping_minimum'] = $this->filled('free_shipping_minimum')
                 ? (float) $this->input('free_shipping_minimum')
                 : null;
         }
 
         if (! Store::supportsShippingMethodsColumn()) {
-            unset($data['shipping_methods']);
+            $this->forgetShippingData($data);
         } elseif ($effectivePlan !== Store::PLAN_BASIC) {
-            $data['shipping_methods'] = collect($data['shipping_methods'] ?? [])
-                ->map(function ($method) {
-                    $name = trim((string) ($method['name'] ?? ''));
-
-                    if ($name === '') {
-                        return null;
-                    }
-
-                    return [
-                        'name' => $name,
-                        'cost' => max(0, (float) ($method['cost'] ?? 0)),
-                    ];
-                })
-                ->filter()
-                ->take(5)
-                ->values()
-                ->all();
+            $this->applyShippingData($data);
         } else {
-            $data['shipping_methods'] = [];
+            $this->clearShippingData($data);
         }
 
         if (! Store::supportsReservationScheduleColumns()) {
@@ -195,6 +203,119 @@ trait ValidatesStoreProfile
             : null;
 
         return $data;
+    }
+
+    private function cleanAnnouncementItems(array $items): array
+    {
+        return collect($items)
+            ->pluck('text')
+            ->map(fn ($text) => trim((string) $text))
+            ->filter()
+            ->take(5)
+            ->map(fn (string $text) => ['text' => $text])
+            ->values()
+            ->all();
+    }
+
+    private function applyShippingData(array &$data): void
+    {
+        $data['shipping_methods'] = collect($data['shipping_methods'] ?? [])
+            ->map(function ($method) {
+                $name = trim((string) ($method['name'] ?? ''));
+
+                return $name === ''
+                    ? null
+                    : [
+                        'name' => $name,
+                        'cost' => max(0, (float) ($method['cost'] ?? 0)),
+                    ];
+            })
+            ->filter()
+            ->take(5)
+            ->values()
+            ->all();
+
+        if (! Store::supportsLocalDeliveryColumns()) {
+            $this->forgetLocalDeliveryData($data);
+
+            return;
+        }
+
+        $deliveryCity = $this->resolveLocalDeliveryCity(
+            $data['local_delivery_city_code'] ?? null,
+            $data['local_delivery_area'] ?? null,
+        );
+
+        $data['local_delivery_area'] = $deliveryCity?->city_name
+            ?: (trim((string) ($data['local_delivery_area'] ?? '')) ?: null);
+
+        if (Store::supportsLocalDeliveryCityCodeColumn()) {
+            $data['local_delivery_city_code'] = $deliveryCity?->city_code;
+        } else {
+            unset($data['local_delivery_city_code']);
+        }
+
+        $data['local_delivery_cost'] = $this->filled('local_delivery_cost')
+            ? max(0, (float) $this->input('local_delivery_cost'))
+            : null;
+        $data['outside_delivery_cost'] = $this->filled('outside_delivery_cost')
+            ? max(0, (float) $this->input('outside_delivery_cost'))
+            : null;
+    }
+
+    private function clearShippingData(array &$data): void
+    {
+        $data['shipping_methods'] = [];
+
+        if (! Store::supportsLocalDeliveryColumns()) {
+            $this->forgetLocalDeliveryData($data);
+
+            return;
+        }
+
+        $data['local_delivery_area'] = null;
+        $data['local_delivery_cost'] = null;
+        $data['outside_delivery_cost'] = null;
+
+        if (Store::supportsLocalDeliveryCityCodeColumn()) {
+            $data['local_delivery_city_code'] = null;
+        } else {
+            unset($data['local_delivery_city_code']);
+        }
+    }
+
+    private function forgetShippingData(array &$data): void
+    {
+        unset($data['shipping_methods']);
+        $this->forgetLocalDeliveryData($data);
+    }
+
+    private function forgetLocalDeliveryData(array &$data): void
+    {
+        unset(
+            $data['local_delivery_area'],
+            $data['local_delivery_city_code'],
+            $data['local_delivery_cost'],
+            $data['outside_delivery_cost'],
+        );
+    }
+
+    private function resolveLocalDeliveryCity(?string $cityCode, ?string $cityName): ?ColombiaLocation
+    {
+        if (! ColombiaLocation::hasCatalog()) {
+            return null;
+        }
+
+        $lookupValue = trim((string) ($cityCode ?: $cityName));
+
+        if ($lookupValue === '') {
+            return null;
+        }
+
+        return ColombiaLocation::query()
+            ->where('city_code', $lookupValue)
+            ->orWhere('city_name', $lookupValue)
+            ->first();
     }
 
     private function applyCustomDomainState(array &$data, string $effectivePlan): void

@@ -26,6 +26,7 @@ class ProductRequest extends FormRequest
             'is_sold_out' => ['nullable', 'boolean'],
             'has_offer' => ['nullable', 'boolean'],
             'offer_original_price' => ['nullable', 'required_if:has_offer,1', 'numeric', 'gt:price'],
+            'custom_badges' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'features' => ['nullable', 'string'],
             'sizes' => ['nullable', 'string', 'max:1000'],
@@ -43,11 +44,23 @@ class ProductRequest extends FormRequest
         $data = $this->safe()->only(['name', 'category', 'material', 'price', 'description', 'stock_quantity', 'offer_original_price']);
         $data['is_sold_out'] = $this->boolean('is_sold_out');
         $data['has_offer'] = $this->boolean('has_offer');
+        $data['custom_badges'] = $this->cleanBadges($this->input('custom_badges'));
 
         if (! $data['has_offer']) {
             $data['offer_original_price'] = null;
         }
 
         return $data;
+    }
+
+    private function cleanBadges(?string $value): array
+    {
+        return collect(explode(',', (string) $value))
+            ->map(fn ($badge) => trim(preg_replace('/\s+/', ' ', (string) $badge) ?? ''))
+            ->filter()
+            ->unique()
+            ->take(3)
+            ->values()
+            ->all();
     }
 }

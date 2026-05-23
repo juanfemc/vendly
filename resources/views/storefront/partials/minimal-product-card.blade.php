@@ -4,16 +4,27 @@
     }
 
     $isSoldOut = $product->isSoldOut();
-    $productCategory = trim((string) $product->category) !== '' ? $product->category : 'Other';
+    $productCategory = trim((string) $product->category) !== '' ? $product->category : 'Otros';
     $placeholderText = strtoupper(substr($product->name, 0, 2));
     $showsOfferBadge = isset($store) && $store->allowsOfferBadges() && $product->hasOfferBadge();
     $showsOfferPricing = $showsOfferBadge && $product->hasOfferPricing();
+    $displayBadges = $product->displayBadges($store ?? null);
+    $reviewsEnabled = isset($store) && $store->allowsProductReviews();
+    $reviewCount = $reviewsEnabled ? $product->reviewCount() : 0;
+    $reviewAverage = $reviewsEnabled ? $product->reviewAverage() : null;
+    $reviewLabel = $reviewCount > 0
+        ? number_format($reviewAverage, 1) . ' (' . $reviewCount . ' ' . \Illuminate\Support\Str::plural('resena', $reviewCount) . ')'
+        : null;
 @endphp
 
 <article class="minimal-shop-product-card {{ ($isRecommendation ?? false) ? 'minimal-shop-product-card--recommendation' : '' }}">
     <a href="{{ $storefrontUrls->product($store, $product) }}" class="minimal-shop-card-media" aria-label="{{ $product->name }}">
-        @if($showsOfferBadge)
-            <span class="minimal-shop-offer-badge">Oferta</span>
+        @if($displayBadges !== [])
+            <div class="minimal-shop-badges">
+                @foreach($displayBadges as $badge)
+                    <span class="minimal-shop-offer-badge">{{ $badge }}</span>
+                @endforeach
+            </div>
         @endif
         <span class="minimal-shop-card-badge">{{ $productCategory }}</span>
         @if($product->image)
@@ -33,7 +44,9 @@
     <div class="minimal-shop-card-info">
         <h3>{{ $product->name }}</h3>
         <div class="minimal-shop-card-meta">
-            <span class="minimal-shop-rating" aria-label="5.0 de 5 estrellas">&#9733; 5.0 (12k Reviews)</span>
+            @if($reviewsEnabled && $reviewCount > 0)
+                <span class="minimal-shop-rating" aria-label="{{ $reviewLabel }}">&#9733; {{ $reviewLabel }}</span>
+            @endif
             <span class="minimal-shop-price-stack">
                 @if($showsOfferPricing)
                     <span class="minimal-shop-price-before">${{ number_format((float) $product->offer_original_price, 2, '.', ',') }}</span>
@@ -45,15 +58,15 @@
 
     <div class="minimal-shop-card-actions">
         @if($isSoldOut)
-            <span class="minimal-shop-card-button minimal-shop-card-button--disabled">Sold Out</span>
+            <span class="minimal-shop-card-button minimal-shop-card-button--disabled">Agotado</span>
         @elseif($product->hasVariants())
-            <a href="{{ $storefrontUrls->product($store, $product) }}" class="minimal-shop-card-button">Add to Cart</a>
+            <a href="{{ $storefrontUrls->product($store, $product) }}" class="minimal-shop-card-button">Agregar</a>
         @else
             <form action="{{ route('cart.add', $product->id) }}" method="POST" class="add-to-cart-form">
                 @csrf
-                <button type="submit">Add to Cart</button>
+                <button type="submit">Agregar</button>
             </form>
         @endif
-        <a href="{{ $storefrontUrls->product($store, $product) }}">Buy Now</a>
+        <a href="{{ $storefrontUrls->product($store, $product) }}">Comprar ahora</a>
     </div>
 </article>

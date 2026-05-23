@@ -52,14 +52,18 @@
 </head>
 
 <body
-    class="storefront-page storefront-page--{{ $storefrontVariant }}"
+    class="storefront-page storefront-page--{{ $storefrontVariant }} {{ $storefrontVariant === 'technology' ? 'storefront-page--minimal-grid' : '' }}"
     data-csrf="{{ csrf_token() }}"
     data-adding-text="{{ $isRestaurant ? 'Agregando al pedido...' : ($isReservationStore ? 'Agregando a la reserva...' : 'Agregando...') }}"
     data-feedback-added="{{ $isRestaurant ? 'Plato agregado al pedido' : ($isReservationStore ? 'Servicio agregado a la reserva' : 'Producto agregado al carrito') }}"
     data-feedback-error="{{ $isRestaurant ? 'No pudimos agregar el plato' : ($isReservationStore ? 'No pudimos agregar el servicio' : 'No pudimos agregar el producto') }}"
     style="{{ $store->storefrontCssVariables($brandTheme, $responsiveProductColumns) }}"
 >
-    @include('storefront.partials.header')
+    @if($storefrontVariant === 'technology')
+        @include('storefront.partials.header-minimal-grid')
+    @else
+        @include('storefront.partials.header')
+    @endif
 
     <main class="shell">
         <section class="category-page-hero category-page-hero--catalog">
@@ -102,7 +106,11 @@
 
     </main>
 
-    @include('storefront.partials.footer')
+    @if($storefrontVariant === 'technology')
+        @include('storefront.partials.footer-minimal-grid')
+    @else
+        @include('storefront.partials.footer')
+    @endif
 
     <div class="cart-feedback" id="cartFeedback" aria-live="polite">{{ $isRestaurant ? 'Plato agregado al pedido' : ($isReservationStore ? 'Servicio agregado a la reserva' : 'Producto agregado al carrito') }}</div>
 

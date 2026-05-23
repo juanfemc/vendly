@@ -1068,12 +1068,18 @@
                 </details>
             @else
                 @php
-                    $sidebarStore = auth()->user()?->store ?? auth()->user()?->stores()->first();
+                    $sidebarUser = auth()->user();
+                    $sidebarStores = $sidebarUser?->stores()->get() ?? collect();
+                    $sidebarStore = $sidebarUser?->store ?? $sidebarStores->first();
+                    $sidebarAllowsTemplates = $sidebarStores->contains(fn ($store) => $store->allowsTemplates());
                 @endphp
-                <details class="sidebar-menu-group" {{ request()->is('admin/store-settings') || request()->is('admin/payments*') || request()->is('admin/categories*') ? 'open' : '' }}>
+                <details class="sidebar-menu-group" {{ request()->is('admin/store-settings') || request()->is('admin/templates*') || request()->is('admin/payments*') || request()->is('admin/categories*') ? 'open' : '' }}>
                     <summary>Tienda</summary>
                     <div class="sidebar-submenu">
                         <a href="/admin/store-settings">Configuracion</a>
+                        @if($sidebarAllowsTemplates)
+                            <a href="{{ route('admin.templates.index') }}">Plantillas</a>
+                        @endif
                         @if(($sidebarStore?->allowsOnlinePayments() ?? false))
                             <a href="{{ route('admin.payments.index') }}">Metodos de pago</a>
                         @endif

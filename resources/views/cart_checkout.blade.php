@@ -3,25 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checkout</title>
+    <title>Finalizar compra</title>
     <link rel="stylesheet" href="{{ asset('css/cart-checkout.css') }}">
+    @if($store?->isTechnologyStore())
+        <link rel="stylesheet" href="{{ asset('css/storefront.css') }}?v={{ filemtime(public_path('css/storefront.css')) }}">
+        <link rel="stylesheet" href="{{ asset('css/storefront-technology.css') }}?v={{ filemtime(public_path('css/storefront-technology.css')) }}">
+    @endif
 </head>
 @php
+    $page = $store ? \App\View\Models\StorefrontPageViewModel::from($store) : null;
     $isRestaurant = $store?->isRestaurant() ?? false;
+    $isTechnologyStore = $store?->isTechnologyStore() ?? false;
     $isReservationStore = $store?->isReservationStore() ?? false;
     $businessLabel = $isRestaurant ? 'restaurante' : ($isReservationStore ? 'negocio de reservas' : 'tienda');
     $cartLabel = $isRestaurant ? 'pedido' : ($isReservationStore ? 'reserva' : 'carrito');
     $itemsLabel = $isRestaurant ? 'platos' : ($isReservationStore ? 'servicios' : 'productos');
     $itemLabel = $isRestaurant ? 'plato' : ($isReservationStore ? 'servicio' : 'producto');
     $brandTheme = \App\Support\BrandTheme::from($store?->brand_color);
+    $storefrontUrls = app(\App\Services\StorefrontUrlService::class);
+    $cartCount = collect($cart)->sum('quantity');
+    $instagramUrl = $page?->instagramUrl;
+    $facebookUrl = $page?->facebookUrl;
+    $tiktokUrl = $page?->tiktokUrl;
+    $showAboutSection = $store && trim((string) $store->mission) !== '' && trim((string) $store->vision) !== '';
     $shippingMethods = collect($shippingMethods ?? []);
+    $colombiaDepartments = collect($colombiaDepartments ?? []);
+    $colombiaLocations = collect($colombiaLocations ?? []);
+    $usesColombiaLocations = $colombiaDepartments->isNotEmpty() && $colombiaLocations->isNotEmpty();
+    $localDelivery = $localDelivery ?? null;
+    $hasLocalDelivery = (bool) ($store?->localDeliveryEnabled() ?? false);
     $selectedShippingKey = old('shipping_method', $shippingMethods->first()['key'] ?? null);
     $selectedShipping = $shippingMethods->firstWhere('key', (string) $selectedShippingKey) ?? $shippingMethods->first();
-    $shippingCost = (float) ($selectedShipping['checkout_cost'] ?? 0);
+    $shippingCost = (float) (($localDelivery['cost'] ?? null) ?? ($selectedShipping['checkout_cost'] ?? 0));
     $checkoutTotal = $total + $shippingCost;
+    $hasShippingCost = $hasLocalDelivery || $shippingMethods->isNotEmpty();
 @endphp
 <body
-    class="cart-page"
+    class="cart-page {{ $isTechnologyStore ? 'cart-page--technology storefront-page--technology storefront-page--minimal-grid' : '' }}"
     data-csrf="{{ csrf_token() }}"
     data-feedback-updated="{{ $isRestaurant ? 'Pedido actualizado' : ($isReservationStore ? 'Reserva actualizada' : 'Carrito actualizado') }}"
     data-feedback-update-error="{{ $isRestaurant ? 'No se pudo actualizar el pedido.' : ($isReservationStore ? 'No se pudo actualizar la reserva.' : 'No se pudo actualizar el carrito.') }}"
@@ -29,9 +47,19 @@
     data-store-slug="{{ $store?->slug }}"
     data-cart-subtotal="{{ $total }}"
     data-free-shipping-minimum="{{ $store?->free_shipping_minimum ?? '' }}"
+    data-local-delivery-enabled="{{ $hasLocalDelivery ? '1' : '0' }}"
+    data-local-delivery-area="{{ $store?->local_delivery_area ?? '' }}"
+    data-local-delivery-city-code="{{ \App\Models\Store::supportsLocalDeliveryCityCodeColumn() ? ($store?->local_delivery_city_code ?? '') : '' }}"
+    data-local-delivery-cost="{{ $store?->local_delivery_cost ?? '' }}"
+    data-outside-delivery-cost="{{ $store?->outside_delivery_cost ?? '' }}"
     style="--accent: {{ $brandTheme->color }};"
 >
+    @if($isTechnologyStore && $store)
+        @include('storefront.partials.header-minimal-grid')
+    @endif
+
     @if (empty($cart))
+        <main class="{{ $isTechnologyStore ? 'tech-checkout-shell shell' : '' }}">
         <div class="empty-state">
             <h1 class="section-title">Tu {{ $cartLabel }} esta vacio</h1>
             <p>No hay {{ $itemsLabel }} agregados todavia.</p>
@@ -39,7 +67,15 @@
                 <a href="{{ url('/' . $store->slug) }}">Volver al {{ $businessLabel }}</a>
             @endif
         </div>
+        </main>
     @else
+        <main class="{{ $isTechnologyStore ? 'tech-checkout-shell shell' : '' }}">
+        @if($isTechnologyStore)
+            <section class="tech-checkout-head">
+                <h1>Finalizar compra</h1>
+            </section>
+        @endif
+
         <div class="checkout">
             <main class="checkout-main">
                 <div class="checkout-inner">
@@ -92,11 +128,43 @@
                                 <input class="field" type="text" name="neighborhood" placeholder="Barrio" value="{{ old('neighborhood') }}" required>
                             </div>
 
-                            <div class="grid-two field-wrap">
-                                <input class="field" type="text" name="city" placeholder="Ciudad" value="{{ old('city') }}" required>
+                            @if($usesColombiaLocations)
+                                <div class="grid-two field-wrap">
+                                    <select class="field" name="department_code" required data-department-select>
+                                        <option value="">Departamento</option>
+                                        @foreach($colombiaDepartments as $department)
+                                            <option value="{{ $department->department_code }}" @selected(old('department_code') === $department->department_code)>{{ $department->department_name }}</option>
+                                        @endforeach
+                                    </select>
 
-                                <input class="field" type="text" name="region" placeholder="Provincia / Estado (opcional)" value="{{ old('region') }}">
-                            </div>
+                                    <select class="field" name="city_code" required data-city-select data-city-input disabled>
+                                        <option value="">Ciudad / municipio</option>
+                                        @foreach($colombiaLocations as $location)
+                                            <option
+                                                value="{{ $location->city_code }}"
+                                                data-department="{{ $location->department_code }}"
+                                                data-city-name="{{ $location->city_name }}"
+                                                @selected(old('city_code') === $location->city_code)
+                                            >{{ $location->city_name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            @else
+                                <div class="grid-two field-wrap">
+                                    <input class="field" type="text" name="city" placeholder="Ciudad" value="{{ old('city') }}" required data-city-input>
+                                    <input class="field" type="text" name="region" placeholder="Provincia / Estado (opcional)" value="{{ old('region') }}">
+                                </div>
+                            @endif
+
+                            @if($hasLocalDelivery)
+                                <div class="field-wrap local-delivery-preview" data-local-delivery-preview>
+                                    <div>
+                                        <span data-local-delivery-label>Envio por ciudad</span>
+                                        <small>Selecciona la ciudad para calcular el costo de envio.</small>
+                                    </div>
+                                    <strong data-local-delivery-price>Por calcular</strong>
+                                </div>
+                            @endif
 
                             @if($isReservationStore)
                                 @php
@@ -123,7 +191,7 @@
                                 </div>
                             @endif
 
-                            @if($shippingMethods->isNotEmpty())
+                            @if(! $hasLocalDelivery && $shippingMethods->isNotEmpty())
                                 <fieldset class="field-wrap shipping-fieldset">
                                     <legend class="checkout-field-label">Metodo de envio</legend>
                                     <div class="shipping-options">
@@ -176,6 +244,13 @@
             </main>
 
             <aside class="checkout-side">
+                @if($isTechnologyStore)
+                    <div class="tech-checkout-summary-head">
+                        <h2>Resumen del pedido</h2>
+                        <a href="{{ route('cart.index', ['store' => $store?->slug]) }}">Editar carrito</a>
+                    </div>
+                @endif
+
                 @if ($store && ! $isRestaurant)
                     <div class="cart-store-card">
                         <div class="cart-store-brand">
@@ -242,17 +317,17 @@
                     </div>
 
                     <div class="summary-total">
-                        <div class="summary-total-label">{{ $shippingMethods->isNotEmpty() ? 'Subtotal' : 'Total' }}</div>
+                        <div class="summary-total-label">{{ $hasShippingCost ? 'Subtotal' : 'Total' }}</div>
                         <div class="summary-total-price">
                             <small>COP</small>
                             <strong data-role="total">$ {{ number_format($total, 0, ',', '.') }}</strong>
                         </div>
                     </div>
 
-                    @if($shippingMethods->isNotEmpty())
+                    @if($hasShippingCost)
                         <div class="summary-line">
                             <span>Envio</span>
-                            <strong data-role="shipping-total">{{ $shippingCost > 0 ? '$ ' . number_format($shippingCost, 0, ',', '.') : 'Gratis' }}</strong>
+                            <strong data-role="shipping-total">{{ $hasLocalDelivery && ! old('city') ? 'Por calcular' : ($shippingCost > 0 ? '$ ' . number_format($shippingCost, 0, ',', '.') : 'Gratis') }}</strong>
                         </div>
 
                         <div class="summary-total summary-total--grand">
@@ -266,6 +341,11 @@
                 </div>
             </aside>
         </div>
+        </main>
+    @endif
+
+    @if($isTechnologyStore && $store)
+        @include('storefront.partials.footer-minimal-grid')
     @endif
 
     <div class="cart-feedback" id="cartFeedback" aria-live="polite"></div>

@@ -68,6 +68,11 @@
             </div>
             <p class="settings-help" style="margin-top:-6px;">El precio actual queda como precio de oferta.</p>
         @endif
+        @if($store?->allowsCustomProductBadges())
+            <label class="field-label" for="custom_badges">Etiquetas personalizadas</label>
+            <input id="custom_badges" type="text" name="custom_badges" value="{{ old('custom_badges') }}" maxlength="255" placeholder="Ej: Nuevo, Mas vendido, Ultimas unidades">
+            <p class="settings-help" style="margin-top:-6px;">Se muestran hasta 3 etiquetas cortas, separadas por coma.</p>
+        @endif
         @if(! ($store?->isReservationStore() ?? false))
             <label class="field-label" for="stock_quantity">Stock disponible</label>
             <input id="stock_quantity" type="number" name="stock_quantity" min="0" step="1" value="{{ old('stock_quantity') }}" placeholder="Cantidad disponible (vacio = ilimitado)">

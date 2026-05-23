@@ -302,6 +302,15 @@ class CheckoutService
             return ['name' => null, 'cost' => 0];
         }
 
+        if ($store->localDeliveryEnabled()) {
+            return $store->deliveryByCity(
+                $customerData['city'] ?? null,
+                $subtotal,
+                $customerData['city_code'] ?? null,
+            )
+                ?? ['name' => null, 'cost' => 0];
+        }
+
         $methods = $store->shippingMethods();
 
         if ($methods === []) {

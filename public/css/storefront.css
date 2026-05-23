@@ -188,7 +188,7 @@ body.storefront-page .product-detail-copy h1 {
 
 .navbar-inner {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(180px, auto) minmax(0, 1fr) auto;
     align-items: center;
     gap: 18px;
     padding: 18px 0 16px;
@@ -203,6 +203,7 @@ body.storefront-page .product-detail-copy h1 {
     align-items: center;
     gap: 14px;
     color: var(--nav-text);
+    min-width: 0;
 }
 
 .brand-mark {
@@ -210,10 +211,12 @@ body.storefront-page .product-detail-copy h1 {
     flex-direction: column;
     gap: 3px;
     color: var(--store-nav-text, var(--nav-text));
+    min-width: 0;
 }
 
 .brand-mark span {
     color: inherit;
+    overflow-wrap: anywhere;
 }
 
 .brand-logo {
@@ -225,9 +228,10 @@ body.storefront-page .product-detail-copy h1 {
 }
 
 .nav-links {
+    min-width: 0;
     display: flex;
     align-items: center;
-    gap: clamp(22px, 3.2vw, 48px);
+    gap: clamp(16px, 2.4vw, 34px);
     font-size: 13px;
     color: var(--nav-text);
 }
@@ -276,6 +280,7 @@ body.storefront-page .product-detail-copy h1 {
 
 .nav-dropdown {
     position: relative;
+    min-width: 0;
 }
 
 .nav-dropdown-button {
@@ -290,6 +295,7 @@ body.storefront-page .product-detail-copy h1 {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    white-space: nowrap;
 }
 
 .nav-dropdown-icon {
@@ -308,20 +314,24 @@ body.storefront-page .product-detail-copy h1 {
 .nav-dropdown-menu {
     position: absolute;
     top: calc(100% + 14px);
-    left: 0;
-    min-width: 220px;
-    max-width: min(620px, calc(100vw - 32px));
+    left: 50%;
+    width: min(560px, calc(100vw - 32px));
+    min-width: min(260px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
     max-height: min(420px, calc(100vh - 120px));
-    overflow-y: auto;
+    overflow: auto;
     display: none;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-    gap: 4px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+    gap: 6px;
     padding: 10px;
     border: 1px solid var(--line);
     border-radius: 14px;
     background: color-mix(in srgb, var(--brand-color, #111) 8%, #ffffff);
     box-shadow: var(--shadow);
+    transform: translateX(-50%);
     z-index: 60;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--brand-color, #111) 45%, transparent) transparent;
 }
 
 .nav-dropdown.is-open .nav-dropdown-menu {
@@ -329,11 +339,16 @@ body.storefront-page .product-detail-copy h1 {
 }
 
 .nav-dropdown-menu a {
+    min-width: 0;
+    min-height: 40px;
     padding: 10px 12px;
     border-radius: 10px;
     color: var(--nav-text);
     font-size: 13px;
     font-weight: 600;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    word-break: normal;
 }
 
 .nav-dropdown-menu a:hover {
@@ -1063,11 +1078,19 @@ body.storefront-page .product-detail-copy h1 {
     overflow: hidden;
 }
 
-.product-offer-badge {
+.product-badges {
     position: absolute;
     top: 12px;
     left: 12px;
     z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    max-width: calc(100% - 24px);
+}
+
+.product-offer-badge {
     min-height: 26px;
     padding: 0 12px;
     border-radius: 999px;
@@ -1080,6 +1103,10 @@ body.storefront-page .product-detail-copy h1 {
     font-weight: 800;
     line-height: 1;
     box-shadow: 0 10px 22px rgba(17, 24, 39, 0.16);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .product-image img {
@@ -1740,7 +1767,33 @@ body.storefront-page .product-detail-copy h1 {
     .nav-dropdown-button,
     .nav-dropdown-menu a {
         min-height: 44px;
+        padding: 0;
         align-items: center;
+        transition: color .18s ease;
+    }
+
+    .nav-links > a::after,
+    .nav-dropdown-button::after {
+        display: block;
+        bottom: 5px;
+    }
+
+    .nav-links > a:hover,
+    .nav-links > a:focus-visible,
+    .nav-dropdown.is-open .nav-dropdown-button,
+    .nav-dropdown-button:hover,
+    .nav-dropdown-button:focus-visible,
+    .nav-dropdown-menu a:hover,
+    .nav-dropdown-menu a:focus-visible {
+        color: var(--store-text);
+        outline: none;
+    }
+
+    .nav-links > a:hover::after,
+    .nav-links > a:focus-visible::after,
+    .nav-dropdown-button:hover::after,
+    .nav-dropdown-button:focus-visible::after {
+        transform: scaleX(1);
     }
 
     .nav-dropdown,
@@ -1753,11 +1806,17 @@ body.storefront-page .product-detail-copy h1 {
         position: static;
         display: none;
         grid-template-columns: 1fr;
+        width: 100%;
+        min-width: 0;
         margin-top: 10px;
         max-width: none;
         max-height: 320px;
-        padding: 8px 0 0 12px;
+        padding: 8px 0 0;
         border-radius: 0;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        transform: none;
     }
 
     .nav-dropdown.is-open .nav-dropdown-menu {
@@ -1821,7 +1880,7 @@ body.storefront-page .product-detail-copy h1 {
     }
 
     .store-announcement-message {
-        font-size: 12px;
+        font-size: 13px;
         font-weight: 800;
         line-height: 1.2;
     }
@@ -1852,6 +1911,7 @@ body.storefront-page .product-detail-copy h1 {
         width: 100%;
         flex-direction: column;
         gap: 12px;
+        font-size: 16px;
     }
 
     .nav-panel {
@@ -1878,7 +1938,7 @@ body.storefront-page .product-detail-copy h1 {
     }
 
     .featured-description {
-        font-size: 14px;
+        font-size: 15px;
         line-height: 1.7;
     }
 
@@ -1944,12 +2004,14 @@ body.storefront-page .product-detail-copy h1 {
     .product-search-control input {
         height: 44px;
         text-align: center;
+        font-size: 14px;
     }
 
     .product-search-control button {
         width: 100%;
         min-height: 44px;
         border-radius: 14px;
+        font-size: 13px;
     }
 
     .products-grid {
@@ -1973,7 +2035,8 @@ body.storefront-page .product-detail-copy h1 {
     }
 
     .category-block-copy h2 {
-        font-size: 26px;
+        font-size: 28px;
+        line-height: 1.08;
     }
 
     .footer {
@@ -2024,7 +2087,7 @@ body.storefront-page .product-detail-copy h1 {
     }
 
     .store-announcement-message {
-        font-size: 11px;
+        font-size: 12px;
     }
 
     .store-announcement-group span:not(:last-child)::after,
@@ -2042,7 +2105,7 @@ body.storefront-page .product-detail-copy h1 {
 
     .brand {
         gap: 10px;
-        font-size: 20px;
+        font-size: 21px;
     }
 
     .mobile-cart-link {
@@ -2065,8 +2128,8 @@ body.storefront-page .product-detail-copy h1 {
     }
 
     .featured-description {
-        font-size: 13px;
-        line-height: 1.6;
+        font-size: 14px;
+        line-height: 1.65;
     }
 
     .store-hero-media {
@@ -2100,7 +2163,8 @@ body.storefront-page .product-detail-copy h1 {
         min-height: 46px;
         padding-left: 16px;
         padding-right: 16px;
-        font-size: 11px;
+        font-size: 12px;
+        letter-spacing: 0.04em;
     }
 
     .featured-quantity-box {
@@ -2109,7 +2173,8 @@ body.storefront-page .product-detail-copy h1 {
     }
 
     .catalog-head h2 {
-        font-size: 24px;
+        font-size: 26px;
+        line-height: 1.08;
     }
 
     .products-grid {
@@ -2117,18 +2182,32 @@ body.storefront-page .product-detail-copy h1 {
     }
 
     .product-card h3 {
-        font-size: 15px;
-        line-height: 1.18;
+        font-size: 16px;
+        line-height: 1.2;
     }
 
     .price {
-        font-size: 14px;
+        font-size: 15px;
+    }
+
+    .price-before {
+        font-size: 12px;
+    }
+
+    .product-offer-badge {
+        min-height: 24px;
+        padding: 0 10px;
+        font-size: 11px;
     }
 
     .product-preview-link {
         min-height: 42px;
-        font-size: 10px;
-        letter-spacing: 0.06em;
+        font-size: 11px;
+        letter-spacing: 0.04em;
+    }
+
+    .product-options--card select {
+        font-size: 13px;
     }
 
     .store-pagination {

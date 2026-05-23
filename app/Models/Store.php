@@ -7,6 +7,7 @@ use App\Support\BrandTheme;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class Store extends Model
 {
@@ -17,6 +18,8 @@ class Store extends Model
     private static ?bool $supportsSubdomainColumn = null;
     private static ?bool $supportsCustomDomainColumns = null;
     private static ?bool $supportsShippingMethodsColumn = null;
+    private static ?bool $supportsLocalDeliveryColumns = null;
+    private static ?bool $supportsLocalDeliveryCityCodeColumn = null;
 
     public const PRODUCT_SEARCH_THRESHOLD = 20;
 
@@ -77,6 +80,10 @@ class Store extends Model
         'announcement_items',
         'free_shipping_minimum',
         'shipping_methods',
+        'local_delivery_area',
+        'local_delivery_city_code',
+        'local_delivery_cost',
+        'outside_delivery_cost',
         'reservation_available_days',
         'reservation_time_start',
         'reservation_time_end',
@@ -103,6 +110,8 @@ class Store extends Model
         'announcement_items' => 'array',
         'free_shipping_minimum' => 'decimal:2',
         'shipping_methods' => 'array',
+        'local_delivery_cost' => 'decimal:2',
+        'outside_delivery_cost' => 'decimal:2',
         'reservation_available_days' => 'array',
         'responsive_product_columns' => 'integer',
         'show_hero_products_action' => 'boolean',
@@ -184,6 +193,11 @@ class Store extends Model
         return ! $this->isBasicPlan();
     }
 
+    public function allowsTemplates(): bool
+    {
+        return ! $this->isBasicPlan();
+    }
+
     public function allowsCustomDomain(): bool
     {
         return ($this->plan ?? self::PLAN_PRO) === self::PLAN_PREMIUM;
@@ -199,6 +213,16 @@ class Store extends Model
         return ($this->plan ?? self::PLAN_PRO) === self::PLAN_PREMIUM;
     }
 
+    public function allowsCustomProductBadges(): bool
+    {
+        return ($this->plan ?? self::PLAN_PRO) === self::PLAN_PREMIUM;
+    }
+
+    public function allowsProductReviews(): bool
+    {
+        return ! $this->isBasicPlan() && ProductReview::supportsTable();
+    }
+
     public function hasOfferProducts(): bool
     {
         return $this->allowsOfferBadges()
@@ -209,6 +233,53 @@ class Store extends Model
     public static function supportsShippingMethodsColumn(): bool
     {
         return self::$supportsShippingMethodsColumn ??= Schema::hasColumn('stores', 'shipping_methods');
+    }
+
+    public static function supportsLocalDeliveryColumns(): bool
+    {
+        return self::$supportsLocalDeliveryColumns ??= Schema::hasColumn('stores', 'local_delivery_area')
+            && Schema::hasColumn('stores', 'local_delivery_cost')
+            && Schema::hasColumn('stores', 'outside_delivery_cost');
+    }
+
+    public static function supportsLocalDeliveryCityCodeColumn(): bool
+    {
+        return self::$supportsLocalDeliveryCityCodeColumn ??= Schema::hasColumn('stores', 'local_delivery_city_code');
+    }
+
+    public static function normalizeDeliveryCity(?string $value): string
+    {
+        $value = Str::ascii(Str::lower(trim((string) $value)));
+        $value = preg_replace('/[^a-z0-9\s-]+/', ' ', $value) ?? '';
+
+        return trim(preg_replace('/\s+/', ' ', $value) ?? '');
+    }
+
+    public function localDeliveryEnabled(): bool
+    {
+        return $this->allowsShippingMethods()
+            && self::supportsLocalDeliveryColumns()
+            && self::normalizeDeliveryCity($this->local_delivery_area) !== ''
+            && $this->local_delivery_cost !== null
+            && $this->outside_delivery_cost !== null;
+    }
+
+    public function deliveryByCity(?string $city, float $subtotal, ?string $cityCode = null): ?array
+    {
+        if (! $this->localDeliveryEnabled()) {
+            return null;
+        }
+
+        $localCity = trim((string) $this->local_delivery_area);
+        $isLocal = $this->isLocalDeliveryCity($city, $cityCode);
+        $baseCost = max(0, (float) ($isLocal ? $this->local_delivery_cost : $this->outside_delivery_cost));
+
+        return [
+            'name' => $isLocal ? 'Envio local: ' . $localCity : 'Envio fuera de ' . $localCity,
+            'cost' => $this->shippingCostForAmount($baseCost, $subtotal),
+            'base_cost' => $baseCost,
+            'is_local' => $isLocal,
+        ];
     }
 
     public function shippingMethods(): array
@@ -246,6 +317,13 @@ class Store extends Model
     {
         $cost = max(0, (float) ($method['cost'] ?? 0));
 
+        return $this->shippingCostForAmount($cost, $subtotal);
+    }
+
+    public function shippingCostForAmount(float $cost, float $subtotal): float
+    {
+        $cost = max(0, $cost);
+
         if ($this->free_shipping_minimum !== null
             && $this->free_shipping_minimum > 0
             && $subtotal >= (float) $this->free_shipping_minimum
@@ -254,6 +332,20 @@ class Store extends Model
         }
 
         return $cost;
+    }
+
+    private function isLocalDeliveryCity(?string $city, ?string $cityCode = null): bool
+    {
+        $localCityCode = self::supportsLocalDeliveryCityCodeColumn()
+            ? trim((string) $this->local_delivery_city_code)
+            : '';
+        $customerCityCode = trim((string) $cityCode);
+
+        if ($localCityCode !== '' && $customerCityCode !== '') {
+            return $localCityCode === $customerCityCode;
+        }
+
+        return self::normalizeDeliveryCity($city) === self::normalizeDeliveryCity($this->local_delivery_area);
     }
 
     public static function reservedSubdomains(): array
