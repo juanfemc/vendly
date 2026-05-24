@@ -493,11 +493,11 @@
                     </div>
                     <div class="settings-field">
                         <label class="field-label" for="local_delivery_cost">Precio local</label>
-                        <input id="local_delivery_cost" type="number" name="local_delivery_cost" value="{{ old('local_delivery_cost', $store->local_delivery_cost) }}" min="0" step="1000" placeholder="5000">
+                        <input id="local_delivery_cost" type="number" name="local_delivery_cost" value="{{ old('local_delivery_cost', $store->local_delivery_cost) }}" min="0" step="1" placeholder="5000">
                     </div>
                     <div class="settings-field">
                         <label class="field-label" for="outside_delivery_cost">Precio fuera de ciudad</label>
-                        <input id="outside_delivery_cost" type="number" name="outside_delivery_cost" value="{{ old('outside_delivery_cost', $store->outside_delivery_cost) }}" min="0" step="1000" placeholder="10000">
+                        <input id="outside_delivery_cost" type="number" name="outside_delivery_cost" value="{{ old('outside_delivery_cost', $store->outside_delivery_cost) }}" min="0" step="1" placeholder="10000">
                     </div>
                 </div>
                 <p class="settings-help">Ejemplo: si la ciudad local es Cali y el cliente escribe Cali, cobra el precio local. Si escribe otra ciudad, cobra el precio fuera de ciudad.</p>
@@ -538,7 +538,7 @@
                                 name="shipping_methods[{{ $shippingIndex }}][cost]"
                                 value="{{ old('shipping_methods.' . $shippingIndex . '.cost', $shippingMethod['cost'] ?? '') }}"
                                 min="0"
-                                step="1000"
+                                step="1"
                                 placeholder="0"
                             >
                         </label>

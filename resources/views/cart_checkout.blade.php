@@ -37,6 +37,9 @@
     $shippingCost = (float) (($localDelivery['cost'] ?? null) ?? ($selectedShipping['checkout_cost'] ?? 0));
     $checkoutTotal = $total + $shippingCost;
     $hasShippingCost = $hasLocalDelivery || $shippingMethods->isNotEmpty();
+    $hasSelectedDeliveryCity = $usesColombiaLocations
+        ? filled(old('city_code'))
+        : filled(old('city'));
 @endphp
 <body
     class="cart-page {{ $isTechnologyStore ? 'cart-page--technology storefront-page--technology storefront-page--minimal-grid' : '' }}"
@@ -327,7 +330,7 @@
                     @if($hasShippingCost)
                         <div class="summary-line">
                             <span>Envio</span>
-                            <strong data-role="shipping-total">{{ $hasLocalDelivery && ! old('city') ? 'Por calcular' : ($shippingCost > 0 ? '$ ' . number_format($shippingCost, 0, ',', '.') : 'Gratis') }}</strong>
+                            <strong data-role="shipping-total">{{ $hasLocalDelivery && ! $hasSelectedDeliveryCity ? 'Por calcular' : ($shippingCost > 0 ? '$ ' . number_format($shippingCost, 0, ',', '.') : 'Gratis') }}</strong>
                         </div>
 
                         <div class="summary-total summary-total--grand">
