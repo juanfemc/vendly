@@ -77,6 +77,7 @@ class StoreRequest extends FormRequest
             'instagram_url',
             'facebook_url',
             'tiktok_url',
+            'meta_pixel_id',
         ]);
     }
 }

@@ -20,6 +20,7 @@ class Store extends Model
     private static ?bool $supportsShippingMethodsColumn = null;
     private static ?bool $supportsLocalDeliveryColumns = null;
     private static ?bool $supportsLocalDeliveryCityCodeColumn = null;
+    private static ?bool $supportsMetaPixelColumn = null;
 
     public const PRODUCT_SEARCH_THRESHOLD = 20;
 
@@ -101,6 +102,7 @@ class Store extends Model
         'instagram_url',
         'facebook_url',
         'tiktok_url',
+        'meta_pixel_id',
         'admin_token',
     ];
 
@@ -216,6 +218,12 @@ class Store extends Model
     public function allowsCustomProductBadges(): bool
     {
         return ($this->plan ?? self::PLAN_PRO) === self::PLAN_PREMIUM;
+    }
+
+    public function allowsMetaPixel(): bool
+    {
+        return ($this->plan ?? self::PLAN_PRO) === self::PLAN_PREMIUM
+            && self::supportsMetaPixelColumn();
     }
 
     public function allowsProductReviews(): bool
@@ -395,6 +403,11 @@ class Store extends Model
         return self::$supportsCustomDomainColumns ??= Schema::hasColumn('stores', 'custom_domain')
             && Schema::hasColumn('stores', 'custom_domain_status')
             && Schema::hasColumn('stores', 'custom_domain_verified_at');
+    }
+
+    public static function supportsMetaPixelColumn(): bool
+    {
+        return self::$supportsMetaPixelColumn ??= Schema::hasColumn('stores', 'meta_pixel_id');
     }
 
     public function visits(): HasMany

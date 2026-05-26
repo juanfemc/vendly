@@ -559,6 +559,29 @@
         </section>
     @endif
 
+    @if(\App\Models\Store::supportsMetaPixelColumn())
+        <section class="settings-section">
+            <div class="settings-section-head">
+                <div>
+                    <h3 class="settings-section-title">Meta Pixel</h3>
+                    <p class="settings-section-copy">Conecta el pixel de Meta para medir visitas de la tienda. Disponible solo en plan Premium.</p>
+                </div>
+            </div>
+
+            @if($store->allowsMetaPixel())
+                <div class="settings-grid">
+                    <div class="settings-field">
+                        <label class="field-label" for="meta_pixel_id">Pixel ID</label>
+                        <input id="meta_pixel_id" type="text" inputmode="numeric" pattern="[0-9]*" name="meta_pixel_id" value="{{ old('meta_pixel_id', $store->meta_pixel_id) }}" maxlength="50" placeholder="Ej: 123456789012345">
+                        <p class="settings-help">Pega solo el ID numerico del pixel. No pegues el script completo.</p>
+                    </div>
+                </div>
+            @else
+                <p class="settings-help">Actualiza a Premium para activar Meta Pixel en la tienda.</p>
+            @endif
+        </section>
+    @endif
+
     @if($store->allowsFullCustomization())
         <section class="settings-section">
             <div class="settings-section-head">

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pedido recibido</title>
     <link rel="stylesheet" href="{{ asset('css/cart-checkout.css') }}">
+    @include('storefront.partials.meta-pixel', ['store' => $store])
 </head>
 @php
     $brandTheme = \App\Support\BrandTheme::from($store?->brand_color);
@@ -25,6 +26,8 @@
             : 'Tu pago esta pendiente de confirmacion. La tienda vera el pedido en su panel cuando Mercado Pago actualice el estado.'));
 @endphp
 <body class="cart-page" style="--accent: {{ $brandTheme->color }};">
+    @include('storefront.partials.meta-pixel-noscript', ['store' => $store])
+
     <main class="payment-return">
         <section class="payment-return-card">
             <div class="payment-return-status {{ $isApproved ? 'is-approved' : ($isRejected ? 'is-rejected' : 'is-pending') }}">

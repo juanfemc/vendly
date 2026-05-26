@@ -683,6 +683,116 @@ test('non premium plans cannot keep custom domains from crafted requests', funct
         ->and($store->custom_domain_verified_at)->toBeNull();
 });
 
+test('premium stores can save and render meta pixel id', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pixel Premium',
+        'slug' => 'tienda-pixel-premium',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->post('/admin/store-settings', [
+            'name' => $store->name,
+            'business_type' => 'store',
+            'whatsapp' => $store->whatsapp,
+            'brand_color' => '#111111',
+            'background_color' => '#ffffff',
+            'font_family' => 'system',
+            'responsive_product_columns' => 2,
+            'show_hero_products_action' => 0,
+            'meta_pixel_id' => '123456789012345',
+        ])
+        ->assertRedirect('/admin/store-settings');
+
+    expect($store->refresh()->meta_pixel_id)->toBe('123456789012345');
+
+    $response = $this->get('/' . $store->slug)
+        ->assertOk()
+        ->assertSee('connect.facebook.net/en_US/fbevents.js', false)
+        ->assertSee('123456789012345', false)
+        ->assertSee("fbq('track', 'PageView')", false);
+
+    $html = $response->getContent();
+    $head = \Illuminate\Support\Str::before($html, '</head>');
+    $body = \Illuminate\Support\Str::after($html, '<body');
+
+    expect($head)->not->toContain('<noscript>')
+        ->and($body)->toContain('<noscript>');
+});
+
+test('meta pixel id is only available for premium stores', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pro Sin Pixel',
+        'slug' => 'tienda-pro-sin-pixel',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PRO,
+        'meta_pixel_id' => '123456789012345',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->post('/admin/store-settings', [
+            'name' => $store->name,
+            'business_type' => 'store',
+            'whatsapp' => $store->whatsapp,
+            'brand_color' => '#111111',
+            'background_color' => '#ffffff',
+            'font_family' => 'system',
+            'responsive_product_columns' => 2,
+            'show_hero_products_action' => 0,
+            'meta_pixel_id' => '987654321098765',
+        ])
+        ->assertRedirect('/admin/store-settings');
+
+    expect($store->refresh()->meta_pixel_id)->toBeNull();
+
+    $this->get('/' . $store->slug)
+        ->assertOk()
+        ->assertDontSee('connect.facebook.net/en_US/fbevents.js', false)
+        ->assertDontSee('987654321098765', false);
+});
+
+test('meta pixel id must be numeric', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pixel Seguro',
+        'slug' => 'tienda-pixel-seguro',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->post('/admin/store-settings', [
+            'name' => $store->name,
+            'business_type' => 'store',
+            'whatsapp' => $store->whatsapp,
+            'brand_color' => '#111111',
+            'background_color' => '#ffffff',
+            'font_family' => 'system',
+            'responsive_product_columns' => 2,
+            'show_hero_products_action' => 0,
+            'meta_pixel_id' => '<script>alert(1)</script>',
+        ])
+        ->assertSessionHasErrors('meta_pixel_id');
+});
+
 test('subdomain must be unique and cannot use reserved words', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $firstUser = User::factory()->create([

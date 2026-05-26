@@ -50,6 +50,10 @@
             <option value="verified" @selected(old('custom_domain_status', $store->custom_domain_status) === 'verified')>Verificado</option>
             <option value="failed" @selected(old('custom_domain_status', $store->custom_domain_status) === 'failed')>Fallido</option>
         </select>
+        @if(\App\Models\Store::supportsMetaPixelColumn())
+            <label class="field-label" for="meta_pixel_id">Meta Pixel ID Premium</label>
+            <input id="meta_pixel_id" type="text" inputmode="numeric" pattern="[0-9]*" name="meta_pixel_id" value="{{ old('meta_pixel_id', $store->meta_pixel_id) }}" maxlength="50" placeholder="Ej: 123456789012345">
+        @endif
         <input type="text" name="whatsapp" value="{{ old('whatsapp', $store->whatsapp) }}" placeholder="WhatsApp">
         <input type="text" name="location" value="{{ old('location', $store->location) }}" placeholder="Ubicacion o direccion (opcional)">
         <label class="field-label" for="business_hours">Horario de atencion</label>

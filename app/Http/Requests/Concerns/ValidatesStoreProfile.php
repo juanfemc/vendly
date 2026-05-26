@@ -112,6 +112,7 @@ trait ValidatesStoreProfile
             'instagram_url' => ['nullable', 'url', 'max:255'],
             'facebook_url' => ['nullable', 'url', 'max:255'],
             'tiktok_url' => ['nullable', 'url', 'max:255'],
+            'meta_pixel_id' => ['nullable', 'string', 'max:50', 'regex:/^[0-9]+$/'],
         ];
     }
 
@@ -184,6 +185,14 @@ trait ValidatesStoreProfile
             $this->applyShippingData($data);
         } else {
             $this->clearShippingData($data);
+        }
+
+        if (! Store::supportsMetaPixelColumn()) {
+            unset($data['meta_pixel_id']);
+        } elseif ($effectivePlan === Store::PLAN_PREMIUM) {
+            $data['meta_pixel_id'] = trim((string) ($data['meta_pixel_id'] ?? '')) ?: null;
+        } else {
+            $data['meta_pixel_id'] = null;
         }
 
         if (! Store::supportsReservationScheduleColumns()) {

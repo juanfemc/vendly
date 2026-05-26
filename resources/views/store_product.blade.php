@@ -68,6 +68,7 @@
             : null;
     @endphp
     @include('storefront.partials.seo', ['seo' => $seo])
+    @include('storefront.partials.meta-pixel', ['store' => $store])
     <link rel="stylesheet" href="{{ asset('css/storefront.css') }}?v={{ filemtime(public_path('css/storefront.css')) }}">
     <link rel="stylesheet" href="{{ asset($variantStylesheets[$storefrontVariant]) }}?v={{ filemtime(public_path($variantStylesheets[$storefrontVariant])) }}">
     <link rel="stylesheet" href="{{ asset('css/store-product.css') }}?v={{ filemtime(public_path('css/store-product.css')) }}">
@@ -81,6 +82,8 @@
     data-feedback-error="{{ $isRestaurant ? 'No pudimos agregar el plato' : ($isReservationStore ? 'No pudimos agregar el servicio' : 'No pudimos agregar el producto') }}"
     style="{{ $store->storefrontCssVariables($brandTheme, $responsiveProductColumns) }}"
 >
+    @include('storefront.partials.meta-pixel-noscript', ['store' => $store])
+
     @if($storefrontVariant === 'technology')
         @include('storefront.partials.header-minimal-grid')
         @include('storefront.partials.minimal-product-detail')

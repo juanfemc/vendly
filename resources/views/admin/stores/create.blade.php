@@ -40,6 +40,10 @@
         <input id="subdomain" type="text" name="subdomain" value="{{ old('subdomain') }}" placeholder="Subdominio (ej: mitienda)">
         <label class="field-label" for="custom_domain">Dominio personalizado Premium</label>
         <input id="custom_domain" type="text" name="custom_domain" value="{{ old('custom_domain') }}" placeholder="www.tudominio.com">
+        @if(\App\Models\Store::supportsMetaPixelColumn())
+            <label class="field-label" for="meta_pixel_id">Meta Pixel ID Premium</label>
+            <input id="meta_pixel_id" type="text" inputmode="numeric" pattern="[0-9]*" name="meta_pixel_id" value="{{ old('meta_pixel_id') }}" maxlength="50" placeholder="Ej: 123456789012345">
+        @endif
         <input type="text" name="whatsapp" value="{{ old('whatsapp') }}" placeholder="WhatsApp">
         <input type="text" name="location" value="{{ old('location') }}" placeholder="Ubicacion o direccion (opcional)">
         <label class="field-label" for="business_hours">Horario de atencion</label>
