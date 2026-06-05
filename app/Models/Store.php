@@ -21,12 +21,19 @@ class Store extends Model
     private static ?bool $supportsLocalDeliveryColumns = null;
     private static ?bool $supportsLocalDeliveryCityCodeColumn = null;
     private static ?bool $supportsMetaPixelColumn = null;
+    private static ?bool $supportsSubscriptionColumns = null;
 
     public const PRODUCT_SEARCH_THRESHOLD = 20;
+    public const TRIAL_DAYS = 7;
 
     public const PLAN_BASIC = 'basic';
     public const PLAN_PRO = 'pro';
     public const PLAN_PREMIUM = 'premium';
+
+    public const SUBSCRIPTION_TRIALING = 'trialing';
+    public const SUBSCRIPTION_ACTIVE = 'active';
+    public const SUBSCRIPTION_EXPIRED = 'expired';
+    public const SUBSCRIPTION_PAUSED = 'paused';
 
     public const CUSTOM_DOMAIN_PENDING = 'pending';
     public const CUSTOM_DOMAIN_VERIFIED = 'verified';
@@ -58,6 +65,7 @@ class Store extends Model
         'store' => 'Tienda',
         'restaurant' => 'Restaurante',
         'technology' => 'Tecnologia',
+        'fashion' => 'Ropa',
         'supplements' => 'Suplementos',
         'reservations' => 'Reservas',
     ];
@@ -70,12 +78,21 @@ class Store extends Model
         'name',
         'business_type',
         'plan',
+        'subscription_status',
+        'trial_starts_at',
+        'trial_ends_at',
+        'subscription_ends_at',
         'slug',
         'subdomain',
         'custom_domain',
         'custom_domain_status',
         'custom_domain_verified_at',
         'whatsapp',
+        'whatsapp_consent_at',
+        'whatsapp_consent_version',
+        'whatsapp_consent_text',
+        'whatsapp_consent_source',
+        'whatsapp_consent_ip_hash',
         'location',
         'business_hours',
         'announcement_items',
@@ -118,6 +135,10 @@ class Store extends Model
         'responsive_product_columns' => 'integer',
         'show_hero_products_action' => 'boolean',
         'custom_domain_verified_at' => 'datetime',
+        'trial_starts_at' => 'datetime',
+        'trial_ends_at' => 'datetime',
+        'subscription_ends_at' => 'datetime',
+        'whatsapp_consent_at' => 'datetime',
     ];
 
     public function isRestaurant(): bool
@@ -134,9 +155,311 @@ class Store extends Model
         ];
     }
 
+    public static function subscriptionStatusOptions(): array
+    {
+        return [
+            self::SUBSCRIPTION_TRIALING => 'Prueba gratis',
+            self::SUBSCRIPTION_ACTIVE => 'Activa',
+            self::SUBSCRIPTION_EXPIRED => 'Vencida',
+            self::SUBSCRIPTION_PAUSED => 'Pausada',
+        ];
+    }
+
     public function planLabel(): string
     {
         return self::planOptions()[$this->plan ?? self::PLAN_PRO] ?? 'Pro';
+    }
+
+    public function subscriptionStatusLabel(): string
+    {
+        return self::subscriptionStatusOptions()[$this->subscriptionStatus()] ?? 'Activa';
+    }
+
+    public function subscriptionStatus(): string
+    {
+        if (! self::supportsSubscriptionColumns()) {
+            return self::SUBSCRIPTION_ACTIVE;
+        }
+
+        $status = trim((string) ($this->subscription_status ?: self::SUBSCRIPTION_ACTIVE));
+
+        return array_key_exists($status, self::subscriptionStatusOptions())
+            ? $status
+            : self::SUBSCRIPTION_ACTIVE;
+    }
+
+    public function startTrial(int $days = self::TRIAL_DAYS, string $plan = self::PLAN_PREMIUM): void
+    {
+        $startsAt = now();
+        $trialPlan = array_key_exists($plan, self::planOptions()) ? $plan : self::PLAN_PREMIUM;
+
+        if (! self::supportsSubscriptionColumns()) {
+            $this->forceFill(['plan' => $trialPlan])->save();
+
+            return;
+        }
+
+        $this->forceFill([
+            'plan' => $trialPlan,
+            'subscription_status' => self::SUBSCRIPTION_TRIALING,
+            'trial_starts_at' => $startsAt,
+            'trial_ends_at' => $startsAt->copy()->addDays(max(1, $days)),
+            'subscription_ends_at' => null,
+        ])->save();
+    }
+
+    public function activateSubscription(int $days = 30, ?string $plan = null): void
+    {
+        $subscriptionPlan = array_key_exists((string) $plan, self::planOptions())
+            ? (string) $plan
+            : ($this->plan ?? self::PLAN_PRO);
+
+        if (! self::supportsSubscriptionColumns()) {
+            $this->forceFill([
+                'is_active' => true,
+                'plan' => $subscriptionPlan,
+            ])->save();
+
+            return;
+        }
+
+        $startsFrom = $this->subscriptionStatus() === self::SUBSCRIPTION_ACTIVE
+            && $this->subscription_ends_at
+            && $this->subscription_ends_at->copy()->endOfDay()->isFuture()
+                ? $this->subscription_ends_at->copy()
+                : now();
+
+        $this->forceFill([
+            'is_active' => true,
+            'plan' => $subscriptionPlan,
+            'subscription_status' => self::SUBSCRIPTION_ACTIVE,
+            'trial_starts_at' => null,
+            'trial_ends_at' => null,
+            'subscription_ends_at' => $startsFrom->endOfDay()->addDays(max(1, $days)),
+        ])->save();
+    }
+
+    public function isTrialing(): bool
+    {
+        return $this->subscriptionStatus() === self::SUBSCRIPTION_TRIALING
+            && $this->trial_ends_at
+            && $this->trial_ends_at->copy()->endOfDay()->isFuture();
+    }
+
+    public function trialExpired(): bool
+    {
+        return $this->subscriptionStatus() === self::SUBSCRIPTION_TRIALING
+            && $this->trial_ends_at
+            && $this->trial_ends_at->copy()->endOfDay()->isPast();
+    }
+
+    public function trialDaysRemaining(): int
+    {
+        if (! $this->isTrialing()) {
+            return 0;
+        }
+
+        return (int) max(0, now()->startOfDay()->diffInDays($this->trial_ends_at->copy()->startOfDay(), false));
+    }
+
+    public function hasActiveSubscription(): bool
+    {
+        if (! self::supportsSubscriptionColumns()) {
+            return true;
+        }
+
+        if ($this->isTrialing()) {
+            return true;
+        }
+
+        if ($this->subscriptionStatus() !== self::SUBSCRIPTION_ACTIVE) {
+            return false;
+        }
+
+        return ! $this->subscription_ends_at || $this->subscription_ends_at->copy()->endOfDay()->isFuture();
+    }
+
+    public function subscriptionEndsSoon(int $days = 3): bool
+    {
+        if (! self::supportsSubscriptionColumns()) {
+            return false;
+        }
+
+        $endsAt = $this->subscriptionStatus() === self::SUBSCRIPTION_TRIALING
+            ? $this->trial_ends_at
+            : $this->subscription_ends_at;
+
+        return $endsAt
+            && $endsAt->copy()->endOfDay()->isFuture()
+            && $endsAt->toDateString() <= now()->addDays($days)->toDateString();
+    }
+
+    public function subscriptionRemainingLabel(): string
+    {
+        if (! self::supportsSubscriptionColumns()) {
+            return 'Activa';
+        }
+
+        if ($this->subscriptionExpired()) {
+            return 'Vencida';
+        }
+
+        $endsAt = $this->subscriptionStatus() === self::SUBSCRIPTION_TRIALING
+            ? $this->trial_ends_at
+            : $this->subscription_ends_at;
+
+        if (! $endsAt) {
+            return $this->subscriptionStatusLabel();
+        }
+
+        if ($endsAt->isToday()) {
+            return 'Vence hoy';
+        }
+
+        $days = (int) max(0, now()->startOfDay()->diffInDays($endsAt->copy()->startOfDay(), false));
+
+        return $days === 1 ? '1 dia restante' : $days . ' dias restantes';
+    }
+
+    public function subscriptionExpired(): bool
+    {
+        if ($this->trialExpired()) {
+            return true;
+        }
+
+        return $this->subscriptionStatus() === self::SUBSCRIPTION_EXPIRED
+            || ($this->subscriptionStatus() === self::SUBSCRIPTION_ACTIVE
+                && $this->subscription_ends_at
+                && $this->subscription_ends_at->copy()->endOfDay()->isPast());
+    }
+
+    public static function expirePastSubscriptions(): int
+    {
+        if (! self::supportsSubscriptionColumns()) {
+            return 0;
+        }
+
+        $today = now()->toDateString();
+
+        return self::query()
+            ->whereIn('subscription_status', [self::SUBSCRIPTION_TRIALING, self::SUBSCRIPTION_ACTIVE])
+            ->where(function ($query) use ($today) {
+                $query
+                    ->where(function ($query) use ($today) {
+                        $query
+                            ->where('subscription_status', self::SUBSCRIPTION_TRIALING)
+                            ->whereNotNull('trial_ends_at')
+                            ->whereDate('trial_ends_at', '<', $today);
+                    })
+                    ->orWhere(function ($query) use ($today) {
+                        $query
+                            ->where('subscription_status', self::SUBSCRIPTION_ACTIVE)
+                            ->whereNotNull('subscription_ends_at')
+                            ->whereDate('subscription_ends_at', '<', $today);
+                    });
+            })
+            ->update(['subscription_status' => self::SUBSCRIPTION_EXPIRED]);
+    }
+
+    public function scopeExpiredSubscriptions($query)
+    {
+        if (! self::supportsSubscriptionColumns()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $today = now()->toDateString();
+
+        return $query->where(function ($query) use ($today) {
+            $query
+                ->where('subscription_status', self::SUBSCRIPTION_EXPIRED)
+                ->orWhere(function ($query) use ($today) {
+                    $query
+                        ->where('subscription_status', self::SUBSCRIPTION_TRIALING)
+                        ->whereNotNull('trial_ends_at')
+                        ->whereDate('trial_ends_at', '<', $today);
+                })
+                ->orWhere(function ($query) use ($today) {
+                    $query
+                        ->where('subscription_status', self::SUBSCRIPTION_ACTIVE)
+                        ->whereNotNull('subscription_ends_at')
+                        ->whereDate('subscription_ends_at', '<', $today);
+                });
+        });
+    }
+
+    public function scopeSubscriptionsEndingWithin($query, int $days = 3)
+    {
+        if (! self::supportsSubscriptionColumns()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $today = now()->toDateString();
+        $limit = now()->addDays(max(0, $days))->toDateString();
+
+        return $query->where(function ($query) use ($today, $limit) {
+            $query
+                ->where(function ($query) use ($today, $limit) {
+                    $query
+                        ->where('subscription_status', self::SUBSCRIPTION_TRIALING)
+                        ->whereNotNull('trial_ends_at')
+                        ->whereDate('trial_ends_at', '>=', $today)
+                        ->whereDate('trial_ends_at', '<=', $limit);
+                })
+                ->orWhere(function ($query) use ($today, $limit) {
+                    $query
+                        ->where('subscription_status', self::SUBSCRIPTION_ACTIVE)
+                        ->whereNotNull('subscription_ends_at')
+                        ->whereDate('subscription_ends_at', '>=', $today)
+                        ->whereDate('subscription_ends_at', '<=', $limit);
+                });
+        });
+    }
+
+    public function onboardingChecklist(): array
+    {
+        return [
+            'profile' => [
+                'label' => 'Datos principales',
+                'description' => 'Nombre, tipo de negocio y WhatsApp de pedidos.',
+                'complete' => trim((string) $this->name) !== ''
+                    && trim((string) $this->business_type) !== ''
+                    && trim((string) $this->whatsapp) !== '',
+            ],
+            'location' => [
+                'label' => 'Ubicacion',
+                'description' => 'Ciudad o direccion visible para tus clientes.',
+                'complete' => trim((string) $this->location) !== '',
+            ],
+            'identity' => [
+                'label' => 'Identidad visual',
+                'description' => 'Logo y color principal de la tienda.',
+                'complete' => trim((string) $this->logo_image) !== ''
+                    && trim((string) $this->brand_color) !== '',
+            ],
+            'catalog' => [
+                'label' => 'Primer producto',
+                'description' => 'Publica al menos un producto para abrir ventas.',
+                'complete' => $this->exists && $this->products()->exists(),
+            ],
+        ];
+    }
+
+    public function onboardingProgress(): int
+    {
+        $checklist = collect($this->onboardingChecklist());
+
+        if ($checklist->isEmpty()) {
+            return 100;
+        }
+
+        $completed = $checklist->filter(fn (array $item) => (bool) ($item['complete'] ?? false))->count();
+
+        return (int) round(($completed / $checklist->count()) * 100);
+    }
+
+    public function needsOnboarding(): bool
+    {
+        return $this->onboardingProgress() < 100;
     }
 
     public function isBasicPlan(): bool
@@ -224,6 +547,11 @@ class Store extends Model
     {
         return ($this->plan ?? self::PLAN_PRO) === self::PLAN_PREMIUM
             && self::supportsMetaPixelColumn();
+    }
+
+    public function allowsAiContent(): bool
+    {
+        return ($this->plan ?? self::PLAN_PRO) === self::PLAN_PREMIUM;
     }
 
     public function allowsProductReviews(): bool
@@ -410,6 +738,14 @@ class Store extends Model
         return self::$supportsMetaPixelColumn ??= Schema::hasColumn('stores', 'meta_pixel_id');
     }
 
+    public static function supportsSubscriptionColumns(): bool
+    {
+        return self::$supportsSubscriptionColumns ??= Schema::hasColumn('stores', 'subscription_status')
+            && Schema::hasColumn('stores', 'trial_starts_at')
+            && Schema::hasColumn('stores', 'trial_ends_at')
+            && Schema::hasColumn('stores', 'subscription_ends_at');
+    }
+
     public function visits(): HasMany
     {
         return $this->hasMany(StoreVisit::class);
@@ -418,6 +754,11 @@ class Store extends Model
     public function isTechnologyStore(): bool
     {
         return $this->business_type === 'technology';
+    }
+
+    public function isFashionStore(): bool
+    {
+        return $this->business_type === 'fashion';
     }
 
     public function isSupplementStore(): bool
@@ -559,14 +900,16 @@ class Store extends Model
 
     public function isAvailable(): bool
     {
-        return $this->is_active && (bool) $this->user?->isActive();
+        return $this->is_active
+            && $this->hasActiveSubscription()
+            && (bool) $this->user?->isActive();
     }
 
     public function scopePubliclyAvailable($query)
     {
         $today = now()->toDateString();
 
-        return $query
+        $query
             ->where('is_active', true)
             ->whereHas('user', function ($query) use ($today) {
                 $query
@@ -582,6 +925,33 @@ class Store extends Model
                             ->orWhereDate('active_ends_at', '>=', $today);
                     });
             });
+
+        if (self::supportsSubscriptionColumns()) {
+            $query->where(function ($query) use ($today) {
+                $query
+                    ->where(function ($query) use ($today) {
+                        $query
+                            ->where('subscription_status', self::SUBSCRIPTION_TRIALING)
+                            ->whereNotNull('trial_ends_at')
+                            ->whereDate('trial_ends_at', '>=', $today);
+                    })
+                    ->orWhere(function ($query) use ($today) {
+                        $query
+                            ->where(function ($query) {
+                                $query
+                                    ->whereNull('subscription_status')
+                                    ->orWhere('subscription_status', self::SUBSCRIPTION_ACTIVE);
+                            })
+                            ->where(function ($query) use ($today) {
+                                $query
+                                    ->whereNull('subscription_ends_at')
+                                    ->orWhereDate('subscription_ends_at', '>=', $today);
+                            });
+                    });
+            });
+        }
+
+        return $query;
     }
 
     public static function businessTypeOptions(): array
@@ -658,6 +1028,17 @@ class Store extends Model
                 'Gaming',
                 'Accesorios',
                 'Smart Home',
+            ];
+        }
+
+        if ($this->isFashionStore()) {
+            return [
+                'Mujer',
+                'Hombre',
+                'Zapatos',
+                'Bolsos',
+                'Accesorios',
+                'Chaquetas',
             ];
         }
 
@@ -766,6 +1147,11 @@ class Store extends Model
     public function paymentAccounts()
     {
         return $this->hasMany(StorePaymentAccount::class);
+    }
+
+    public function aiCreditTransactions(): HasMany
+    {
+        return $this->hasMany(AiCreditTransaction::class);
     }
 
     public function mercadoPagoAccount()

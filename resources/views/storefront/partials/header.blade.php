@@ -28,6 +28,7 @@
     @endif
 
     <header class="navbar">
+    <input class="store-cart-state" type="checkbox" id="minimalShopCartToggle" aria-hidden="true">
     <div class="shell navbar-inner">
         <a href="{{ $storefrontUrls->home($store) }}" class="brand" aria-label="{{ $store->name }}">
             @if($store->logo_image)
@@ -39,7 +40,7 @@
         </a>
 
         <div class="mobile-nav-actions">
-            <a href="{{ route('cart.index', ['store' => $store->slug]) }}" class="cart-link mobile-cart-link">
+            <label for="minimalShopCartToggle" class="cart-link mobile-cart-link" role="button" tabindex="0" aria-label="{{ $cartLabel }}">
                 <svg class="cart-link-icon" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M6.5 7h14l-1.4 8.4a2 2 0 0 1-2 1.6H9.2a2 2 0 0 1-2-1.6L5.8 4.8H3.5"></path>
                     <circle cx="9.5" cy="20" r="1.4"></circle>
@@ -48,7 +49,7 @@
                 @if($cartCount > 0)
                     <span class="cart-badge">{{ $cartCount }}</span>
                 @endif
-            </a>
+            </label>
 
             <button
                 type="button"
@@ -114,7 +115,7 @@
                     <a href="{{ route('dashboard') }}" class="dashboard-link">Dashboard</a>
                 @endif
 
-                <a href="{{ route('cart.index', ['store' => $store->slug]) }}" class="cart-link desktop-cart-link">
+                <label for="minimalShopCartToggle" class="cart-link desktop-cart-link" role="button" tabindex="0" aria-label="{{ $cartLabel }}">
                     <svg class="cart-link-icon" viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M6.5 7h14l-1.4 8.4a2 2 0 0 1-2 1.6H9.2a2 2 0 0 1-2-1.6L5.8 4.8H3.5"></path>
                         <circle cx="9.5" cy="20" r="1.4"></circle>
@@ -123,7 +124,7 @@
                     @if($cartCount > 0)
                         <span class="cart-badge">{{ $cartCount }}</span>
                     @endif
-                </a>
+                </label>
             </div>
         </div>
 
@@ -131,3 +132,5 @@
     </div>
 </header>
 </div>
+
+@include('storefront.partials.cart-drawer')

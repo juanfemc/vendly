@@ -22,6 +22,16 @@ class DashboardController extends Controller
             $storeUsersCount = User::where('role', 'store')->count();
             $storesCount = Store::count();
             $storeUsers = User::where('role', 'store')->latest()->get();
+            $expiringStores = Store::with('user')
+                ->subscriptionsEndingWithin(3)
+                ->latest()
+                ->take(8)
+                ->get();
+            $expiredStores = Store::with('user')
+                ->expiredSubscriptions()
+                ->latest()
+                ->take(8)
+                ->get();
             $expiringUsers = User::where('role', 'store')
                 ->where('is_active', true)
                 ->whereDate('active_ends_at', '>=', now()->toDateString())
@@ -35,7 +45,17 @@ class DashboardController extends Controller
                 ? AdminUpdate::orderByDesc('id')->take(10)->get()
                 : collect();
 
-            return view('dashboard', compact('storeUsersCount', 'storesCount', 'storeUsers', 'expiringUsers', 'totalSales', 'totalVisits', 'adminUpdates'));
+            return view('dashboard', compact(
+                'storeUsersCount',
+                'storesCount',
+                'storeUsers',
+                'expiringStores',
+                'expiredStores',
+                'expiringUsers',
+                'totalSales',
+                'totalVisits',
+                'adminUpdates'
+            ));
         }
 
         $store = $user?->store ?? $user?->stores()->first();
@@ -59,6 +79,12 @@ class DashboardController extends Controller
                 - (float) $store->orders()->where('status', 'devuelto')->sum('total')
             : 0;
         $totalVisits = $store && $hasVisitsColumn ? (int) $store->views_count : 0;
+        $onboardingProgress = $store ? $store->onboardingProgress() : 0;
+        $onboardingChecklist = $store ? $store->onboardingChecklist() : [];
+        $needsOnboarding = $store ? $store->needsOnboarding() : false;
+        $subscriptionExpired = $store ? $store->subscriptionExpired() : false;
+        $subscriptionEndsSoon = $store ? $store->subscriptionEndsSoon() : false;
+        $subscriptionRemainingLabel = $store ? $store->subscriptionRemainingLabel() : null;
         $accountExpiresSoon = $user?->active_ends_at
             && $user->is_active
             && $user->active_ends_at->toDateString() >= now()->toDateString()
@@ -82,6 +108,12 @@ class DashboardController extends Controller
             'shippedOrdersCount',
             'totalSales',
             'totalVisits',
+            'onboardingProgress',
+            'onboardingChecklist',
+            'needsOnboarding',
+            'subscriptionExpired',
+            'subscriptionEndsSoon',
+            'subscriptionRemainingLabel',
             'accountExpiresSoon'
         ));
     }

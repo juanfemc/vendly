@@ -10,6 +10,7 @@
         $storageAssetUrl = fn (?string $path) => $path ? asset('storage/' . $path) : null;
         $isRestaurant = $store->isRestaurant();
         $isTechnologyStore = $store->isTechnologyStore();
+        $isFashionStore = $store->isFashionStore();
         $isSupplementStore = $store->isSupplementStore();
         $isReservationStore = $store->isReservationStore();
         $logoImage = $absoluteStorageUrl($store->logo_image);
@@ -29,9 +30,10 @@
         $cartLabel = $isRestaurant ? 'Pedido' : ($isReservationStore ? 'Reserva' : 'Carrito');
         $collectionLabelTitle = $isRestaurant ? 'Carta' : ($isReservationStore ? 'Servicios' : 'Catalogo');
         $showStorefrontSectionLinks = false;
-        $storefrontVariant = $isTechnologyStore ? 'technology' : ($isRestaurant ? 'restaurant' : ($isSupplementStore ? 'supplements' : 'default'));
+        $storefrontVariant = $isTechnologyStore ? 'technology' : ($isFashionStore ? 'fashion' : ($isRestaurant ? 'restaurant' : ($isSupplementStore ? 'supplements' : 'default')));
         $variantStylesheets = [
             'technology' => 'css/storefront-technology.css',
+            'fashion' => 'css/storefront-fashion.css',
             'restaurant' => 'css/storefront-restaurant.css',
             'supplements' => 'css/storefront-supplements.css',
             'default' => 'css/storefront-default.css',
@@ -87,6 +89,9 @@
     @if($storefrontVariant === 'technology')
         @include('storefront.partials.header-minimal-grid')
         @include('storefront.partials.minimal-product-detail')
+    @elseif($storefrontVariant === 'fashion')
+        @include('storefront.partials.header-fashion')
+        @include('storefront.partials.fashion-product-detail')
     @else
         @include('storefront.partials.header')
 
@@ -339,7 +344,7 @@
                             <input id="quantity" type="number" name="quantity" min="1" max="{{ $quantityMax }}" value="{{ old('quantity', 1) }}" class="product-quantity-input">
                         </div>
 
-                        <button type="submit" class="product-detail-primary">{{ $isRestaurant ? 'Agregar al pedido' : ($isReservationStore ? 'Agregar a la reserva' : 'Agregar al carrito') }}</button>
+                        <button type="submit" class="product-detail-secondary">{{ $isRestaurant ? 'Agregar al pedido' : ($isReservationStore ? 'Agregar a la reserva' : 'Agregar al carrito') }}</button>
                     </form>
 
                     <form action="{{ route('cart.buy_now', $product->id) }}" method="POST" class="product-detail-form" data-role="buy-now-form">
@@ -347,9 +352,12 @@
                         <input type="hidden" name="quantity" value="{{ old('quantity', 1) }}" data-role="buy-now-quantity">
                         <input type="hidden" name="size" value="" data-role="buy-now-size">
                         <input type="hidden" name="color" value="" data-role="buy-now-color">
-                        <button type="submit" class="product-detail-secondary product-detail-whatsapp">
-                            <span>{{ $isRestaurant ? 'Pedir por WhatsApp' : ($isReservationStore ? 'Reservar por WhatsApp' : 'Comprar por WhatsApp') }}</span>
+                        <button type="submit" class="product-detail-primary">
+                            <span>{{ $isRestaurant ? 'Pedir ahora' : ($isReservationStore ? 'Reservar ahora' : 'Comprar ahora') }}</span>
                         </button>
+                        @unless($isRestaurant || $isReservationStore)
+                            <p class="product-payment-note">Podras elegir WhatsApp o Mercado Pago en el checkout.</p>
+                        @endunless
                     </form>
                 @endif
             </div>
@@ -405,6 +413,8 @@
 
     @if($storefrontVariant === 'technology')
         @include('storefront.partials.footer-minimal-grid')
+    @elseif($storefrontVariant === 'fashion')
+        @include('storefront.partials.footer-fashion')
     @else
         @include('storefront.partials.footer')
     @endif

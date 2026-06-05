@@ -39,6 +39,40 @@
             @endforeach
         </select>
 
+        @if(\App\Models\Store::supportsSubscriptionColumns())
+            <div class="list-card" style="margin: 18px 0; box-shadow: none;">
+                <div style="display:grid; gap:6px; margin-bottom:14px;">
+                    <strong>Suscripcion de la tienda</strong>
+                    <span style="color:#64748b; font-size:13px;">
+                        Estado actual: {{ $store->subscriptionStatusLabel() }} · {{ $store->subscriptionRemainingLabel() }}
+                    </span>
+                </div>
+
+                <label class="field-label" for="subscription_status">Estado de suscripcion</label>
+                <select id="subscription_status" name="subscription_status">
+                    @foreach (\App\Models\Store::subscriptionStatusOptions() as $value => $label)
+                        <option value="{{ $value }}" @selected(old('subscription_status', $store->subscriptionStatus()) === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+
+                <label class="field-label" for="trial_ends_at">Final de prueba gratis</label>
+                <input
+                    id="trial_ends_at"
+                    type="date"
+                    name="trial_ends_at"
+                    value="{{ old('trial_ends_at', $store->trial_ends_at?->toDateString()) }}"
+                >
+
+                <label class="field-label" for="subscription_ends_at">Final de suscripcion activa</label>
+                <input
+                    id="subscription_ends_at"
+                    type="date"
+                    name="subscription_ends_at"
+                    value="{{ old('subscription_ends_at', $store->subscription_ends_at?->toDateString()) }}"
+                >
+            </div>
+        @endif
+
         <input type="text" name="slug" value="{{ old('slug', $store->slug) }}" placeholder="Slug (ej: mitienda)">
         <label class="field-label" for="subdomain">Subdominio Pro/Premium</label>
         <input id="subdomain" type="text" name="subdomain" value="{{ old('subdomain', $store->subdomain) }}" placeholder="Subdominio (ej: mitienda)">

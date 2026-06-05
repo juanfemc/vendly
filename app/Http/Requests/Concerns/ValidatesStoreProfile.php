@@ -102,6 +102,7 @@ trait ValidatesStoreProfile
             'mission' => ['nullable', 'string', 'max:1000'],
             'vision' => ['nullable', 'string', 'max:1000'],
             'cover_image' => ['nullable', 'image', 'max:4096'],
+            'ai_generated_cover_path' => ['nullable', 'string', 'max:255'],
             'logo_image' => ['nullable', 'image', 'max:4096'],
             'brand_color' => ['nullable', 'regex:/^#?(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/'],
             'background_color' => ['nullable', 'regex:/^#?(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/'],

@@ -35,6 +35,7 @@
                 @endforeach
             </select>
         @endif
+        @include('admin.partials.ai-content-tools', ['aiStore' => $store, 'aiContext' => 'product'])
         <input type="text" name="name" value="{{ old('name') }}" placeholder="Nombre" required>
         @if(auth()->user()->isAdmin() || ($store?->allowsCategories() ?? true))
             <select name="category" id="category_select">
@@ -183,4 +184,7 @@
         syncOfferPricing();
     })();
 </script>
+@if($store?->allowsAiContent())
+    <script src="{{ asset('js/admin-ai-content.js') }}?v={{ filemtime(public_path('js/admin-ai-content.js')) }}" defer></script>
+@endif
 @endsection

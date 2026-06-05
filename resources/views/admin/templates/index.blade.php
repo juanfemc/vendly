@@ -6,7 +6,7 @@
 <div class="header">
     <div>
         <h2>Plantillas</h2>
-        <p style="margin:6px 0 0; color:#64748b;">Elige el diseño principal de tu tienda.</p>
+        <p style="margin:6px 0 0; color:#64748b;">Muy pronto podras cambiar el diseno principal de tu tienda desde aqui.</p>
     </div>
     <a href="/dashboard" class="btn btn-secondary">Volver al panel</a>
 </div>
@@ -18,6 +18,10 @@
 @if (session('error'))
     <div class="flash error">{{ session('error') }}</div>
 @endif
+
+<div class="flash info" style="background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af;">
+    La opcion de usar plantillas esta temporalmente deshabilitada. Muy pronto estara disponible.
+</div>
 
 @if(($stores ?? collect())->count() > 1)
     <div class="list-card">
@@ -56,6 +60,7 @@
                     </div>
                     <div class="resource-badges">
                         <span class="resource-badge">Pro y Premium</span>
+                        <span class="resource-badge">Muy pronto</span>
                         @if($isActive)
                             <span class="resource-badge resource-badge--active">Activa</span>
                         @endif
@@ -78,11 +83,7 @@
                 @if($isActive)
                     <button type="button" class="btn btn-muted" disabled>Plantilla activa</button>
                 @else
-                    <form method="POST" action="{{ route('admin.templates.apply', $template['key']) }}">
-                        @csrf
-                        <input type="hidden" name="store_id" value="{{ $store->id }}">
-                        <button type="submit" class="btn">Usar plantilla</button>
-                    </form>
+                    <button type="button" class="btn btn-muted" disabled>Muy pronto</button>
                 @endif
             </div>
         </article>

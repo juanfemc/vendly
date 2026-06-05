@@ -6,11 +6,14 @@ use App\Models\Store;
 use App\Models\LandingTestimonial;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductReviewController;
+use App\Http\Controllers\AiContentController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\StoreTemplateController;
 use App\Http\Controllers\StoreFaviconController;
+use App\Http\Controllers\StoreOnboardingController;
+use App\Http\Controllers\TrialSignupController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminBannerController;
 use App\Http\Controllers\LandingTestimonialController;
@@ -18,6 +21,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PaymentSettingsController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StoreCategoryController;
+use App\Http\Controllers\WhatsAppWebhookController;
 use App\Services\StoreSubdomainService;
 
 /*
@@ -45,6 +49,12 @@ Route::get('/cart/mercadopago/{order}/{result}', [CartController::class, 'mercad
 Route::post('/webhooks/mercadopago', [CartController::class, 'mercadoPagoWebhook'])
     ->middleware('throttle:120,1')
     ->name('cart.mercadopago.webhook');
+Route::get('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify'])
+    ->middleware('throttle:30,1')
+    ->name('whatsapp.webhook.verify');
+Route::post('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'receive'])
+    ->middleware('throttle:120,1')
+    ->name('whatsapp.webhook.receive');
 
 
 
@@ -61,6 +71,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
     Route::get('/admin/products', [ProductController::class, 'index'])->name('admin.products.index');
+    Route::post('/admin/ai/content', [AiContentController::class, 'generate'])->middleware('throttle:30,1')->name('admin.ai.content');
+    Route::post('/admin/ai/images', [AiContentController::class, 'generateImage'])->middleware('throttle:10,1')->name('admin.ai.images');
     Route::get('/admin/products/create', [ProductController::class, 'create'])->name('admin.products.create');
     Route::post('/admin/products', [ProductController::class, 'store'])->name('admin.products.store');
     Route::get('/admin/products/{product}/edit', [ProductController::class, 'edit'])->name('admin.products.edit');
@@ -74,6 +86,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::delete('/admin/orders/{order}', [OrderController::class, 'destroy'])->name('admin.orders.destroy');
     Route::get('/admin/store-settings', [StoreController::class, 'settings']);
     Route::post('/admin/store-settings', [StoreController::class, 'updateSettings']);
+    Route::get('/admin/onboarding', [StoreOnboardingController::class, 'edit'])->name('admin.store.onboarding');
+    Route::post('/admin/onboarding', [StoreOnboardingController::class, 'update'])->name('admin.store.onboarding.update');
     Route::get('/admin/templates', [StoreTemplateController::class, 'index'])->name('admin.templates.index');
     Route::post('/admin/templates/{template}', [StoreTemplateController::class, 'apply'])->name('admin.templates.apply');
     Route::get('/admin/payments', [PaymentSettingsController::class, 'index'])->name('admin.payments.index');
@@ -114,6 +128,8 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::delete('/admin/testimonials/{testimonial}', [LandingTestimonialController::class, 'destroy'])->name('admin.testimonials.destroy');
 
     Route::get('/admin/stores', [StoreController::class, 'index']);
+    Route::get('/admin/stores/create-with-user', [StoreController::class, 'createWithUser'])->name('admin.stores.create-with-user');
+    Route::post('/admin/stores/create-with-user', [StoreController::class, 'storeWithUser'])->name('admin.stores.store-with-user');
     Route::get('/admin/stores/create', [StoreController::class, 'create']);
     Route::post('/admin/stores', [StoreController::class, 'store']);
     Route::get('/admin/stores/visits', [StoreController::class, 'visits'])->name('admin.stores.visits');
@@ -121,6 +137,8 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/stores/{store}/categories', [StoreCategoryController::class, 'index'])->name('admin.stores.categories.index');
     Route::get('/admin/stores/{store}/edit', [StoreController::class, 'edit'])->name('admin.stores.edit');
     Route::put('/admin/stores/{store}', [StoreController::class, 'update'])->name('admin.stores.update');
+    Route::post('/admin/stores/{store}/ai-credits', [StoreController::class, 'addAiCredits'])->name('admin.stores.ai-credits.store');
+    Route::patch('/admin/stores/{store}/subscription', [StoreController::class, 'activateSubscription'])->name('admin.stores.subscription.activate');
     Route::delete('/admin/stores/{store}', [StoreController::class, 'destroy'])->name('admin.stores.destroy');
 });
 
@@ -146,6 +164,16 @@ Route::get('/', function () {
             ->get()
         : collect();
 
+    $proofStores = Schema::hasColumn('stores', 'views_count')
+        ? Store::publiclyAvailable()
+            ->whereNotNull('logo_image')
+            ->where('logo_image', '!=', '')
+            ->orderByDesc('views_count')
+            ->orderBy('name')
+            ->take(6)
+            ->get()
+        : collect();
+
     $testimonials = Schema::hasTable('landing_testimonials')
         ? LandingTestimonial::where('is_active', true)
             ->orderBy('sort_order')
@@ -153,9 +181,20 @@ Route::get('/', function () {
             ->get()
         : collect();
 
-    return view('landing', compact('portfolioStores', 'testimonials'));
+    return view('landing', compact('portfolioStores', 'proofStores', 'testimonials'));
 });
 require __DIR__.'/auth.php';
+
+Route::middleware('guest')->group(function () {
+    Route::get('/crear-tienda-gratis', [TrialSignupController::class, 'create'])->name('trial-signup.create');
+    Route::post('/crear-tienda-gratis', [TrialSignupController::class, 'store'])
+        ->middleware('throttle:6,1')
+        ->name('trial-signup.store');
+    Route::post('/crear-tienda-gratis/verificar-whatsapp', [TrialSignupController::class, 'sendVerificationCode'])
+        ->middleware('throttle:5,1')
+        ->name('trial-signup.whatsapp.verify');
+});
+
 Route::get('/categorias/{category}', [ProductController::class, 'categoryBySubdomain'])->name('subdomain.store.category.show');
 Route::get('/nosotros', [ProductController::class, 'aboutBySubdomain'])->name('subdomain.store.about');
 Route::get('/ofertas', [ProductController::class, 'offersBySubdomain'])->name('subdomain.store.offers.index');

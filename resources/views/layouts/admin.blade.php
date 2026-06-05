@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('meta_title', 'Vendly Panel')</title>
     <link rel="icon" type="image/svg+xml" href="{{ asset('images/vendly-logo.svg') }}">
     <link rel="shortcut icon" href="{{ asset('images/vendly-logo.svg') }}">
@@ -599,6 +600,119 @@
             padding-bottom: 11px;
         }
 
+        .ai-assistant-panel {
+            display: grid;
+            gap: 12px;
+            margin: 0 0 16px;
+            padding: 14px;
+            border: 1px solid #dbeafe;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+        }
+
+        .ai-assistant-panel__head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .ai-assistant-panel__head h3 {
+            margin: 0;
+            color: #111827;
+            font-size: 16px;
+        }
+
+        .ai-assistant-panel__head p,
+        .ai-assistant-status {
+            margin: 4px 0 0;
+            color: #4b5563;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        .ai-assistant-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .ai-assistant-actions .btn {
+            width: auto;
+            min-height: 36px;
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        .ai-assistant-status.is-error {
+            color: #991b1b;
+        }
+
+        .ai-assistant-credits,
+        .ai-assistant-packages {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            color: #1f2937;
+            font-size: 12px;
+        }
+
+        .ai-assistant-credits strong,
+        .ai-assistant-packages span {
+            border: 1px solid #bfdbfe;
+            border-radius: 999px;
+            background: #fff;
+            padding: 5px 9px;
+        }
+
+        .ai-assistant-credits span {
+            color: #64748b;
+        }
+
+        .ai-assistant-preview {
+            display: grid;
+            gap: 8px;
+        }
+
+        .ai-assistant-preview[hidden] {
+            display: none;
+        }
+
+        .ai-assistant-preview img {
+            display: block;
+            width: min(100%, 360px);
+            max-height: 220px;
+            border: 1px solid #dbeafe;
+            border-radius: 12px;
+            object-fit: cover;
+        }
+
+        .ai-assistant-preview p {
+            margin: 0;
+            color: #2563eb;
+            font-size: 13px;
+        }
+
+        .ai-credit-admin-form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .ai-credit-admin-form select {
+            width: min(100%, 220px);
+            min-height: 38px;
+            margin: 0;
+            padding: 8px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            background: #fff;
+            color: #111827;
+            font-size: 13px;
+        }
+
         .rich-editor {
             margin-bottom: 12px;
             border: 1px solid #d1d5db;
@@ -1048,6 +1162,7 @@
                     <div class="sidebar-submenu">
                         <a href="/admin/stores">Ver tiendas</a>
                         <a href="{{ route('admin.stores.visits') }}">Visitas</a>
+                        <a href="{{ route('admin.stores.create-with-user') }}">Crear cliente + tienda</a>
                         <a href="/admin/stores/create">Crear tienda</a>
                     </div>
                 </details>
@@ -1073,9 +1188,10 @@
                     $sidebarStore = $sidebarUser?->store ?? $sidebarStores->first();
                     $sidebarAllowsTemplates = $sidebarStores->contains(fn ($store) => $store->allowsTemplates());
                 @endphp
-                <details class="sidebar-menu-group" {{ request()->is('admin/store-settings') || request()->is('admin/templates*') || request()->is('admin/payments*') || request()->is('admin/categories*') ? 'open' : '' }}>
+                <details class="sidebar-menu-group" {{ request()->is('admin/onboarding') || request()->is('admin/store-settings') || request()->is('admin/templates*') || request()->is('admin/payments*') || request()->is('admin/categories*') ? 'open' : '' }}>
                     <summary>Tienda</summary>
                     <div class="sidebar-submenu">
+                        <a href="{{ route('admin.store.onboarding') }}">Primeros pasos</a>
                         <a href="/admin/store-settings">Configuracion</a>
                         @if($sidebarAllowsTemplates)
                             <a href="{{ route('admin.templates.index') }}">Plantillas</a>

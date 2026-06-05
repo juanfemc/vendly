@@ -2,6 +2,7 @@
 
 use App\Models\Store;
 use App\Models\AdminUpdate;
+use App\Models\AiCreditTransaction;
 use App\Models\ColombiaLocation;
 use App\Models\LandingTestimonial;
 use App\Models\Order;
@@ -38,6 +39,258 @@ test('public store is hidden when owner account is expired', function () {
     ]);
 
     $this->get('/tienda-vencida')->assertNotFound();
+});
+
+test('public store is hidden when trial subscription is expired', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDays(10),
+        'active_ends_at' => now()->addMonth(),
+    ]);
+
+    Store::create([
+        'user_id' => $user->id,
+        'name' => 'Prueba vencida',
+        'slug' => 'prueba-vencida',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+        'subscription_status' => Store::SUBSCRIPTION_TRIALING,
+        'trial_starts_at' => now()->subDays(10),
+        'trial_ends_at' => now()->subDay(),
+    ]);
+
+    $this->get('/prueba-vencida')->assertNotFound();
+});
+
+test('public store is visible while trial subscription is active', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addMonth(),
+    ]);
+
+    Store::create([
+        'user_id' => $user->id,
+        'name' => 'Prueba activa',
+        'slug' => 'prueba-activa',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+        'subscription_status' => Store::SUBSCRIPTION_TRIALING,
+        'trial_starts_at' => now()->subDay(),
+        'trial_ends_at' => now()->addDays(3),
+    ]);
+
+    $this->get('/prueba-activa')
+        ->assertOk()
+        ->assertSee('Prueba activa');
+});
+
+test('cart rejects products from an expired trial store', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addMonth(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Carrito prueba vencida',
+        'slug' => 'carrito-prueba-vencida',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+        'subscription_status' => Store::SUBSCRIPTION_TRIALING,
+        'trial_starts_at' => now()->subDays(10),
+        'trial_ends_at' => now()->subDay(),
+    ]);
+
+    $product = Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Producto bloqueado por prueba',
+        'price' => 25000,
+    ]);
+
+    $this->post(route('cart.add', $product->id))
+        ->assertSessionHas('error', 'Esta tienda no esta disponible para recibir pedidos.');
+});
+
+test('store subscriptions remain active until the end of their expiration day', function () {
+    $this->travelTo(\Illuminate\Support\Carbon::parse('2026-06-03 15:00:00'));
+
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addMonth(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Prueba vence hoy',
+        'slug' => 'prueba-vence-hoy',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+        'subscription_status' => Store::SUBSCRIPTION_TRIALING,
+        'trial_starts_at' => now()->subDays(6),
+        'trial_ends_at' => now()->copy()->setTime(9, 0),
+    ]);
+
+    $product = Product::create([
+        'user_id' => $user->id,
+        'store_id' => $store->id,
+        'name' => 'Producto vence hoy',
+        'price' => 25000,
+    ]);
+
+    expect($store->fresh()->hasActiveSubscription())->toBeTrue();
+
+    $this->get('/prueba-vence-hoy')
+        ->assertOk()
+        ->assertSee('Prueba vence hoy');
+
+    $this->post(route('cart.add', $product->id))
+        ->assertSessionHas('success', 'Producto agregado');
+
+    $this->artisan('stores:expire-subscriptions')
+        ->expectsOutput('Suscripciones de tienda vencidas: 0')
+        ->assertExitCode(0);
+
+    expect($store->fresh()->subscriptionStatus())->toBe(Store::SUBSCRIPTION_TRIALING);
+});
+
+test('admin can activate an expired store subscription after validating payment', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addMonth(),
+    ]);
+
+    $store = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda pago validado',
+        'slug' => 'tienda-pago-validado',
+        'plan' => Store::PLAN_PRO,
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+        'subscription_status' => Store::SUBSCRIPTION_TRIALING,
+        'trial_starts_at' => now()->subDays(10),
+        'trial_ends_at' => now()->subDay(),
+    ]);
+
+    $this->get('/tienda-pago-validado')->assertNotFound();
+
+    $this->actingAs($admin)
+        ->patch(route('admin.stores.subscription.activate', $store), [
+            'plan' => Store::PLAN_PREMIUM,
+            'duration_days' => 30,
+        ])
+        ->assertRedirect();
+
+    $store->refresh();
+
+    expect($store->subscriptionStatus())->toBe(Store::SUBSCRIPTION_ACTIVE)
+        ->and($store->plan)->toBe(Store::PLAN_PREMIUM)
+        ->and($store->hasActiveSubscription())->toBeTrue()
+        ->and($store->subscription_ends_at?->isFuture())->toBeTrue();
+
+    $this->get('/tienda-pago-validado')
+        ->assertOk()
+        ->assertSee('Tienda pago validado');
+});
+
+test('expired store dashboard activation link uses system whatsapp', function () {
+    config(['services.support.whatsapp' => '573170613664']);
+
+    $user = User::factory()->create([
+        'role' => 'store',
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addMonth(),
+    ]);
+
+    Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Activacion WhatsApp',
+        'slug' => 'tienda-activacion-whatsapp',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+        'subscription_status' => Store::SUBSCRIPTION_TRIALING,
+        'trial_starts_at' => now()->subDays(10),
+        'trial_ends_at' => now()->subDay(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('https://wa.me/573170613664', false)
+        ->assertDontSee('https://wa.me/?text=', false);
+});
+
+test('admin dashboard shows stores with expired and expiring subscriptions', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addMonth(),
+    ]);
+
+    Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Suscripcion Vencida',
+        'slug' => 'tienda-suscripcion-vencida',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+        'subscription_status' => Store::SUBSCRIPTION_TRIALING,
+        'trial_starts_at' => now()->subDays(10),
+        'trial_ends_at' => now()->subDay(),
+    ]);
+
+    Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Suscripcion Por Vencer',
+        'slug' => 'tienda-suscripcion-por-vencer',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+        'subscription_status' => Store::SUBSCRIPTION_ACTIVE,
+        'subscription_ends_at' => now()->addDays(2),
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('Tiendas vencidas')
+        ->assertSee('Tienda Suscripcion Vencida')
+        ->assertSee('Tiendas por vencer')
+        ->assertSee('Tienda Suscripcion Por Vencer');
+});
+
+test('console command marks past store subscriptions as expired', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addMonth(),
+    ]);
+
+    $expiredStore = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Comando Vencida',
+        'slug' => 'tienda-comando-vencida',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+        'subscription_status' => Store::SUBSCRIPTION_TRIALING,
+        'trial_starts_at' => now()->subDays(10),
+        'trial_ends_at' => now()->subDay(),
+    ]);
+
+    $activeStore = Store::create([
+        'user_id' => $user->id,
+        'name' => 'Tienda Comando Activa',
+        'slug' => 'tienda-comando-activa',
+        'whatsapp' => '573001112233',
+        'is_active' => true,
+        'subscription_status' => Store::SUBSCRIPTION_TRIALING,
+        'trial_starts_at' => now()->subDay(),
+        'trial_ends_at' => now()->addDay(),
+    ]);
+
+    $this->artisan('stores:expire-subscriptions')
+        ->expectsOutput('Suscripciones de tienda vencidas: 1')
+        ->assertExitCode(0);
+
+    expect($expiredStore->fresh()->subscriptionStatus())->toBe(Store::SUBSCRIPTION_EXPIRED)
+        ->and($activeStore->fresh()->subscriptionStatus())->toBe(Store::SUBSCRIPTION_TRIALING);
 });
 
 test('landing page renders without compiled assets', function () {
@@ -110,6 +363,40 @@ test('landing page shows the three most visited public stores as portfolio', fun
         ->assertSee('Tienda Tres')
         ->assertDontSee('40 visitas')
         ->assertDontSee('Tienda Cuatro');
+});
+
+test('landing proof logos use store logos ordered by visits', function () {
+    $user = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+
+    foreach ([
+        ['Logo Menos Visitada', 'logo-menos-visitada', 10, 'stores/menos.png'],
+        ['Logo Mas Visitada', 'logo-mas-visitada', 80, 'stores/mas.png'],
+        ['Sin Logo', 'sin-logo', 100, null],
+    ] as [$name, $slug, $views, $logo]) {
+        Store::create([
+            'user_id' => $user->id,
+            'name' => $name,
+            'slug' => $slug,
+            'whatsapp' => '573001112233',
+            'is_active' => true,
+            'views_count' => $views,
+            'logo_image' => $logo,
+        ]);
+    }
+
+    $response = $this->get('/')->assertOk();
+    $html = $response->getContent();
+
+    expect(strpos($html, 'Logo de Logo Mas Visitada'))
+        ->toBeLessThan(strpos($html, 'Logo de Logo Menos Visitada'));
+
+    $response
+        ->assertSee('Logo de Logo Mas Visitada')
+        ->assertSee('Logo de Logo Menos Visitada')
+        ->assertDontSee('Logo de Sin Logo');
 });
 
 test('landing page only shows active testimonials', function () {
@@ -1167,7 +1454,7 @@ test('pro store users cannot see or open payment methods', function () {
         ->assertForbidden();
 });
 
-test('pro store users can manage templates', function () {
+test('pro store users can see templates as coming soon', function () {
     $storeUser = User::factory()->create([
         'active_starts_at' => now()->subDay(),
         'active_ends_at' => now()->addDay(),
@@ -1192,21 +1479,23 @@ test('pro store users can manage templates', function () {
         ->get(route('admin.templates.index'))
         ->assertOk()
         ->assertSee('Plantilla Tecnologia')
-        ->assertSee('Pro y Premium');
+        ->assertSee('Pro y Premium')
+        ->assertSee('Muy pronto')
+        ->assertDontSee('Usar plantilla');
 
     $this->actingAs($storeUser)
         ->post(route('admin.templates.apply', 'technology'))
         ->assertRedirect(route('admin.templates.index', ['store_id' => $store->id]))
-        ->assertSessionHas('success');
+        ->assertSessionHas('error');
 
-    expect($store->fresh()->business_type)->toBe('technology');
-    $this->assertDatabaseHas('store_categories', [
+    expect($store->fresh()->business_type)->toBe('store');
+    $this->assertDatabaseMissing('store_categories', [
         'store_id' => $store->id,
         'name' => 'Audio',
     ]);
 });
 
-test('premium store users can manage templates', function () {
+test('premium store users can see templates as coming soon', function () {
     $storeUser = User::factory()->create([
         'active_starts_at' => now()->subDay(),
         'active_ends_at' => now()->addDay(),
@@ -1225,14 +1514,50 @@ test('premium store users can manage templates', function () {
         ->get(route('admin.templates.index'))
         ->assertOk()
         ->assertSee('Plantilla Tecnologia')
-        ->assertSee('Pro y Premium');
+        ->assertSee('Pro y Premium')
+        ->assertSee('Muy pronto')
+        ->assertDontSee('Usar plantilla');
 
     $this->actingAs($storeUser)
         ->post(route('admin.templates.apply', 'technology'))
         ->assertRedirect(route('admin.templates.index', ['store_id' => $store->id]))
-        ->assertSessionHas('success');
+        ->assertSessionHas('error');
 
-    expect($store->fresh()->business_type)->toBe('technology');
+    expect($store->fresh()->business_type)->toBe('store');
+});
+
+test('fashion template is listed but cannot be applied yet', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Mixtas',
+        'slug' => 'mixtas-ropa',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'business_type' => 'store',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get(route('admin.templates.index'))
+        ->assertOk()
+        ->assertSee('Ropa')
+        ->assertSee('Plantilla editorial para moda, ropa y accesorios.')
+        ->assertSee('Muy pronto');
+
+    $this->actingAs($storeUser)
+        ->post(route('admin.templates.apply', 'fashion'))
+        ->assertRedirect(route('admin.templates.index', ['store_id' => $store->id]))
+        ->assertSessionHas('error');
+
+    expect($store->fresh()->business_type)->toBe('store');
+    $this->assertDatabaseMissing('store_categories', [
+        'store_id' => $store->id,
+        'name' => 'Mujer',
+    ]);
 });
 
 test('template selection applies to the selected owned store', function () {
@@ -1270,10 +1595,10 @@ test('template selection applies to the selected owned store', function () {
             'store_id' => $secondStore->id,
         ])
         ->assertRedirect(route('admin.templates.index', ['store_id' => $secondStore->id]))
-        ->assertSessionHas('success');
+        ->assertSessionHas('error');
 
     expect($firstStore->fresh()->business_type)->toBe('store')
-        ->and($secondStore->fresh()->business_type)->toBe('technology');
+        ->and($secondStore->fresh()->business_type)->toBe('store');
 });
 
 test('template panel defaults to an eligible store when user also has a basic store', function () {
@@ -1317,10 +1642,11 @@ test('template panel defaults to an eligible store when user also has a basic st
         ->post(route('admin.templates.apply', 'technology'), [
             'store_id' => $proStore->id,
         ])
-        ->assertRedirect(route('admin.templates.index', ['store_id' => $proStore->id]));
+        ->assertRedirect(route('admin.templates.index', ['store_id' => $proStore->id]))
+        ->assertSessionHas('error');
 
     expect($basicStore->fresh()->business_type)->toBe('store')
-        ->and($proStore->fresh()->business_type)->toBe('technology');
+        ->and($proStore->fresh()->business_type)->toBe('store');
 });
 
 test('template selection cannot target another users store', function () {
@@ -1391,6 +1717,718 @@ test('basic store users cannot manage templates', function () {
     $this->actingAs($storeUser)
         ->post(route('admin.templates.apply', 'technology'))
         ->assertForbidden();
+});
+
+test('premium store users can generate product text with ai', function () {
+    config([
+        'services.openai.key' => 'test-key',
+        'services.openai.model' => 'gpt-test',
+    ]);
+
+    Http::fake([
+        'https://api.openai.com/v1/responses' => Http::response([
+            'output_text' => json_encode([
+                'description' => 'Audifonos inalambricos con sonido claro, diseno comodo y bateria ideal para el uso diario.',
+            ]),
+            'usage' => [
+                'input_tokens' => 20,
+                'output_tokens' => 18,
+            ],
+        ]),
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda IA Premium',
+        'slug' => 'tienda-ia-premium',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get('/admin/products/create')
+        ->assertOk()
+        ->assertSee('Asistente IA')
+        ->assertSee('Generar descripcion');
+
+    $this->actingAs($storeUser)
+        ->postJson(route('admin.ai.content'), [
+            'type' => 'product_description',
+            'name' => 'Audifonos bluetooth',
+            'category' => 'Audio',
+            'price' => 120000,
+        ])
+        ->assertOk()
+        ->assertJsonPath('description', 'Audifonos inalambricos con sonido claro, diseno comodo y bateria ideal para el uso diario.')
+        ->assertJsonPath('ai_credits.cost', 3)
+        ->assertJsonPath('ai_credits.balance', 247);
+
+    $this->assertDatabaseHas('ai_generations', [
+        'type' => 'product_description',
+        'status' => 'completed',
+        'model' => 'gpt-test',
+        'input_tokens' => 20,
+        'output_tokens' => 18,
+    ]);
+    $this->assertDatabaseHas('ai_credit_transactions', [
+        'type' => AiCreditTransaction::TYPE_MONTHLY_GRANT,
+        'amount' => 250,
+        'period' => now()->format('Y-m'),
+    ]);
+    $this->assertDatabaseHas('ai_credit_transactions', [
+        'type' => AiCreditTransaction::TYPE_USAGE,
+        'amount' => -3,
+        'reason' => 'Generar descripcion de producto',
+    ]);
+});
+
+test('basic store users cannot use ai content tools', function () {
+    config(['services.openai.key' => 'test-key']);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda IA Basic',
+        'slug' => 'tienda-ia-basic',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_BASIC,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get('/admin/products/create')
+        ->assertOk()
+        ->assertDontSee('Asistente IA');
+
+    $this->actingAs($storeUser)
+        ->postJson(route('admin.ai.content'), [
+            'type' => 'product_name',
+            'name' => 'Producto',
+        ])
+        ->assertForbidden();
+
+    $this->actingAs($storeUser)
+        ->postJson(route('admin.ai.images'), [
+            'type' => 'product_image',
+            'name' => 'Producto',
+        ])
+        ->assertForbidden();
+});
+
+test('premium store users can generate promotional announcements with ai', function () {
+    config([
+        'services.openai.key' => 'test-key',
+        'services.openai.model' => 'gpt-test',
+    ]);
+
+    Http::fake([
+        'https://api.openai.com/v1/responses' => Http::response([
+            'output_text' => json_encode([
+                'announcements' => [
+                    'Envios rapidos en compras seleccionadas',
+                    'Pregunta por promociones de temporada',
+                    'Compra facil y recibe atencion por WhatsApp',
+                ],
+            ]),
+        ]),
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Avisos IA',
+        'slug' => 'tienda-avisos-ia',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get('/admin/store-settings')
+        ->assertOk()
+        ->assertSee('Crear avisos');
+
+    $this->actingAs($storeUser)
+        ->postJson(route('admin.ai.content'), [
+            'type' => 'announcement',
+            'topic' => 'promocion de fin de semana',
+        ])
+        ->assertOk()
+        ->assertJsonCount(3, 'announcements');
+});
+
+test('premium store users can generate custom product badges with ai', function () {
+    config([
+        'services.openai.key' => 'test-key',
+        'services.openai.model' => 'gpt-test',
+    ]);
+
+    Http::fake([
+        'https://api.openai.com/v1/responses' => Http::response([
+            'output_text' => json_encode([
+                'badges' => ['Nuevo', 'Mas vendido', 'Entrega rapida'],
+            ]),
+        ]),
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Etiquetas IA',
+        'slug' => 'tienda-etiquetas-ia',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get('/admin/products/create')
+        ->assertOk()
+        ->assertSee('Sugerir etiquetas')
+        ->assertSee('Mejorar nombre');
+
+    $this->actingAs($storeUser)
+        ->postJson(route('admin.ai.content'), [
+            'type' => 'product_badges',
+            'name' => 'Audifonos bluetooth',
+        ])
+        ->assertOk()
+        ->assertJsonPath('badges.0', 'Nuevo')
+        ->assertJsonPath('badges.2', 'Entrega rapida');
+});
+
+test('product ai generation requires product context before calling openai', function () {
+    config([
+        'services.openai.key' => 'test-key',
+        'services.openai.model' => 'gpt-test',
+    ]);
+
+    Http::fake();
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Sin Producto IA',
+        'slug' => 'tienda-sin-producto-ia',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->postJson(route('admin.ai.content'), [
+            'type' => 'product_description',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonPath('message', 'Agrega primero el nombre, categoria o detalles del producto para generar contenido con IA.');
+
+    Http::assertNothingSent();
+    $this->assertDatabaseMissing('ai_generations', [
+        'type' => 'product_description',
+    ]);
+    $this->assertDatabaseMissing('ai_credit_transactions', [
+        'type' => AiCreditTransaction::TYPE_USAGE,
+        'reason' => 'Generar descripcion de producto',
+    ]);
+
+    $this->actingAs($storeUser)
+        ->postJson(route('admin.ai.images'), [
+            'type' => 'product_image',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonPath('message', 'Agrega primero el nombre, categoria o detalles del producto para generar contenido con IA.');
+
+    Http::assertNothingSent();
+    $this->assertDatabaseMissing('ai_generations', [
+        'type' => 'product_image',
+    ]);
+});
+
+test('premium store users can generate product features with ai', function () {
+    config([
+        'services.openai.key' => 'test-key',
+        'services.openai.model' => 'gpt-test',
+    ]);
+
+    Http::fake([
+        'https://api.openai.com/v1/responses' => Http::response([
+            'output_text' => json_encode([
+                'features' => [
+                    'Bateria de larga duracion',
+                    'Conexion bluetooth estable',
+                    'Diseno liviano y comodo',
+                ],
+            ]),
+        ]),
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Caracteristicas IA',
+        'slug' => 'tienda-caracteristicas-ia',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get('/admin/products/create')
+        ->assertOk()
+        ->assertSee('Generar caracteristicas');
+
+    $this->actingAs($storeUser)
+        ->postJson(route('admin.ai.content'), [
+            'type' => 'product_features',
+            'name' => 'Audifonos bluetooth',
+            'category' => 'Audio',
+        ])
+        ->assertOk()
+        ->assertJsonPath('features.0', 'Bateria de larga duracion')
+        ->assertJsonPath('features.2', 'Diseno liviano y comodo')
+        ->assertJsonPath('ai_credits.cost', 2)
+        ->assertJsonPath('ai_credits.balance', 248);
+
+    $this->assertDatabaseHas('ai_credit_transactions', [
+        'type' => AiCreditTransaction::TYPE_USAGE,
+        'amount' => -2,
+        'reason' => 'Generar caracteristicas de producto',
+    ]);
+});
+
+test('premium store users can generate a store cover image with ai', function () {
+    Storage::fake('public');
+
+    config([
+        'services.openai.key' => 'test-key',
+        'services.openai.image_model' => 'gpt-image-test',
+    ]);
+
+    Http::fake([
+        'https://api.openai.com/v1/images/generations' => Http::response([
+            'data' => [
+                ['b64_json' => base64_encode('fake-cover-image')],
+            ],
+        ]),
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Portada IA',
+        'slug' => 'tienda-portada-ia',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+
+    $response = $this->actingAs($storeUser)
+        ->postJson(route('admin.ai.images'), [
+            'type' => 'store_cover_image',
+            'store_id' => $store->id,
+        ])
+        ->assertOk()
+        ->assertJsonStructure(['image_path', 'image_url', 'prompt']);
+
+    $path = $response->json('image_path');
+    Storage::disk('public')->assertExists($path);
+
+    $this->assertDatabaseHas('ai_generations', [
+        'store_id' => $store->id,
+        'type' => 'store_cover_image',
+        'status' => 'completed',
+        'model' => 'gpt-image-test',
+    ]);
+});
+
+test('premium store users can generate an ecommerce product image with ai', function () {
+    Storage::fake('public');
+
+    config([
+        'services.openai.key' => 'test-key',
+        'services.openai.image_model' => 'gpt-image-test',
+    ]);
+
+    Http::fake([
+        'https://api.openai.com/v1/images/generations' => Http::response([
+            'data' => [
+                ['b64_json' => base64_encode('fake-product-image')],
+            ],
+        ]),
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Producto IA',
+        'slug' => 'tienda-producto-ia',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+
+    $response = $this->actingAs($storeUser)
+        ->postJson(route('admin.ai.images'), [
+            'type' => 'product_image',
+            'store_id' => $store->id,
+            'name' => 'Audifonos bluetooth',
+            'category' => 'Audio',
+        ])
+        ->assertOk()
+        ->assertJsonStructure(['image_path', 'image_url', 'prompt']);
+
+    $path = $response->json('image_path');
+    Storage::disk('public')->assertExists($path);
+
+    $this->assertDatabaseHas('ai_generations', [
+        'store_id' => $store->id,
+        'type' => 'product_image',
+        'status' => 'completed',
+        'model' => 'gpt-image-test',
+    ]);
+    $this->assertDatabaseHas('ai_credit_transactions', [
+        'store_id' => $store->id,
+        'type' => AiCreditTransaction::TYPE_USAGE,
+        'amount' => -15,
+    ]);
+});
+
+test('premium ai generation is blocked when credits are not enough', function () {
+    config(['services.openai.key' => 'test-key']);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Sin Creditos IA',
+        'slug' => 'tienda-sin-creditos-ia',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+
+    AiCreditTransaction::create([
+        'store_id' => $store->id,
+        'type' => AiCreditTransaction::TYPE_USAGE,
+        'amount' => -250,
+        'reason' => 'Consumo previo',
+        'package_key' => 'monthly:' . now()->format('Y-m'),
+    ]);
+
+    $this->actingAs($storeUser)
+        ->postJson(route('admin.ai.content'), [
+            'type' => 'product_description',
+            'name' => 'Producto',
+        ])
+        ->assertStatus(402)
+        ->assertJsonPath('ai_credits.balance', 0);
+
+    $this->assertDatabaseMissing('ai_credit_transactions', [
+        'store_id' => $store->id,
+        'type' => AiCreditTransaction::TYPE_REFUND,
+        'amount' => 3,
+    ]);
+});
+
+test('ai credits are refunded when provider generation fails', function () {
+    config(['services.openai.key' => 'test-key']);
+
+    Http::fake([
+        'https://api.openai.com/v1/responses' => Http::response([
+            'error' => ['message' => 'Proveedor no disponible'],
+        ], 500),
+    ]);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Reembolso IA',
+        'slug' => 'tienda-reembolso-ia',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->postJson(route('admin.ai.content'), [
+            'type' => 'product_description',
+            'name' => 'Producto',
+        ])
+        ->assertStatus(422)
+        ->assertJsonPath('ai_credits.balance', 250);
+
+    $this->assertDatabaseHas('ai_credit_transactions', [
+        'store_id' => $store->id,
+        'type' => AiCreditTransaction::TYPE_USAGE,
+        'amount' => -3,
+    ]);
+    $this->assertDatabaseHas('ai_credit_transactions', [
+        'store_id' => $store->id,
+        'type' => AiCreditTransaction::TYPE_REFUND,
+        'amount' => 3,
+    ]);
+});
+
+test('admin can manually add paid ai credit packages to premium stores', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $premiumStore = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Paquete IA',
+        'slug' => 'tienda-paquete-ia',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+    $proStore = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Pro Sin IA',
+        'slug' => 'tienda-pro-sin-ia',
+        'whatsapp' => '573001112244',
+        'plan' => Store::PLAN_PRO,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/stores')
+        ->assertOk()
+        ->assertSee('Sumar creditos IA')
+        ->assertSee('300 creditos - $24.900');
+
+    $this->actingAs($admin)
+        ->post(route('admin.stores.ai-credits.store', $premiumStore), [
+            'package_key' => 'ai_300',
+        ])
+        ->assertRedirect();
+
+    $this->assertDatabaseHas('ai_credit_transactions', [
+        'store_id' => $premiumStore->id,
+        'user_id' => $admin->id,
+        'type' => AiCreditTransaction::TYPE_PACKAGE_PURCHASE,
+        'amount' => 300,
+        'package_key' => 'ai_300',
+        'price_cop' => 24900,
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.stores.ai-credits.store', $proStore), [
+            'package_key' => 'ai_100',
+        ])
+        ->assertForbidden();
+});
+
+test('premium monthly ai credits do not accumulate across months', function () {
+    $this->travelTo(now()->startOfMonth()->addDays(5));
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addMonth(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda IA Mensual',
+        'slug' => 'tienda-ia-mensual',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+    $credits = app(\App\Services\AiCreditService::class);
+
+    expect($credits->balance($store))->toBe(250);
+
+    AiCreditTransaction::create([
+        'store_id' => $store->id,
+        'type' => AiCreditTransaction::TYPE_USAGE,
+        'amount' => -100,
+        'reason' => 'Consumo mensual',
+        'package_key' => 'monthly:' . now()->format('Y-m'),
+    ]);
+
+    expect($credits->balance($store))->toBe(150);
+
+    $this->travelTo(now()->addMonth()->startOfMonth()->addDays(5));
+
+    expect($credits->balance($store))->toBe(250);
+});
+
+test('ai credit refunds are idempotent', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Reembolso Unico',
+        'slug' => 'tienda-reembolso-unico',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+    $generation = \App\Models\AiGeneration::create([
+        'store_id' => $store->id,
+        'user_id' => $storeUser->id,
+        'type' => \App\Services\AiContentService::PRODUCT_DESCRIPTION,
+        'status' => 'processing',
+        'provider' => 'openai',
+    ]);
+    $credits = app(\App\Services\AiCreditService::class);
+
+    $credits->consume($store, \App\Services\AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
+    $credits->refund($store, \App\Services\AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
+    $credits->refund($store, \App\Services\AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
+
+    expect(AiCreditTransaction::where('store_id', $store->id)
+        ->where('type', AiCreditTransaction::TYPE_REFUND)
+        ->count())->toBe(1)
+        ->and($credits->balance($store))->toBe(250);
+});
+
+test('ai credit refund can recover a partially refunded generation', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Reembolso Parcial',
+        'slug' => 'tienda-reembolso-parcial',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+    $generation = \App\Models\AiGeneration::create([
+        'store_id' => $store->id,
+        'user_id' => $storeUser->id,
+        'type' => \App\Services\AiContentService::PRODUCT_DESCRIPTION,
+        'status' => 'processing',
+        'provider' => 'openai',
+    ]);
+    $credits = app(\App\Services\AiCreditService::class);
+
+    $credits->addPackage($store, 'ai_100', $storeUser->id);
+    AiCreditTransaction::create([
+        'store_id' => $store->id,
+        'type' => AiCreditTransaction::TYPE_USAGE,
+        'amount' => -248,
+        'reason' => 'Consumo mensual',
+        'package_key' => 'monthly:' . now()->format('Y-m'),
+    ]);
+
+    $credits->consume($store, \App\Services\AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
+    $usageTransactions = AiCreditTransaction::where('ai_generation_id', $generation->id)
+        ->where('type', AiCreditTransaction::TYPE_USAGE)
+        ->orderBy('id')
+        ->get();
+
+    AiCreditTransaction::create([
+        'store_id' => $store->id,
+        'user_id' => $storeUser->id,
+        'ai_generation_id' => $generation->id,
+        'type' => AiCreditTransaction::TYPE_REFUND,
+        'amount' => 2,
+        'reason' => 'Devolucion parcial previa',
+        'package_key' => $usageTransactions[0]->package_key,
+        'metadata' => [
+            'ai_type' => \App\Services\AiContentService::PRODUCT_DESCRIPTION,
+            'usage_transaction_id' => $usageTransactions[0]->id,
+        ],
+    ]);
+
+    $credits->refund($store, \App\Services\AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
+
+    expect(AiCreditTransaction::where('ai_generation_id', $generation->id)
+        ->where('type', AiCreditTransaction::TYPE_REFUND)
+        ->count())->toBe(2)
+        ->and($credits->balance($store))->toBe(102);
+});
+
+test('ai usage spills from monthly credits into purchased credits', function () {
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    $store = Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda IA Mixta',
+        'slug' => 'tienda-ia-mixta',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+    $generation = \App\Models\AiGeneration::create([
+        'store_id' => $store->id,
+        'user_id' => $storeUser->id,
+        'type' => \App\Services\AiContentService::PRODUCT_DESCRIPTION,
+        'status' => 'processing',
+        'provider' => 'openai',
+    ]);
+    $credits = app(\App\Services\AiCreditService::class);
+
+    $credits->addPackage($store, 'ai_100', $storeUser->id);
+    AiCreditTransaction::create([
+        'store_id' => $store->id,
+        'type' => AiCreditTransaction::TYPE_USAGE,
+        'amount' => -248,
+        'reason' => 'Consumo mensual',
+        'package_key' => 'monthly:' . now()->format('Y-m'),
+    ]);
+
+    $credits->consume($store, \App\Services\AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
+
+    $this->assertDatabaseHas('ai_credit_transactions', [
+        'store_id' => $store->id,
+        'ai_generation_id' => $generation->id,
+        'type' => AiCreditTransaction::TYPE_USAGE,
+        'amount' => -2,
+        'package_key' => 'monthly:' . now()->format('Y-m'),
+    ]);
+    $this->assertDatabaseHas('ai_credit_transactions', [
+        'store_id' => $store->id,
+        'ai_generation_id' => $generation->id,
+        'type' => AiCreditTransaction::TYPE_USAGE,
+        'amount' => -1,
+        'package_key' => 'purchased',
+    ]);
+
+    expect($credits->balance($store))->toBe(99);
+
+    $credits->refund($store, \App\Services\AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
+
+    expect($credits->balance($store))->toBe(102);
 });
 
 test('cart shows mercadopago button only for connected stores', function () {
@@ -4591,6 +5629,45 @@ test('admin cannot create a second store for the same user', function () {
         ->assertSessionHasErrors('user_id');
 });
 
+test('admin can create a store user and store in one flow', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $this->actingAs($admin)
+        ->get(route('admin.stores.create-with-user'))
+        ->assertOk()
+        ->assertSee('Crear cliente y tienda');
+
+    $this->actingAs($admin)
+        ->post(route('admin.stores.store-with-user'), [
+            'user_name' => 'Cliente Mixtas',
+            'user_email' => 'cliente-mixtas@example.com',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+            'active_starts_at' => now()->toDateString(),
+            'active_duration_days' => 30,
+            'name' => 'Mixtas Flow',
+            'template_key' => 'fashion',
+            'business_type' => 'store',
+            'plan' => Store::PLAN_PREMIUM,
+            'slug' => 'mixtas-flow',
+            'whatsapp' => '573001112233',
+            'brand_color' => '#111111',
+            'background_color' => '#ffffff',
+        ])
+        ->assertRedirect();
+
+    $user = User::where('email', 'cliente-mixtas@example.com')->first();
+    $store = Store::where('slug', 'mixtas-flow')->first();
+
+    expect($user)->not->toBeNull()
+        ->and($user->role)->toBe('store')
+        ->and($user->active_duration_days)->toBe(30)
+        ->and($store)->not->toBeNull()
+        ->and($store->user_id)->toBe($user->id)
+        ->and($store->business_type)->toBe('store')
+        ->and($store->plan)->toBe(Store::PLAN_PREMIUM);
+});
+
 test('deleting a store removes its products and banners from the database', function () {
     Storage::fake('public');
 
@@ -6688,6 +7765,20 @@ test('checkout can require official colombia city selections', function () {
         'city_code' => '76001',
         'document' => '123456',
     ])->assertSessionHasErrors('city_code');
+
+    $this->followingRedirects()
+        ->post(route('cart.whatsapp', ['store' => $store->slug]), [
+            'name' => 'Cliente',
+            'last_name' => 'Sin telefono',
+            'address' => 'Calle 1',
+            'neighborhood' => 'Cedritos',
+            'department_code' => '11',
+            'city_code' => '11001',
+            'document' => '123456',
+        ])
+        ->assertOk()
+        ->assertSee('<strong data-role="shipping-total">$ 5.000</strong>', false)
+        ->assertSee('<strong data-role="grand-total">$ 35.000</strong>', false);
 
     $this->post(route('cart.whatsapp', ['store' => $store->slug]), [
         'name' => 'Cliente',

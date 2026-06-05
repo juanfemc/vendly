@@ -10,11 +10,17 @@
         <link rel="stylesheet" href="{{ asset('css/storefront.css') }}?v={{ filemtime(public_path('css/storefront.css')) }}">
         <link rel="stylesheet" href="{{ asset('css/storefront-technology.css') }}?v={{ filemtime(public_path('css/storefront-technology.css')) }}">
     @endif
+    @if($store?->isFashionStore())
+        <link rel="stylesheet" href="{{ asset('css/storefront.css') }}?v={{ filemtime(public_path('css/storefront.css')) }}">
+        <link rel="stylesheet" href="{{ asset('css/storefront-fashion.css') }}?v={{ filemtime(public_path('css/storefront-fashion.css')) }}">
+    @endif
 </head>
 @php
     $page = $store ? \App\View\Models\StorefrontPageViewModel::from($store) : null;
+    $canManageStore = $page?->canManageStore ?? false;
     $isRestaurant = $store?->isRestaurant() ?? false;
     $isTechnologyStore = $store?->isTechnologyStore() ?? false;
+    $isFashionStore = $store?->isFashionStore() ?? false;
     $isReservationStore = $store?->isReservationStore() ?? false;
     $businessLabel = $isRestaurant ? 'restaurante' : ($isReservationStore ? 'negocio de reservas' : 'tienda');
     $cartLabel = $isRestaurant ? 'pedido' : ($isReservationStore ? 'reserva' : 'carrito');
@@ -43,7 +49,7 @@
         : filled(old('city'));
 @endphp
 <body
-    class="cart-page {{ $isTechnologyStore ? 'cart-page--technology storefront-page--technology storefront-page--minimal-grid' : '' }}"
+    class="cart-page {{ $isTechnologyStore ? 'cart-page--technology storefront-page--technology storefront-page--minimal-grid' : '' }} {{ $isFashionStore ? 'storefront-page storefront-page--fashion cart-page--fashion' : '' }}"
     data-csrf="{{ csrf_token() }}"
     data-feedback-updated="{{ $isRestaurant ? 'Pedido actualizado' : ($isReservationStore ? 'Reserva actualizada' : 'Carrito actualizado') }}"
     data-feedback-update-error="{{ $isRestaurant ? 'No se pudo actualizar el pedido.' : ($isReservationStore ? 'No se pudo actualizar la reserva.' : 'No se pudo actualizar el carrito.') }}"
@@ -64,8 +70,12 @@
         @include('storefront.partials.header-minimal-grid')
     @endif
 
+    @if($isFashionStore && $store)
+        @include('storefront.partials.header-fashion')
+    @endif
+
     @if (empty($cart))
-        <main class="{{ $isTechnologyStore ? 'tech-checkout-shell shell' : '' }}">
+        <main class="{{ $isTechnologyStore ? 'tech-checkout-shell shell' : ($isFashionStore ? 'fashion-checkout-shell' : '') }}">
         <div class="empty-state">
             <h1 class="section-title">Tu {{ $cartLabel }} esta vacio</h1>
             <p>No hay {{ $itemsLabel }} agregados todavia.</p>
@@ -75,7 +85,10 @@
         </div>
         </main>
     @else
-        <main class="{{ $isTechnologyStore ? 'tech-checkout-shell shell' : '' }}">
+        <main class="{{ $isTechnologyStore ? 'tech-checkout-shell shell' : ($isFashionStore ? 'fashion-checkout-shell' : '') }}">
+        @if($isFashionStore)
+            @include('storefront.partials.fashion-checkout')
+        @else
         @if($isTechnologyStore)
             <section class="tech-checkout-head">
                 <h1>Finalizar compra</h1>
@@ -347,11 +360,16 @@
                 </div>
             </aside>
         </div>
+        @endif
         </main>
     @endif
 
     @if($isTechnologyStore && $store)
         @include('storefront.partials.footer-minimal-grid')
+    @endif
+
+    @if($isFashionStore && $store)
+        @include('storefront.partials.footer-fashion')
     @endif
 
     <div class="cart-feedback" id="cartFeedback" aria-live="polite"></div>

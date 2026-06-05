@@ -9,6 +9,7 @@
         $absoluteStorageUrl = fn (?string $path) => $page->storageUrl($path);
         $isRestaurant = $store->isRestaurant();
         $isTechnologyStore = $store->isTechnologyStore();
+        $isFashionStore = $store->isFashionStore();
         $isSupplementStore = $store->isSupplementStore();
         $isReservationStore = $store->isReservationStore();
         $cartCount = $page->cartCount;
@@ -25,9 +26,10 @@
         $productDescriptionFallback = $isRestaurant
             ? 'Plato recomendado del restaurante.'
             : ($isTechnologyStore ? 'Producto de tecnologia.' : ($isSupplementStore ? 'Suplemento de la tienda.' : ($isReservationStore ? 'Servicio disponible para reservar.' : 'Producto de la tienda.')));
-        $storefrontVariant = $isTechnologyStore ? 'technology' : ($isRestaurant ? 'restaurant' : ($isSupplementStore ? 'supplements' : 'default'));
+        $storefrontVariant = $isTechnologyStore ? 'technology' : ($isFashionStore ? 'fashion' : ($isRestaurant ? 'restaurant' : ($isSupplementStore ? 'supplements' : 'default')));
         $variantStylesheets = [
             'technology' => 'css/storefront-technology.css',
+            'fashion' => 'css/storefront-fashion.css',
             'restaurant' => 'css/storefront-restaurant.css',
             'supplements' => 'css/storefront-supplements.css',
             'default' => 'css/storefront-default.css',
@@ -59,6 +61,8 @@
 
     @if($storefrontVariant === 'technology')
         @include('storefront.partials.header-minimal-grid')
+    @elseif($storefrontVariant === 'fashion')
+        @include('storefront.partials.header-fashion')
     @else
         @include('storefront.partials.header')
     @endif
@@ -104,6 +108,8 @@
 
     @if($storefrontVariant === 'technology')
         @include('storefront.partials.footer-minimal-grid')
+    @elseif($storefrontVariant === 'fashion')
+        @include('storefront.partials.footer-fashion')
     @else
         @include('storefront.partials.footer')
     @endif

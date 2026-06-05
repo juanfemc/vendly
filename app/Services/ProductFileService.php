@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+
 class ProductFileService
 {
     public function __construct(private PublicFileService $publicFileService)
@@ -12,9 +14,11 @@ class ProductFileService
 
     public function storeImage(Request $request): ?string
     {
-        return $request->hasFile('image')
-            ? $request->file('image')->store('products', 'public')
-            : null;
+        if ($request->hasFile('image')) {
+            return $request->file('image')->store('products', 'public');
+        }
+
+        return $this->safeGeneratedImagePath($request->input('ai_generated_image_path'));
     }
 
     public function storeImages(Request $request): array
@@ -49,6 +53,12 @@ class ProductFileService
         if ($request->hasFile('image')) {
             $this->deletePrimaryImage($product);
             $data['image'] = $request->file('image')->store('products', 'public');
+        } elseif ($generatedImage = $this->safeGeneratedImagePath($request->input('ai_generated_image_path'))) {
+            if ($generatedImage !== $product->image) {
+                $this->deletePrimaryImage($product);
+            }
+
+            $data['image'] = $generatedImage;
         }
 
         if ($allowGallery && $request->hasFile('images')) {
@@ -77,5 +87,16 @@ class ProductFileService
     private function deletePrimaryImage(Product $product): void
     {
         $this->publicFileService->delete($product->image);
+    }
+
+    private function safeGeneratedImagePath(?string $path): ?string
+    {
+        $path = str_replace('\\', '/', trim((string) $path));
+
+        if (! str_starts_with($path, 'products/ai/') || str_contains($path, '..')) {
+            return null;
+        }
+
+        return Storage::disk('public')->exists($path) ? $path : null;
     }
 }

@@ -46,6 +46,44 @@
 @endif
 
 @if (auth()->user()->isAdmin())
+    @if (!empty($expiredStores) && $expiredStores->isNotEmpty())
+        <div class="dashboard-notification dashboard-notification--warning">
+            <div>
+                <strong>Tiendas vencidas</strong>
+                <p>Estas tiendas ya no estan publicas. Valida el pago y activalas desde el panel.</p>
+            </div>
+
+            <div class="dashboard-notification-list">
+                @foreach ($expiredStores as $expiredStore)
+                    <a href="{{ route('admin.stores.edit', $expiredStore) }}" class="dashboard-notification-item">
+                        <span>{{ $expiredStore->name }}</span>
+                        <strong>{{ $expiredStore->subscriptionStatusLabel() }}</strong>
+                        <small>{{ $expiredStore->user->name ?? 'Sin usuario' }} · {{ $expiredStore->subscriptionRemainingLabel() }}</small>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
+    @if (!empty($expiringStores) && $expiringStores->isNotEmpty())
+        <div class="dashboard-notification">
+            <div>
+                <strong>Tiendas por vencer</strong>
+                <p>Revisa estas tiendas antes de que salgan de publicacion.</p>
+            </div>
+
+            <div class="dashboard-notification-list">
+                @foreach ($expiringStores as $expiringStore)
+                    <a href="{{ route('admin.stores.edit', $expiringStore) }}" class="dashboard-notification-item">
+                        <span>{{ $expiringStore->name }}</span>
+                        <strong>{{ $expiringStore->subscriptionRemainingLabel() }}</strong>
+                        <small>{{ $expiringStore->user->name ?? 'Sin usuario' }} · {{ $expiringStore->subscriptionStatusLabel() }}</small>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
     @if (!empty($expiringUsers) && $expiringUsers->isNotEmpty())
         <div class="dashboard-notification">
             <div>
@@ -176,6 +214,35 @@
         @endif
     </div>
 @else
+    @php
+        $supportWhatsapp = preg_replace('/\D+/', '', (string) config('services.support.whatsapp'));
+        $activationWhatsappUrl = $supportWhatsapp !== ''
+            ? 'https://wa.me/' . $supportWhatsapp . '?text=' . rawurlencode('Hola, quiero activar mi tienda ' . ($store?->name ?? ''))
+            : '#';
+    @endphp
+
+    @if (!empty($subscriptionExpired) && !empty($store))
+        <div class="dashboard-notification dashboard-notification--warning">
+            <div>
+                <strong>Tu prueba o suscripcion vencio</strong>
+                <p>
+                    La tienda no estara visible para clientes ni podra recibir pedidos hasta que se active nuevamente.
+                    Contacta al administrador para validar el pago.
+                </p>
+            </div>
+            <a href="{{ $activationWhatsappUrl }}" class="btn" target="_blank" rel="noopener noreferrer">Solicitar activacion</a>
+        </div>
+    @elseif (!empty($subscriptionEndsSoon) && !empty($store))
+        <div class="dashboard-notification dashboard-notification--warning">
+            <div>
+                <strong>Tu prueba esta por finalizar</strong>
+                <p>
+                    {{ $subscriptionRemainingLabel }}. Cuando venza, la tienda dejara de estar visible para clientes hasta activar la suscripcion.
+                </p>
+            </div>
+        </div>
+    @endif
+
     @if (!empty($accountExpiresSoon) && auth()->user()->active_ends_at)
         <div class="dashboard-notification dashboard-notification--warning">
             <div>
@@ -186,6 +253,19 @@
                     Fecha final: {{ auth()->user()->active_ends_at->format('d/m/Y') }}.
                 </p>
             </div>
+        </div>
+    @endif
+
+    @if (!empty($needsOnboarding) && !empty($store))
+        <div class="dashboard-notification dashboard-notification--warning">
+            <div>
+                <strong>Completa tu tienda</strong>
+                <p>
+                    Tu configuracion inicial va en <b>{{ $onboardingProgress ?? 0 }}%</b>.
+                    Termina los primeros pasos para que tu tienda se vea lista para vender.
+                </p>
+            </div>
+            <a href="{{ route('admin.store.onboarding') }}" class="btn">Continuar</a>
         </div>
     @endif
 

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Store;
 use App\Models\StoreBanner;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class StoreFileService
 {
@@ -29,6 +30,12 @@ class StoreFileService
         if ($request->hasFile('cover_image')) {
             $this->deletePublicFile($store->cover_image);
             $data['cover_image'] = $request->file('cover_image')->store('stores', 'public');
+        } elseif ($generatedCover = $this->safeGeneratedCoverPath($request->input('ai_generated_cover_path'))) {
+            if ($generatedCover !== $store->cover_image) {
+                $this->deletePublicFile($store->cover_image);
+            }
+
+            $data['cover_image'] = $generatedCover;
         }
 
         if ($request->hasFile('logo_image')) {
@@ -73,5 +80,16 @@ class StoreFileService
     private function deletePublicFile(?string $path): void
     {
         $this->publicFileService->delete($path);
+    }
+
+    private function safeGeneratedCoverPath(?string $path): ?string
+    {
+        $path = str_replace('\\', '/', trim((string) $path));
+
+        if (! str_starts_with($path, 'stores/ai/') || str_contains($path, '..')) {
+            return null;
+        }
+
+        return Storage::disk('public')->exists($path) ? $path : null;
     }
 }

@@ -32,6 +32,7 @@ class ProductRequest extends FormRequest
             'sizes' => ['nullable', 'string', 'max:1000'],
             'colors' => ['nullable', 'string', 'max:1000'],
             'image' => ['nullable', 'image', 'max:2048'],
+            'ai_generated_image_path' => ['nullable', 'string', 'max:255'],
             'images' => ['nullable', 'array', 'max:8'],
             'images.*' => ['image', 'max:2048'],
             'remove_images' => ['nullable', 'array'],

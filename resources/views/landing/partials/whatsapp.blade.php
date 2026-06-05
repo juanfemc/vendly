@@ -1,5 +1,4 @@
-<a href="https://wa.me/573170613664" class="whatsapp-float" aria-label="Contactar por WhatsApp">
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 3a8.7 8.7 0 0 0-7.3 13.4L4 21l4.8-1.2A8.7 8.7 0 1 0 12 3Zm0 2a6.7 6.7 0 0 1 0 13.4c-1.1 0-2.2-.3-3.1-.8l-.4-.2-1.9.5.5-1.8-.3-.4A6.7 6.7 0 0 1 12 5Zm-2.3 3.4c-.2 0-.5.1-.7.4-.2.3-.8.8-.8 2s.8 2.3.9 2.5c.1.2 1.6 2.5 3.9 3.4 1.9.8 2.3.6 2.7.6.4 0 1.4-.6 1.6-1.1.2-.5.2-1 .1-1.1l-.6-.3-1.6-.8c-.2-.1-.5-.1-.7.2l-.7.9c-.1.2-.3.2-.6.1-.3-.1-1.1-.4-2-1.2-.8-.7-1.3-1.5-1.4-1.8-.2-.3 0-.4.1-.6l.4-.5c.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.7-1.6c-.2-.5-.4-.5-.6-.5h-.6Z"></path>
-    </svg>
+<a href="{{ $landingWhatsappUrl }}" class="whatsapp-float" aria-label="Contactar por WhatsApp">
+    <img src="{{ asset('images/landing/social/whatsapp.png') }}" alt="icono tik tok" loading="lazy">
+
 </a>

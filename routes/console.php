@@ -1,12 +1,17 @@
 <?php
 
-use App\Models\User;
+use App\Jobs\SendWhatsAppTemplate;
 use App\Models\ColombiaLocation;
+use App\Models\Store;
+use App\Models\User;
+use App\Models\WhatsAppMessage;
+use App\Models\WhatsAppStatusEvent;
 use App\Services\CheckoutService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Str;
 
 Artisan::command('inspire', function () {
@@ -72,6 +77,14 @@ Artisan::command('payments:expire-pending', function () {
 
     return self::SUCCESS;
 })->purpose('Cancela pedidos pendientes de Mercado Pago vencidos y libera stock');
+
+Artisan::command('stores:expire-subscriptions', function () {
+    $expired = Store::expirePastSubscriptions();
+
+    $this->info("Suscripciones de tienda vencidas: {$expired}");
+
+    return self::SUCCESS;
+})->purpose('Marca como vencidas las pruebas o suscripciones de tienda que ya finalizaron');
 
 Artisan::command('locations:import-colombia {--source= : URL JSON de Datos Abiertos/DIVIPOLA}', function () {
     if (! ColombiaLocation::supportsTable()) {
@@ -208,3 +221,108 @@ Artisan::command('locations:import-colombia {--source= : URL JSON de Datos Abier
 
     return self::SUCCESS;
 })->purpose('Importa departamentos y municipios de Colombia desde Datos Abiertos/DIVIPOLA');
+
+Artisan::command('whatsapp:retry-failed {--limit=100 : Cantidad maxima de mensajes para reintentar}', function () {
+    $limit = max(1, min(1000, (int) $this->option('limit')));
+    $messages = WhatsAppMessage::query()
+        ->where('status', WhatsAppMessage::STATUS_FAILED)
+        ->oldest('failed_at')
+        ->limit($limit)
+        ->get();
+    $queued = 0;
+
+    foreach ($messages as $message) {
+        $message->update([
+            'status' => WhatsAppMessage::STATUS_QUEUED,
+            'error' => null,
+            'failed_at' => null,
+        ]);
+
+        try {
+            SendWhatsAppTemplate::dispatch($message->id);
+            $queued++;
+        } catch (\Throwable $exception) {
+            $message->update([
+                'status' => WhatsAppMessage::STATUS_FAILED,
+                'error' => Str::limit($exception->getMessage(), 500),
+                'failed_at' => now(),
+            ]);
+        }
+    }
+
+    $this->info("Mensajes programados para reintento: {$queued}");
+
+    return self::SUCCESS;
+})->purpose('Programa nuevamente mensajes de WhatsApp marcados como fallidos');
+
+Artisan::command('whatsapp:prune {--days= : Dias de retencion}', function () {
+    $days = max(1, (int) ($this->option('days') ?: config('services.whatsapp.retention_days', 365)));
+    $deleted = WhatsAppMessage::query()
+        ->where('created_at', '<', now()->subDays($days))
+        ->whereIn('status', [
+            WhatsAppMessage::STATUS_SENT,
+            WhatsAppMessage::STATUS_DELIVERED,
+            WhatsAppMessage::STATUS_READ,
+            WhatsAppMessage::STATUS_FAILED,
+            WhatsAppMessage::STATUS_UNKNOWN,
+        ])
+        ->delete();
+    $eventsDeleted = WhatsAppStatusEvent::query()
+        ->where('created_at', '<', now()->subDays($days))
+        ->delete();
+
+    $this->info("Mensajes antiguos eliminados: {$deleted}. Eventos huerfanos eliminados: {$eventsDeleted}");
+
+    return self::SUCCESS;
+})->purpose('Elimina trazas antiguas y finalizadas de WhatsApp');
+
+Artisan::command('whatsapp:recover-stale {--minutes=15 : Antiguedad minima del intento}', function () {
+    $minutes = max(5, (int) $this->option('minutes'));
+    $messages = WhatsAppMessage::query()
+        ->where('status', WhatsAppMessage::STATUS_RETRYING)
+        ->where('last_attempt_at', '<', now()->subMinutes($minutes))
+        ->get();
+    $uncertain = WhatsAppMessage::query()
+        ->where('status', WhatsAppMessage::STATUS_PROCESSING)
+        ->where('last_attempt_at', '<', now()->subMinutes($minutes))
+        ->update([
+            'status' => WhatsAppMessage::STATUS_UNKNOWN,
+            'error' => encrypt('El worker se interrumpio durante el envio; no se reenvia para evitar duplicados.'),
+        ]);
+    $queued = 0;
+
+    foreach ($messages as $message) {
+        $claimed = WhatsAppMessage::query()
+            ->whereKey($message->id)
+            ->where('status', WhatsAppMessage::STATUS_RETRYING)
+            ->where('last_attempt_at', '<', now()->subMinutes($minutes))
+            ->update(['status' => WhatsAppMessage::STATUS_QUEUED]);
+
+        if ($claimed !== 1) {
+            continue;
+        }
+
+        try {
+            SendWhatsAppTemplate::dispatch($message->id);
+            $queued++;
+        } catch (\Throwable $exception) {
+            $message->refresh()->update([
+                'status' => WhatsAppMessage::STATUS_FAILED,
+                'error' => Str::limit($exception->getMessage(), 500),
+                'failed_at' => now(),
+            ]);
+        }
+    }
+
+    $this->info("Reintentos recuperados: {$queued}. Envios inciertos enviados a revision: {$uncertain}");
+
+    return self::SUCCESS;
+})->purpose('Recupera mensajes atascados por interrupciones del worker');
+
+Schedule::command('whatsapp:prune')
+    ->dailyAt('03:30')
+    ->withoutOverlapping();
+
+Schedule::command('whatsapp:recover-stale')
+    ->everyTenMinutes()
+    ->withoutOverlapping();

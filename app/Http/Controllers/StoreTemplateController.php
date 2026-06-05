@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Store;
-use App\Services\AdminUpdateService;
 use App\Support\StoreTemplateCatalog;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
@@ -12,10 +11,6 @@ use Illuminate\View\View;
 
 class StoreTemplateController extends Controller
 {
-    public function __construct(private readonly AdminUpdateService $adminUpdateService)
-    {
-    }
-
     public function index(Request $request): View
     {
         $stores = $this->availableStores();
@@ -37,19 +32,9 @@ class StoreTemplateController extends Controller
         abort_unless($store, $stores->isEmpty() ? 403 : 404);
         abort_unless($templateData, 404);
 
-        $store->update(['business_type' => $templateData['business_type']]);
-        $store->ensureCategoryRecords();
-
-        $this->adminUpdateService->record(
-            'Plantilla aplicada',
-            $templateData['name'] . ' en ' . $store->name,
-            'plantilla',
-            route('admin.templates.index')
-        );
-
         return redirect()
             ->route('admin.templates.index', ['store_id' => $store->id])
-            ->with('success', 'Plantilla ' . $templateData['name'] . ' aplicada correctamente.');
+            ->with('error', 'La opcion de usar plantillas estara disponible muy pronto.');
     }
 
     private function availableStores(): Collection

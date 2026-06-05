@@ -491,6 +491,7 @@ class ProductController extends Controller
             'allProducts',
             'activeCategories',
             'categorySections',
+            'categoryProductCounts',
             'visibleCategorySections',
             'otherProducts',
             'productSearchEnabled',

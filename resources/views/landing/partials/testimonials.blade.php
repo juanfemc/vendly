@@ -8,7 +8,7 @@
 
         <div class="testimonial-grid">
             @foreach($testimonials as $testimonial)
-                <article class="card testimonial-card">
+                <article class="testimonial-card">
                     <div class="testimonial-person">
                         <span>{{ $testimonial->initials }}</span>
                         <div>

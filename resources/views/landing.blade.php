@@ -1,31 +1,46 @@
 @php
     $portfolioStores = $portfolioStores ?? collect();
+    $proofStores = $proofStores ?? collect();
     $testimonials = $testimonials ?? collect();
     $hasPortfolio = $portfolioStores->isNotEmpty();
     $hasTestimonials = $testimonials->isNotEmpty();
+    $landingTitle = 'Vendly | Tiendas online listas para vender';
+    $landingDescription = 'Vendly crea tiendas online profesionales para negocios que quieren mostrar productos, recibir pedidos y vender por WhatsApp.';
+    $landingImage = asset('images/vendly-whatsapp-dark.png');
+    $landingWhatsappUrl = 'https://wa.me/573170613664?text=' . rawurlencode('Hola, vengo desde la landing page de Vendly y quiero más información para crear mi tienda.');
+    $landingCssPath = public_path('css/landing.css');
+    $landingJsPath = public_path('js/landing.js');
+    $landingCssVersion = file_exists($landingCssPath) ? filemtime($landingCssPath) : null;
+    $landingJsVersion = file_exists($landingJsPath) ? filemtime($landingJsPath) : null;
 
     $features = [
-        ['number' => '01', 'title' => 'Se ve como tu marca', 'copy' => 'Logo, portada, colores, banners y textos alineados con la personalidad de tu negocio.'],
-        ['number' => '02', 'title' => 'Productos que venden', 'copy' => 'Fotos, precios, variantes, categorías y descripciones organizadas para que el cliente decida más fácil.'],
-        ['number' => '03', 'title' => 'Pedido sin fricción', 'copy' => 'El cliente navega, arma su carrito y envía el pedido directo a tu WhatsApp.'],
-        ['number' => '04', 'title' => 'Lista para crecer', 'copy' => 'Cuando tengas nuevos productos, promociones o cambios de marca, tu tienda puede actualizarse rápido.'],
+        ['tag' => 'ICONO CATALOGO', 'title' => 'Catalogo profesional', 'copy' => 'Muestra tus productos con estilo y genera confianza desde el primer vistazo.'],
+        ['tag' => 'LOGO WHATSAPP', 'title' => 'Pedidos por WhatsApp', 'copy' => 'Tus clientes compran por el canal que ya usan todos los dias.'],
+        ['tag' => 'ICONO IA', 'title' => 'IA que te ayuda a vender', 'copy' => 'Genera descripciones, titulos, etiquetas y avisos para impulsar tu tienda.'],
+        ['tag' => 'ICONO PANEL', 'title' => 'Panel inteligente', 'copy' => 'Gestiona pedidos, productos, clientes y estadisticas desde un solo lugar.'],
+        ['tag' => 'ICONO COMPARTIR', 'title' => 'Comparte sin limites', 'copy' => 'Comparte tu tienda en redes, WhatsApp, Instagram y campanas.'],
     ];
 
     $steps = [
-        ['title' => 'Armamos tu vitrina', 'copy' => 'Organizamos la portada, logo, colores, categorías y estructura principal de la tienda.'],
-        ['title' => 'Cargamos tus productos', 'copy' => 'Mostramos tus productos con fotos, precios, variantes y textos que ayudan a comprar.'],
-        ['title' => 'Compartes y vendes', 'copy' => 'Envías tu enlace en redes, estados o campañas y recibes pedidos ordenados por WhatsApp.'],
+        ['number' => '1', 'title' => 'Crea tu tienda', 'copy' => 'Registra tu negocio y configura tu catalogo en minutos.'],
+        ['number' => '2', 'title' => 'Comparte por WhatsApp', 'copy' => 'Envia tu catalogo a clientes y empieza a recibir pedidos claros.'],
+        ['number' => '3', 'title' => 'Gestiona y vende mas', 'copy' => 'Administra pedidos, productos y clientes desde tu panel.'],
     ];
 
     $plans = [
         [
             'eyebrow' => 'Plan 01',
             'name' => 'Básico',
-            'summary' => 'Para negocios que quieren empezar con una tienda simple y funcional.',
+            'summary' => 'Ideal para empezar',
             'badge' => 'Inicio simple',
+            'price' => 'S/ 0',
+            'button' => 'Comenzar gratis',
             'features' => [
+                '1 tienda',
+                'Catálogo básico',
                 'Productos publicados',
                 'Sin categorías',
+                'Pedidos por WhatsApp',
                 'Carrito por WhatsApp',
                 'Logo y portada',
                 'Personalización básica',
@@ -37,28 +52,38 @@
         [
             'eyebrow' => 'Plan 02',
             'name' => 'Pro',
-            'summary' => 'Para tiendas que necesitan más catálogo, categorías y herramientas de venta.',
-            'badge' => 'Recomendado',
+            'summary' => 'Para negocios en crecimiento',
+            'badge' => 'Mas popular',
+            'price' => 'S/ 39',
+            'button' => 'Probar Pro gratis',
             'features' => [
-                'Productos publicados',
+                'Todo lo del Starter',
+                'Todo lo del Basico',
+                'Catálogo ilimitado',
                 'Categorías',
-                'Carrito por WhatsApp',
-                'Logo y portada',
-                'Personalización completa',
+                'Panel avanzado',
+                'Descuentos y cupones',
+                'Envíos y métodos de pago',
                 'Varios avisos superiores rotativos',
                 'Estadística de visitas',
                 'Galería de imágenes por producto',
                 'Límite de 100 productos',
+                'Personalización completa',
                 'Soporte prioritario',
             ],
         ],
         [
             'eyebrow' => 'Plan 03',
             'name' => 'Premium',
-            'summary' => 'Para marcas que quieren una experiencia más personalizada y medición avanzada.',
+            'summary' => 'Para marcas que escalan',
             'badge' => 'Más completo',
+            'price' => 'S/ 79',
+            'button' => 'Probar Premium',
             'features' => [
                 'Todo lo del plan Pro',
+                'Múltiples tiendas',
+                'Integraciones avanzadas',
+                'IA avanzada',
                 'Diseño personalizado',
                 'Dominio personalizado',
                 'Pixel / Analytics',
@@ -69,7 +94,6 @@
             ],
         ],
     ];
-
 @endphp
 
 <!DOCTYPE html>
@@ -77,26 +101,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vendly | Tiendas online listas para vender</title>
-    <meta name="description" content="Vendly crea tiendas online profesionales para negocios que quieren mostrar productos, recibir pedidos y vender por WhatsApp.">
-    <link rel="icon" type="image/svg+xml" href="{{ asset('images/vendly-logo.svg') }}">
-    <link rel="shortcut icon" href="{{ asset('images/vendly-logo.svg') }}">
-    <link rel="stylesheet" href="{{ asset('css/landing.css') }}?v={{ filemtime(public_path('css/landing.css')) }}">
+    <title>{{ $landingTitle }}</title>
+    <meta name="description" content="{{ $landingDescription }}">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{{ $landingTitle }}">
+    <meta property="og:description" content="{{ $landingDescription }}">
+    <meta property="og:image" content="{{ $landingImage }}">
+    <meta property="og:url" content="{{ url('/') }}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ $landingTitle }}">
+    <meta name="twitter:description" content="{{ $landingDescription }}">
+    <meta name="twitter:image" content="{{ $landingImage }}">
+    <link rel="icon" type="image/png" href="{{ asset('images/vendly-whatsapp-dark.png') }}">
+    <link rel="shortcut icon" href="{{ asset('images/vendly-whatsapp-dark.png') }}">
+    <link rel="stylesheet" href="{{ asset('css/landing.css') }}{{ $landingCssVersion ? '?v=' . $landingCssVersion : '' }}">
 </head>
 <body class="landing-page">
-    @include('landing.partials.nav', ['hasPortfolio' => $hasPortfolio, 'hasTestimonials' => $hasTestimonials])
+    @include('landing.partials.nav')
 
     <main>
         @include('landing.partials.hero', ['hasPortfolio' => $hasPortfolio])
-        @includeWhen($hasPortfolio, 'landing.partials.portfolio', ['portfolioStores' => $portfolioStores])
-        @include('landing.partials.features', ['features' => $features])
-        @includeWhen($hasTestimonials, 'landing.partials.testimonials', ['testimonials' => $testimonials])
-        @include('landing.partials.plans', ['plans' => $plans])
+        @include('landing.partials.portfolio', ['portfolioStores' => $portfolioStores, 'proofStores' => $proofStores, 'hasPortfolio' => $hasPortfolio])
         @include('landing.partials.process', ['steps' => $steps])
+        @include('landing.partials.features', ['features' => $features])
+        @include('landing.partials.plans', ['plans' => $plans])
+        @includeWhen($hasTestimonials, 'landing.partials.testimonials', ['testimonials' => $testimonials])
         @include('landing.partials.cta')
     </main>
 
     @include('landing.partials.footer')
     @include('landing.partials.whatsapp')
+    <script src="{{ asset('js/landing.js') }}{{ $landingJsVersion ? '?v=' . $landingJsVersion : '' }}" defer></script>
 </body>
 </html>

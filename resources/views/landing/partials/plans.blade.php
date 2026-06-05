@@ -1,20 +1,20 @@
 <section class="landing-section plans-section" id="planes">
     <div class="landing-shell">
-        <div class="section-head section-head--row">
-            <div>
-                <span class="section-kicker">Planes</span>
-                <h2>Elige como quieres empezar</h2>
+        <div class="section-head section-head--center">
+            <h2>Planes simples. Sin letras pequeñas.</h2>
+            <div class="billing-toggle" aria-label="Periodo de pago">
+                <span>Mensual</span>
+                <strong>Anual -20%</strong>
             </div>
-            <p>El plan Básico queda pensado para empezar simple. Pro suma más catálogo y herramientas para vender mejor. Premium agrega personalización, analítica y prioridad.</p>
         </div>
 
         <div class="plans-grid">
             @foreach($plans as $plan)
-                <article class="plan-card card {{ ($plan['name'] ?? '') === 'Pro' ? 'plan-card--featured' : '' }}">
+                <article class="plan-card {{ ($plan['name'] ?? '') === 'Pro' ? 'plan-card--featured' : '' }}">
                     <div class="plan-card-head">
                         <div>
-                            <span class="plan-eyebrow">{{ $plan['eyebrow'] }}</span>
                             <h3>{{ $plan['name'] }}</h3>
+                            <span>{{ $plan['summary'] }}</span>
                         </div>
 
                         @if(! empty($plan['badge']))
@@ -22,9 +22,10 @@
                         @endif
                     </div>
 
-                    @if(! empty($plan['summary']))
-                        <p class="plan-summary">{{ $plan['summary'] }}</p>
-                    @endif
+                    <div class="plan-price">
+                        <strong>{{ $plan['price'] }}</strong>
+                        <span>/mes</span>
+                    </div>
 
                     @if(! empty($plan['features']))
                         <ul class="plan-features">
@@ -35,6 +36,10 @@
                     @else
                         <p class="plan-pending">Funciones por definir.</p>
                     @endif
+
+                    <a href="{{ route('trial-signup.create') }}" class="btn {{ ($plan['name'] ?? '') === 'Pro' ? 'btn--primary' : 'btn--dark' }}">
+                        {{ $plan['button'] }}
+                    </a>
                 </article>
             @endforeach
         </div>

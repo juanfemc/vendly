@@ -5,20 +5,29 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreRequest;
 use App\Http\Requests\StoreSettingsRequest;
+use App\Http\Requests\StoreWithUserRequest;
 use App\Models\ColombiaLocation;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\User;
 use App\Services\AdminUpdateService;
+use App\Services\AiCreditService;
 use App\Services\StoreFileService;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 
 class StoreController extends Controller
 {
     public function __construct(
         private StoreFileService $storeFileService,
         private AdminUpdateService $adminUpdateService,
+        private AiCreditService $aiCreditService,
     ) {
     }
 
@@ -41,6 +50,13 @@ class StoreController extends Controller
             ->get();
 
         return view('admin.stores.create', compact('users'));
+    }
+
+    public function createWithUser()
+    {
+        $this->authorize('create', Store::class);
+
+        return view('admin.stores.create-with-user');
     }
 
     public function visits()
@@ -105,6 +121,37 @@ class StoreController extends Controller
         return redirect('/admin/stores')->with('success', 'Tienda creada.');
     }
 
+    public function storeWithUser(StoreWithUserRequest $request): RedirectResponse
+    {
+        $this->authorize('create', Store::class);
+
+        [$user, $store] = DB::transaction(function () use ($request) {
+            $user = User::create([
+                ...$request->userData(),
+                'password' => Hash::make($request->validated('password')),
+                ...$this->activePeriodData($request),
+            ]);
+
+            $store = Store::create(array_merge($request->storeData(), $this->storeFileService->storeUploadedImages($request), [
+                'user_id' => $user->id,
+                'created_by_admin_id' => auth()->id(),
+            ]));
+
+            return [$user, $store];
+        });
+
+        $this->adminUpdateService->record(
+            'Cliente y tienda creados',
+            $user->name . ' / ' . $store->name,
+            'tienda',
+            route('admin.stores.edit', $store)
+        );
+
+        return redirect()
+            ->route('admin.stores.edit', $store)
+            ->with('success', 'Cliente y tienda creados correctamente.');
+    }
+
     public function edit(Store $store)
     {
         $this->authorize('update', $store);
@@ -159,6 +206,58 @@ class StoreController extends Controller
         $this->adminUpdateService->record('Tienda eliminada', $storeName, 'tienda');
 
         return redirect('/admin/stores')->with('success', 'Tienda eliminada.');
+    }
+
+    public function addAiCredits(Request $request, Store $store): RedirectResponse
+    {
+        $this->authorize('update', $store);
+        abort_unless(auth()->user()?->isAdmin(), 403);
+        abort_unless($store->allowsAiContent(), 403);
+
+        $validated = $request->validate([
+            'package_key' => ['required', 'string', Rule::in(array_keys(AiCreditService::PACKAGES))],
+        ]);
+
+        $transaction = $this->aiCreditService->addPackage($store, $validated['package_key'], auth()->id());
+
+        $this->adminUpdateService->record(
+            'Creditos IA agregados',
+            $store->name . ' recibio ' . number_format($transaction->amount, 0, ',', '.') . ' creditos IA',
+            'tienda',
+            route('admin.stores.edit', $store)
+        );
+
+        return back()->with('success', 'Creditos IA agregados a ' . $store->name . '.');
+    }
+
+    public function activateSubscription(Request $request, Store $store): RedirectResponse
+    {
+        $this->authorize('update', $store);
+        abort_unless(auth()->user()?->isAdmin(), 403);
+
+        $validated = $request->validate([
+            'duration_days' => ['required', 'integer', 'min:1', 'max:3650'],
+            'plan' => ['nullable', Rule::in(array_keys(Store::planOptions()))],
+        ]);
+
+        $requestedPlan = $validated['plan'] ?? $store->plan ?? Store::PLAN_PRO;
+
+        if (! $this->storeCanUsePlan($store, $requestedPlan)) {
+            return back()
+                ->with('error', 'Esta tienda tiene mas productos que los permitidos por el plan ' . Store::planOptions()[$requestedPlan] . '.');
+        }
+
+        $store->activateSubscription((int) $validated['duration_days'], $requestedPlan);
+        $this->enforcePlanLimits($store->refresh());
+
+        $this->adminUpdateService->record(
+            'Suscripcion activada',
+            $store->name . ' quedo activa por ' . (int) $validated['duration_days'] . ' dia(s)',
+            'tienda',
+            route('admin.stores.edit', $store)
+        );
+
+        return back()->with('success', 'Suscripcion activada para ' . $store->name . '.');
     }
 
     public function settings()
@@ -252,6 +351,25 @@ class StoreController extends Controller
         };
 
         return $limit === null || $store->products()->count() <= $limit;
+    }
+
+    private function activePeriodData(Request $request): array
+    {
+        $startsAt = $request->filled('active_starts_at')
+            ? Carbon::parse($request->input('active_starts_at'))->toDateString()
+            : null;
+
+        $durationDays = $request->filled('active_duration_days')
+            ? (int) $request->input('active_duration_days')
+            : null;
+
+        return [
+            'active_starts_at' => $startsAt,
+            'active_duration_days' => $durationDays,
+            'active_ends_at' => $startsAt && $durationDays
+                ? Carbon::parse($startsAt)->addDays($durationDays)->toDateString()
+                : null,
+        ];
     }
     
 }

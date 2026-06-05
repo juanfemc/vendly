@@ -38,12 +38,15 @@ class StoreRequest extends FormRequest
                 Rule::unique('stores', 'user_id')->ignore($storeId),
             ],
             'slug' => app(StoreSlugService::class)->rules($storeId),
+            'subscription_status' => ['nullable', Rule::in(array_keys(Store::subscriptionStatusOptions()))],
+            'trial_ends_at' => ['nullable', 'date'],
+            'subscription_ends_at' => ['nullable', 'date'],
         ]);
     }
 
     public function storeData(): array
     {
-        return $this->storeProfileData([
+        $data = $this->storeProfileData([
             'user_id',
             'name',
             'business_type',
@@ -79,5 +82,26 @@ class StoreRequest extends FormRequest
             'tiktok_url',
             'meta_pixel_id',
         ]);
+
+        if (Store::supportsSubscriptionColumns()) {
+            $data['subscription_status'] = $this->input('subscription_status') ?: Store::SUBSCRIPTION_ACTIVE;
+            $data['trial_ends_at'] = $this->filled('trial_ends_at') ? $this->date('trial_ends_at')->endOfDay() : null;
+            $data['subscription_ends_at'] = $this->filled('subscription_ends_at') ? $this->date('subscription_ends_at')->endOfDay() : null;
+
+            if ($data['subscription_status'] === Store::SUBSCRIPTION_TRIALING && ! $this->filled('trial_ends_at')) {
+                $data['trial_ends_at'] = now()->addDays(Store::TRIAL_DAYS);
+            }
+
+            if ($data['subscription_status'] === Store::SUBSCRIPTION_TRIALING) {
+                $data['trial_starts_at'] = $this->route('store')?->trial_starts_at ?? now();
+            }
+
+            if ($data['subscription_status'] !== Store::SUBSCRIPTION_TRIALING) {
+                $data['trial_starts_at'] = null;
+                $data['trial_ends_at'] = null;
+            }
+        }
+
+        return $data;
     }
 }

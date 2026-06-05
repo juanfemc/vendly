@@ -17,6 +17,8 @@
     </div>
 </section>
 
+@include('storefront.partials.home-categories')
+
 @include('storefront.partials.product-search', ['productSearchId' => 'home'])
 
 @include('storefront.partials.category-sections')
