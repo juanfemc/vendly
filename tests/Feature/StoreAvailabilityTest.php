@@ -1,28 +1,33 @@
 <?php
 
-use App\Models\Store;
 use App\Models\AdminUpdate;
 use App\Models\AiCreditTransaction;
+use App\Models\AiGeneration;
 use App\Models\ColombiaLocation;
 use App\Models\LandingTestimonial;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductReview;
+use App\Models\Store;
 use App\Models\StoreBanner;
 use App\Models\StoreCategory;
 use App\Models\StorePaymentAccount;
 use App\Models\StoreVisit;
 use App\Models\User;
 use App\Services\AdminUpdateService;
-use App\Services\StoreSubdomainService;
+use App\Services\AiContentService;
+use App\Services\AiCreditService;
 use App\Services\StorefrontUrlService;
+use App\Services\StoreSubdomainService;
+use App\Services\WhatsAppOrderMessageBuilder;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Str;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 test('public store is hidden when owner account is expired', function () {
     $user = User::factory()->create([
@@ -112,7 +117,7 @@ test('cart rejects products from an expired trial store', function () {
 });
 
 test('store subscriptions remain active until the end of their expiration day', function () {
-    $this->travelTo(\Illuminate\Support\Carbon::parse('2026-06-03 15:00:00'));
+    $this->travelTo(Carbon::parse('2026-06-03 15:00:00'));
 
     $user = User::factory()->create([
         'active_starts_at' => now()->subDay(),
@@ -1000,15 +1005,15 @@ test('premium stores can save and render meta pixel id', function () {
 
     expect($store->refresh()->meta_pixel_id)->toBe('123456789012345');
 
-    $response = $this->get('/' . $store->slug)
+    $response = $this->get('/'.$store->slug)
         ->assertOk()
         ->assertSee('connect.facebook.net/en_US/fbevents.js', false)
         ->assertSee('123456789012345', false)
         ->assertSee("fbq('track', 'PageView')", false);
 
     $html = $response->getContent();
-    $head = \Illuminate\Support\Str::before($html, '</head>');
-    $body = \Illuminate\Support\Str::after($html, '<body');
+    $head = Str::before($html, '</head>');
+    $body = Str::after($html, '<body');
 
     expect($head)->not->toContain('<noscript>')
         ->and($body)->toContain('<noscript>');
@@ -1045,7 +1050,7 @@ test('meta pixel id is only available for premium stores', function () {
 
     expect($store->refresh()->meta_pixel_id)->toBeNull();
 
-    $this->get('/' . $store->slug)
+    $this->get('/'.$store->slug)
         ->assertOk()
         ->assertDontSee('connect.facebook.net/en_US/fbevents.js', false)
         ->assertDontSee('987654321098765', false);
@@ -1719,6 +1724,33 @@ test('basic store users cannot manage templates', function () {
         ->assertForbidden();
 });
 
+test('premium store pages hide ai tools when openai is not configured', function () {
+    config(['services.openai.key' => '']);
+
+    $storeUser = User::factory()->create([
+        'active_starts_at' => now()->subDay(),
+        'active_ends_at' => now()->addDay(),
+    ]);
+    Store::create([
+        'user_id' => $storeUser->id,
+        'name' => 'Tienda Premium Sin IA',
+        'slug' => 'tienda-premium-sin-ia',
+        'whatsapp' => '573001112233',
+        'plan' => Store::PLAN_PREMIUM,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($storeUser)
+        ->get('/admin/products/create')
+        ->assertOk()
+        ->assertDontSee('Asistente IA');
+
+    $this->actingAs($storeUser)
+        ->get('/admin/store-settings')
+        ->assertOk()
+        ->assertDontSee('Asistente IA');
+});
+
 test('premium store users can generate product text with ai', function () {
     config([
         'services.openai.key' => 'test-key',
@@ -2140,7 +2172,7 @@ test('premium ai generation is blocked when credits are not enough', function ()
         'type' => AiCreditTransaction::TYPE_USAGE,
         'amount' => -250,
         'reason' => 'Consumo previo',
-        'package_key' => 'monthly:' . now()->format('Y-m'),
+        'package_key' => 'monthly:'.now()->format('Y-m'),
     ]);
 
     $this->actingAs($storeUser)
@@ -2266,7 +2298,7 @@ test('premium monthly ai credits do not accumulate across months', function () {
         'plan' => Store::PLAN_PREMIUM,
         'is_active' => true,
     ]);
-    $credits = app(\App\Services\AiCreditService::class);
+    $credits = app(AiCreditService::class);
 
     expect($credits->balance($store))->toBe(250);
 
@@ -2275,7 +2307,7 @@ test('premium monthly ai credits do not accumulate across months', function () {
         'type' => AiCreditTransaction::TYPE_USAGE,
         'amount' => -100,
         'reason' => 'Consumo mensual',
-        'package_key' => 'monthly:' . now()->format('Y-m'),
+        'package_key' => 'monthly:'.now()->format('Y-m'),
     ]);
 
     expect($credits->balance($store))->toBe(150);
@@ -2298,18 +2330,18 @@ test('ai credit refunds are idempotent', function () {
         'plan' => Store::PLAN_PREMIUM,
         'is_active' => true,
     ]);
-    $generation = \App\Models\AiGeneration::create([
+    $generation = AiGeneration::create([
         'store_id' => $store->id,
         'user_id' => $storeUser->id,
-        'type' => \App\Services\AiContentService::PRODUCT_DESCRIPTION,
+        'type' => AiContentService::PRODUCT_DESCRIPTION,
         'status' => 'processing',
         'provider' => 'openai',
     ]);
-    $credits = app(\App\Services\AiCreditService::class);
+    $credits = app(AiCreditService::class);
 
-    $credits->consume($store, \App\Services\AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
-    $credits->refund($store, \App\Services\AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
-    $credits->refund($store, \App\Services\AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
+    $credits->consume($store, AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
+    $credits->refund($store, AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
+    $credits->refund($store, AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
 
     expect(AiCreditTransaction::where('store_id', $store->id)
         ->where('type', AiCreditTransaction::TYPE_REFUND)
@@ -2330,14 +2362,14 @@ test('ai credit refund can recover a partially refunded generation', function ()
         'plan' => Store::PLAN_PREMIUM,
         'is_active' => true,
     ]);
-    $generation = \App\Models\AiGeneration::create([
+    $generation = AiGeneration::create([
         'store_id' => $store->id,
         'user_id' => $storeUser->id,
-        'type' => \App\Services\AiContentService::PRODUCT_DESCRIPTION,
+        'type' => AiContentService::PRODUCT_DESCRIPTION,
         'status' => 'processing',
         'provider' => 'openai',
     ]);
-    $credits = app(\App\Services\AiCreditService::class);
+    $credits = app(AiCreditService::class);
 
     $credits->addPackage($store, 'ai_100', $storeUser->id);
     AiCreditTransaction::create([
@@ -2345,10 +2377,10 @@ test('ai credit refund can recover a partially refunded generation', function ()
         'type' => AiCreditTransaction::TYPE_USAGE,
         'amount' => -248,
         'reason' => 'Consumo mensual',
-        'package_key' => 'monthly:' . now()->format('Y-m'),
+        'package_key' => 'monthly:'.now()->format('Y-m'),
     ]);
 
-    $credits->consume($store, \App\Services\AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
+    $credits->consume($store, AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
     $usageTransactions = AiCreditTransaction::where('ai_generation_id', $generation->id)
         ->where('type', AiCreditTransaction::TYPE_USAGE)
         ->orderBy('id')
@@ -2363,12 +2395,12 @@ test('ai credit refund can recover a partially refunded generation', function ()
         'reason' => 'Devolucion parcial previa',
         'package_key' => $usageTransactions[0]->package_key,
         'metadata' => [
-            'ai_type' => \App\Services\AiContentService::PRODUCT_DESCRIPTION,
+            'ai_type' => AiContentService::PRODUCT_DESCRIPTION,
             'usage_transaction_id' => $usageTransactions[0]->id,
         ],
     ]);
 
-    $credits->refund($store, \App\Services\AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
+    $credits->refund($store, AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
 
     expect(AiCreditTransaction::where('ai_generation_id', $generation->id)
         ->where('type', AiCreditTransaction::TYPE_REFUND)
@@ -2389,14 +2421,14 @@ test('ai usage spills from monthly credits into purchased credits', function () 
         'plan' => Store::PLAN_PREMIUM,
         'is_active' => true,
     ]);
-    $generation = \App\Models\AiGeneration::create([
+    $generation = AiGeneration::create([
         'store_id' => $store->id,
         'user_id' => $storeUser->id,
-        'type' => \App\Services\AiContentService::PRODUCT_DESCRIPTION,
+        'type' => AiContentService::PRODUCT_DESCRIPTION,
         'status' => 'processing',
         'provider' => 'openai',
     ]);
-    $credits = app(\App\Services\AiCreditService::class);
+    $credits = app(AiCreditService::class);
 
     $credits->addPackage($store, 'ai_100', $storeUser->id);
     AiCreditTransaction::create([
@@ -2404,17 +2436,17 @@ test('ai usage spills from monthly credits into purchased credits', function () 
         'type' => AiCreditTransaction::TYPE_USAGE,
         'amount' => -248,
         'reason' => 'Consumo mensual',
-        'package_key' => 'monthly:' . now()->format('Y-m'),
+        'package_key' => 'monthly:'.now()->format('Y-m'),
     ]);
 
-    $credits->consume($store, \App\Services\AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
+    $credits->consume($store, AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
 
     $this->assertDatabaseHas('ai_credit_transactions', [
         'store_id' => $store->id,
         'ai_generation_id' => $generation->id,
         'type' => AiCreditTransaction::TYPE_USAGE,
         'amount' => -2,
-        'package_key' => 'monthly:' . now()->format('Y-m'),
+        'package_key' => 'monthly:'.now()->format('Y-m'),
     ]);
     $this->assertDatabaseHas('ai_credit_transactions', [
         'store_id' => $store->id,
@@ -2426,7 +2458,7 @@ test('ai usage spills from monthly credits into purchased credits', function () 
 
     expect($credits->balance($store))->toBe(99);
 
-    $credits->refund($store, \App\Services\AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
+    $credits->refund($store, AiContentService::PRODUCT_DESCRIPTION, $generation, $storeUser->id);
 
     expect($credits->balance($store))->toBe(102);
 });
@@ -2509,7 +2541,7 @@ test('cart shows mercadopago button only for connected stores', function () {
         ->and($order->payment_provider_reference)->toBe('pref_123')
         ->and($order->payment_preference_id)->toBe('pref_123')
         ->and($order->payment_expires_at)->not->toBeNull()
-        ->and(session()->has('carts.' . $store->id))->toBeFalse();
+        ->and(session()->has('carts.'.$store->id))->toBeFalse();
 });
 
 test('pro stores cannot use mercadopago even with a connected account', function () {
@@ -2670,7 +2702,7 @@ test('mercadopago webhook verifies payment and marks order as paid', function ()
     $timestamp = '1715191200';
     $hash = hash_hmac('sha256', "id:pay_123;request-id:{$requestId};ts:{$timestamp};", 'webhook-secret');
 
-    $this->postJson(route('cart.mercadopago.webhook') . '?type=payment&data.id=pay_123', [], [
+    $this->postJson(route('cart.mercadopago.webhook').'?type=payment&data.id=pay_123', [], [
         'x-request-id' => $requestId,
         'x-signature' => "ts={$timestamp},v1={$hash}",
     ])->assertOk();
@@ -2765,7 +2797,7 @@ test('global mercadopago webhook finds order by payment external reference', fun
     $timestamp = '1715191200';
     $hash = hash_hmac('sha256', "id:pay_global;request-id:{$requestId};ts:{$timestamp};", 'webhook-secret');
 
-    $this->postJson(route('cart.mercadopago.webhook') . '?type=payment&data.id=pay_global', [], [
+    $this->postJson(route('cart.mercadopago.webhook').'?type=payment&data.id=pay_global', [], [
         'x-request-id' => $requestId,
         'x-signature' => "ts={$timestamp},v1={$hash}",
     ])->assertOk();
@@ -2839,7 +2871,7 @@ test('mercadopago webhook refreshes expired token before verifying payment', fun
     $timestamp = '1715191200';
     $hash = hash_hmac('sha256', "id:pay_123;request-id:{$requestId};ts:{$timestamp};", 'webhook-secret');
 
-    $this->postJson(route('cart.mercadopago.webhook') . '?type=payment&data.id=pay_123', [], [
+    $this->postJson(route('cart.mercadopago.webhook').'?type=payment&data.id=pay_123', [], [
         'x-request-id' => $requestId,
         'x-signature' => "ts={$timestamp},v1={$hash}",
     ])->assertOk();
@@ -2909,7 +2941,7 @@ test('mercadopago webhook does not refresh manually disconnected account', funct
     $timestamp = '1715191200';
     $hash = hash_hmac('sha256', "id:pay_123;request-id:{$requestId};ts:{$timestamp};", 'webhook-secret');
 
-    $this->postJson(route('cart.mercadopago.webhook') . '?type=payment&data.id=pay_123', [], [
+    $this->postJson(route('cart.mercadopago.webhook').'?type=payment&data.id=pay_123', [], [
         'x-request-id' => $requestId,
         'x-signature' => "ts={$timestamp},v1={$hash}",
     ])->assertOk();
@@ -2977,7 +3009,7 @@ test('mercadopago webhook keeps pending when token refresh has connection failur
     $timestamp = '1715191200';
     $hash = hash_hmac('sha256', "id:pay_123;request-id:{$requestId};ts:{$timestamp};", 'webhook-secret');
 
-    $this->postJson(route('cart.mercadopago.webhook') . '?type=payment&data.id=pay_123', [], [
+    $this->postJson(route('cart.mercadopago.webhook').'?type=payment&data.id=pay_123', [], [
         'x-request-id' => $requestId,
         'x-signature' => "ts={$timestamp},v1={$hash}",
     ])->assertOk();
@@ -3034,7 +3066,7 @@ test('mercadopago webhook returns controlled error when payment lookup has conne
     $timestamp = '1715191200';
     $hash = hash_hmac('sha256', "id:pay_123;request-id:{$requestId};ts:{$timestamp};", 'webhook-secret');
 
-    $this->postJson(route('cart.mercadopago.webhook') . '?type=payment&data.id=pay_123', [], [
+    $this->postJson(route('cart.mercadopago.webhook').'?type=payment&data.id=pay_123', [], [
         'x-request-id' => $requestId,
         'x-signature' => "ts={$timestamp},v1={$hash}",
     ])->assertStatus(502);
@@ -3112,7 +3144,7 @@ test('mercadopago rejected webhook releases reserved stock once', function () {
         'x-request-id' => $requestId,
         'x-signature' => "ts={$timestamp},v1={$hash}",
     ];
-    $url = route('cart.mercadopago.webhook') . '?type=payment&data.id=pay_rejected';
+    $url = route('cart.mercadopago.webhook').'?type=payment&data.id=pay_rejected';
 
     $this->postJson($url, [], $headers)->assertOk();
     $this->postJson($url, [], $headers)->assertOk();
@@ -3174,7 +3206,7 @@ test('mercadopago checkout failure removes pending order and restores stock', fu
     expect(Order::where('store_id', $store->id)->count())->toBe(0)
         ->and($product->refresh()->stock_quantity)->toBe(2)
         ->and($product->is_sold_out)->toBeFalse()
-        ->and(session()->has('carts.' . $store->id))->toBeTrue();
+        ->and(session()->has('carts.'.$store->id))->toBeTrue();
 });
 
 test('mercadopago checkout connection failure removes pending order and restores stock', function () {
@@ -3226,7 +3258,7 @@ test('mercadopago checkout connection failure removes pending order and restores
     expect(Order::where('store_id', $store->id)->count())->toBe(0)
         ->and($product->refresh()->stock_quantity)->toBe(1)
         ->and($product->is_sold_out)->toBeFalse()
-        ->and(session()->has('carts.' . $store->id))->toBeTrue();
+        ->and(session()->has('carts.'.$store->id))->toBeTrue();
 });
 
 test('mercadopago cancelled payment stops showing order as paid', function () {
@@ -3297,7 +3329,7 @@ test('mercadopago cancelled payment stops showing order as paid', function () {
     $timestamp = '1715191200';
     $hash = hash_hmac('sha256', "id:pay_123;request-id:{$requestId};ts:{$timestamp};", 'webhook-secret');
 
-    $this->postJson(route('cart.mercadopago.webhook') . '?type=payment&data.id=pay_123', [], [
+    $this->postJson(route('cart.mercadopago.webhook').'?type=payment&data.id=pay_123', [], [
         'x-request-id' => $requestId,
         'x-signature' => "ts={$timestamp},v1={$hash}",
     ])->assertOk();
@@ -4020,7 +4052,7 @@ test('mercadopago return shows received order page', function () {
         ->assertOk()
         ->assertSee('Pedido recibido')
         ->assertSee('Numero de pedido')
-        ->assertSee('#' . $order->id)
+        ->assertSee('#'.$order->id)
         ->assertSee('Estado del pago')
         ->assertSee('Aprobado')
         ->assertSee('Mercado Pago')
@@ -4103,7 +4135,7 @@ test('mercadopago webhook rejects invalid signatures', function () {
 
     Http::fake();
 
-    $this->postJson(route('cart.mercadopago.webhook') . '?type=payment&data.id=pay_123', [], [
+    $this->postJson(route('cart.mercadopago.webhook').'?type=payment&data.id=pay_123', [], [
         'x-request-id' => 'request-123',
         'x-signature' => 'ts=1715191200,v1=invalid',
     ])->assertUnauthorized();
@@ -4406,8 +4438,8 @@ test('public storefront routes work from a pro store subdomain', function () {
         ->assertSee('<link rel="canonical" href="https://navegable.vendlysuite.com">', false)
         ->assertSee('<meta property="og:url" content="https://navegable.vendlysuite.com">', false)
         ->assertSee('https://navegable.vendlysuite.com/productos', false)
-        ->assertSee('https://navegable.vendlysuite.com/productos/' . $product->publicRouteKey(), false)
-        ->assertSee('https://navegable.vendlysuite.com/categorias/' . $category->slug, false)
+        ->assertSee('https://navegable.vendlysuite.com/productos/'.$product->publicRouteKey(), false)
+        ->assertSee('https://navegable.vendlysuite.com/categorias/'.$category->slug, false)
         ->assertDontSee('/tienda-subdominio-navegable/productos', false);
 
     $this->get('https://navegable.vendlysuite.com/productos')
@@ -4415,23 +4447,23 @@ test('public storefront routes work from a pro store subdomain', function () {
         ->assertSee('<link rel="canonical" href="https://navegable.vendlysuite.com/productos">', false)
         ->assertSee('Producto por subdominio');
 
-    $subdomainProductUrl = 'https://navegable.vendlysuite.com/productos/' . $product->publicRouteKey();
+    $subdomainProductUrl = 'https://navegable.vendlysuite.com/productos/'.$product->publicRouteKey();
     $encodedSubdomainProductUrl = rawurlencode($subdomainProductUrl);
 
     $this->get($subdomainProductUrl)
         ->assertOk()
-        ->assertSee('<link rel="canonical" href="' . $subdomainProductUrl . '">', false)
+        ->assertSee('<link rel="canonical" href="'.$subdomainProductUrl.'">', false)
         ->assertSee('Producto por subdominio')
-        ->assertSee('https://www.facebook.com/sharer/sharer.php?u=' . $encodedSubdomainProductUrl, false)
+        ->assertSee('https://www.facebook.com/sharer/sharer.php?u='.$encodedSubdomainProductUrl, false)
         ->assertSee('https://wa.me/?text=', false)
         ->assertSee($encodedSubdomainProductUrl, false)
-        ->assertSee('https://twitter.com/intent/tweet?url=' . $encodedSubdomainProductUrl, false)
-        ->assertSee('data-copy-product-link="' . $subdomainProductUrl . '"', false)
-        ->assertDontSee('/tienda-subdominio-navegable/productos/' . $product->publicRouteKey(), false);
+        ->assertSee('https://twitter.com/intent/tweet?url='.$encodedSubdomainProductUrl, false)
+        ->assertSee('data-copy-product-link="'.$subdomainProductUrl.'"', false)
+        ->assertDontSee('/tienda-subdominio-navegable/productos/'.$product->publicRouteKey(), false);
 
-    $this->get('https://navegable.vendlysuite.com/categorias/' . $category->slug)
+    $this->get('https://navegable.vendlysuite.com/categorias/'.$category->slug)
         ->assertOk()
-        ->assertSee('<link rel="canonical" href="https://navegable.vendlysuite.com/categorias/' . $category->slug . '">', false)
+        ->assertSee('<link rel="canonical" href="https://navegable.vendlysuite.com/categorias/'.$category->slug.'">', false)
         ->assertSee('Destacados')
         ->assertSee('Producto por subdominio');
 
@@ -4440,9 +4472,9 @@ test('public storefront routes work from a pro store subdomain', function () {
         ->assertSee('<link rel="canonical" href="https://navegable.vendlysuite.com/nosotros">', false)
         ->assertSee('Somos una tienda navegable por subdominio.');
 
-    $this->get('https://vendlysuite.com/tienda-subdominio-navegable/productos/' . $product->publicRouteKey())
+    $this->get('https://vendlysuite.com/tienda-subdominio-navegable/productos/'.$product->publicRouteKey())
         ->assertOk()
-        ->assertSee('<link rel="canonical" href="' . route('store.product.show', ['slug' => $store->slug, 'product' => $product->publicRouteKey()]) . '">', false);
+        ->assertSee('<link rel="canonical" href="'.route('store.product.show', ['slug' => $store->slug, 'product' => $product->publicRouteKey()]).'">', false);
 });
 
 test('storefront url service generates subdomain aware public links', function () {
@@ -4480,7 +4512,7 @@ test('storefront url service generates subdomain aware public links', function (
 
     expect($service->home($store, $subdomainRequest))->toBe('https://links.vendlysuite.com')
         ->and($service->products($store, $subdomainRequest))->toBe('https://links.vendlysuite.com/productos')
-        ->and($service->product($store, $product, $subdomainRequest))->toBe('https://links.vendlysuite.com/productos/' . $product->publicRouteKey())
+        ->and($service->product($store, $product, $subdomainRequest))->toBe('https://links.vendlysuite.com/productos/'.$product->publicRouteKey())
         ->and($service->category($store, $category, $subdomainRequest))->toBe('https://links.vendlysuite.com/categorias/ropa')
         ->and($service->about($store, $subdomainRequest))->toBe('https://links.vendlysuite.com/nosotros')
         ->and($service->products($store, $subdomainRequest, ['q' => 'camisa']))->toBe('https://links.vendlysuite.com/productos?q=camisa')
@@ -4524,7 +4556,7 @@ test('storefront url service keeps verified custom domain links on the current h
 
     expect($service->home($store, $customDomainRequest))->toBe('https://www.marca.com')
         ->and($service->products($store, $customDomainRequest))->toBe('https://www.marca.com/productos')
-        ->and($service->product($store, $product, $customDomainRequest))->toBe('https://www.marca.com/productos/' . $product->publicRouteKey())
+        ->and($service->product($store, $product, $customDomainRequest))->toBe('https://www.marca.com/productos/'.$product->publicRouteKey())
         ->and($service->category($store, $category, $customDomainRequest))->toBe('https://www.marca.com/categorias/ropa')
         ->and($service->about($store, $customDomainRequest))->toBe('https://www.marca.com/nosotros')
         ->and($service->products($store, $customDomainRequest, ['q' => 'camisa']))->toBe('https://www.marca.com/productos?q=camisa')
@@ -4686,7 +4718,7 @@ test('basic plan hides existing product galleries after downgrade', function () 
         'images' => ['products/extra.webp'],
     ]);
 
-    $this->get('/tienda-galeria-downgrade/productos/' . $product->publicRouteKey())
+    $this->get('/tienda-galeria-downgrade/productos/'.$product->publicRouteKey())
         ->assertOk()
         ->assertSee('products/extra.webp', false);
 
@@ -4710,7 +4742,7 @@ test('basic plan hides existing product galleries after downgrade', function () 
 
     expect($product->images)->toBeNull();
 
-    $this->get('/tienda-galeria-downgrade/productos/' . $product->publicRouteKey())
+    $this->get('/tienda-galeria-downgrade/productos/'.$product->publicRouteKey())
         ->assertOk()
         ->assertDontSee('products/extra.webp', false);
 });
@@ -4733,7 +4765,7 @@ test('basic plan limits product creation to twenty products', function () {
         Product::create([
             'user_id' => $storeUser->id,
             'store_id' => $store->id,
-            'name' => 'Producto ' . $index,
+            'name' => 'Producto '.$index,
             'price' => 10000 + $index,
         ]);
     }
@@ -4772,7 +4804,7 @@ test('pro plan limits product creation to one hundred products', function () {
         Product::create([
             'user_id' => $storeUser->id,
             'store_id' => $store->id,
-            'name' => 'Producto Pro ' . $index,
+            'name' => 'Producto Pro '.$index,
             'price' => 10000 + $index,
         ]);
     }
@@ -4811,7 +4843,7 @@ test('admin cannot downgrade a store when existing products exceed the target pl
         Product::create([
             'user_id' => $storeUser->id,
             'store_id' => $store->id,
-            'name' => 'Producto Grande ' . $index,
+            'name' => 'Producto Grande '.$index,
             'price' => 10000 + $index,
         ]);
     }
@@ -4867,7 +4899,7 @@ test('admin cannot move a product into a store that reached its plan limit', fun
         Product::create([
             'user_id' => $basicUser->id,
             'store_id' => $basicStore->id,
-            'name' => 'Producto Basico ' . $index,
+            'name' => 'Producto Basico '.$index,
             'price' => 10000 + $index,
         ]);
     }
@@ -4909,7 +4941,7 @@ test('existing products can be edited when a legacy store is already over its pl
         $product = Product::create([
             'user_id' => $storeUser->id,
             'store_id' => $store->id,
-            'name' => 'Producto Heredado ' . $index,
+            'name' => 'Producto Heredado '.$index,
             'price' => 10000 + $index,
         ]);
     }
@@ -4990,7 +5022,7 @@ test('cart rejects products from an expired owner account', function () {
         'price' => 25000,
     ]);
 
-    $this->post('/cart/add/' . $product->id)
+    $this->post('/cart/add/'.$product->id)
         ->assertSessionHas('error', 'Esta tienda no esta disponible para recibir pedidos.');
 
     expect(session('cart'))->toBeNull();
@@ -5064,7 +5096,7 @@ test('technology storefront renders variant selectors before adding to cart', fu
         'colors' => ['Negro'],
     ]);
 
-    $this->get('/tech-store/productos/' . $product->publicRouteKey())
+    $this->get('/tech-store/productos/'.$product->publicRouteKey())
         ->assertOk()
         ->assertSee('name="size"', false)
         ->assertSee('name="color"', false);
@@ -5105,12 +5137,12 @@ test('restaurant storefront renders as a menu', function () {
         ->assertSee('Carta completa')
         ->assertDontSee('restaurant-product-card', false);
 
-    $this->get('/bistro-menu/productos/' . $product->publicRouteKey())
+    $this->get('/bistro-menu/productos/'.$product->publicRouteKey())
         ->assertOk()
         ->assertSee('Detalle del plato')
         ->assertSee('Sobre este plato')
         ->assertSee('Agregar al pedido')
-        ->assertSee('Pedir por WhatsApp')
+        ->assertSee('Pedir ahora')
         ->assertDontSee('Comprar por WhatsApp');
 });
 
@@ -5185,7 +5217,7 @@ test('reservation checkout asks for date and time and sends a reservation whatsa
         'category' => 'Consultas',
     ]);
 
-    $this->post('/cart/add/' . $product->id, ['quantity' => 1])
+    $this->post('/cart/add/'.$product->id, ['quantity' => 1])
         ->assertRedirect();
 
     $this->get(route('cart.index', ['store' => $store->slug]))
@@ -5213,10 +5245,10 @@ test('reservation checkout asks for date and time and sends a reservation whatsa
     expect($order->reservation_date->toDateString())->toBe($reservationDate);
     expect($order->reservation_time)->toBe('14:30');
 
-    $message = app(\App\Services\WhatsAppOrderMessageBuilder::class)->message($order->load(['items', 'store']));
+    $message = app(WhatsAppOrderMessageBuilder::class)->message($order->load(['items', 'store']));
 
     expect($message)->toContain('Nueva reserva');
-    expect($message)->toContain('Fecha deseada: ' . $reservationDate);
+    expect($message)->toContain('Fecha deseada: '.$reservationDate);
     expect($message)->toContain('Hora deseada: 14:30');
     expect($message)->toContain('Horario de atencion: Lunes a viernes 8:00 AM - 4:00 PM');
     expect($message)->toContain('Servicio: Consulta inicial x1');
@@ -5244,7 +5276,7 @@ test('reservation checkout requires date and time even without store query param
         'price' => 90000,
     ]);
 
-    $this->post('/cart/add/' . $product->id, ['quantity' => 1])
+    $this->post('/cart/add/'.$product->id, ['quantity' => 1])
         ->assertRedirect();
 
     $this->post(route('cart.whatsapp'), [
@@ -5285,7 +5317,7 @@ test('reservation checkout rejects past dates and invalid times', function () {
         'price' => 90000,
     ]);
 
-    $this->post('/cart/add/' . $product->id, ['quantity' => 1])
+    $this->post('/cart/add/'.$product->id, ['quantity' => 1])
         ->assertRedirect();
 
     $this->post(route('cart.whatsapp', ['store' => $store->slug]), [
@@ -5331,7 +5363,7 @@ test('reservation checkout rejects dates and times outside the store schedule', 
         'price' => 90000,
     ]);
 
-    $this->post('/cart/add/' . $product->id, ['quantity' => 1])
+    $this->post('/cart/add/'.$product->id, ['quantity' => 1])
         ->assertRedirect();
 
     $this->get(route('cart.index', ['store' => $store->slug]))
@@ -5395,11 +5427,11 @@ test('non reservation products respect stock and are marked sold out after check
         ->assertOk()
         ->assertSee('2 disponibles');
 
-    $this->post('/cart/add/' . $product->id, ['quantity' => 2])
+    $this->post('/cart/add/'.$product->id, ['quantity' => 2])
         ->assertRedirect()
         ->assertSessionMissing('error');
 
-    $this->post('/cart/add/' . $product->id, ['quantity' => 1])
+    $this->post('/cart/add/'.$product->id, ['quantity' => 1])
         ->assertSessionHas('error', 'Solo quedan 2 unidades disponibles.');
 
     $this->post(route('cart.whatsapp', ['store' => $store->slug]), [
@@ -5544,7 +5576,7 @@ test('admin dashboard shows the latest ten updates and removes older ones', func
     $updates = app(AdminUpdateService::class);
 
     foreach (range(1, 12) as $index) {
-        $updates->record('Actualizacion ' . $index, 'Detalle ' . $index, 'sistema');
+        $updates->record('Actualizacion '.$index, 'Detalle '.$index, 'sistema');
     }
 
     expect(AdminUpdate::count())->toBe(10);
@@ -5972,7 +6004,7 @@ test('legacy invalid brand colors are not printed in public inline styles', func
         'price' => 15000,
     ]);
 
-    $this->get('/tienda-color-viejo/productos/' . $product->id)
+    $this->get('/tienda-color-viejo/productos/'.$product->id)
         ->assertOk()
         ->assertSee('--brand-color: #111111', false)
         ->assertDontSee('#fff;background:red', false);
@@ -6452,8 +6484,8 @@ test('admin can view store visits from the stores menu', function () {
     foreach (range(1, 11) as $index) {
         Store::create([
             'user_id' => User::factory()->create()->id,
-            'name' => 'Tienda visita extra ' . $index,
-            'slug' => 'tienda-visita-extra-' . $index,
+            'name' => 'Tienda visita extra '.$index,
+            'slug' => 'tienda-visita-extra-'.$index,
             'whatsapp' => '573001112233',
             'is_active' => true,
             'views_count' => 20 + $index,
@@ -6470,7 +6502,7 @@ test('admin can view store visits from the stores menu', function () {
         ->assertOk()
         ->assertSee('Visitas por tienda')
         ->assertSee('Tienda con visitas')
-        ->assertSee('/' . $store->slug)
+        ->assertSee('/'.$store->slug)
         ->assertSee('99')
         ->assertDontSee('Tienda sin visitas')
         ->assertDontSee('Tienda visita extra 1</strong>', false)
@@ -6502,11 +6534,11 @@ test('product social preview includes product name description and image', funct
         'image' => 'products/camisa.webp',
     ]);
 
-    $this->get('/tienda-seo/productos/' . $product->id)
+    $this->get('/tienda-seo/productos/'.$product->id)
         ->assertOk()
         ->assertSee('<meta property="og:title" content="Camisa Azul | Tienda SEO">', false)
         ->assertSee('<meta property="og:description" content="Camisa fresca para clima calido.">', false)
-        ->assertSee('<meta property="og:image" content="' . config('app.url') . '/storage/products/camisa.webp">', false)
+        ->assertSee('<meta property="og:image" content="'.config('app.url').'/storage/products/camisa.webp">', false)
         ->assertSee('<meta name="twitter:title" content="Camisa Azul | Tienda SEO">', false);
 });
 
@@ -6533,17 +6565,17 @@ test('storefront product links use slug while old id urls still work', function 
 
     $this->get('/tienda-slug')
         ->assertOk()
-        ->assertSee('/tienda-slug/productos/' . $product->slug, false)
-        ->assertDontSee('/tienda-slug/productos/' . $product->id . '"', false);
+        ->assertSee('/tienda-slug/productos/'.$product->slug, false)
+        ->assertDontSee('/tienda-slug/productos/'.$product->id.'"', false);
 
-    $this->get('/tienda-slug/productos/' . $product->slug)
+    $this->get('/tienda-slug/productos/'.$product->slug)
         ->assertOk()
         ->assertSee('Zapato Seguro');
 
-    $this->get('/tienda-slug/productos/' . $product->id)
+    $this->get('/tienda-slug/productos/'.$product->id)
         ->assertOk()
         ->assertSee('Zapato Seguro')
-        ->assertSee('<link rel="canonical" href="' . config('app.url') . '/tienda-slug/productos/' . $product->slug . '">', false);
+        ->assertSee('<link rel="canonical" href="'.config('app.url').'/tienda-slug/productos/'.$product->slug.'">', false);
 });
 
 test('store home meta title uses cover short copy', function () {
@@ -6585,16 +6617,16 @@ test('store home uses cover image for hero and social preview and logo as favico
 
     $this->get('/tienda-visual')
         ->assertOk()
-        ->assertSee('<img src="' . asset('storage/stores/cover.webp') . '" alt="Tienda Visual"', false)
-        ->assertSee('<meta property="og:image" content="' . config('app.url') . '/storage/stores/cover.webp">', false)
+        ->assertSee('<img src="'.asset('storage/stores/cover.webp').'" alt="Tienda Visual"', false)
+        ->assertSee('<meta property="og:image" content="'.config('app.url').'/storage/stores/cover.webp">', false)
         ->assertSee('<meta property="og:image:alt" content="Portada de Tienda Visual">', false)
-        ->assertSee('<link rel="icon" type="image/svg+xml" sizes="any" href="' . route('store.favicon', 'tienda-visual') . '">', false);
+        ->assertSee('<link rel="icon" type="image/svg+xml" sizes="any" href="'.route('store.favicon', 'tienda-visual').'">', false);
 
     $this->get('/tienda-visual/favicon.svg')
         ->assertOk()
         ->assertHeader('Content-Type', 'image/svg+xml; charset=UTF-8')
         ->assertSee('<svg', false)
-        ->assertSee('base64,' . base64_encode('fake-logo'), false);
+        ->assertSee('base64,'.base64_encode('fake-logo'), false);
 });
 
 test('store user can add material to a product and customers can see it', function () {
@@ -6626,7 +6658,7 @@ test('store user can add material to a product and customers can see it', functi
         ->assertOk()
         ->assertSee('Denim 100% algodon');
 
-    $this->get('/tienda-material/productos/' . $product->publicRouteKey())
+    $this->get('/tienda-material/productos/'.$product->publicRouteKey())
         ->assertOk()
         ->assertSee('Material')
         ->assertSee('Denim 100% algodon');
@@ -6667,7 +6699,7 @@ test('store user can add multiple product images and customers see a carousel', 
         Storage::disk('public')->assertExists($image);
     }
 
-    $this->get('/tienda-galeria/productos/' . $product->publicRouteKey())
+    $this->get('/tienda-galeria/productos/'.$product->publicRouteKey())
         ->assertOk()
         ->assertSee('data-product-carousel', false)
         ->assertSee('data-carousel-thumb="2"', false);
@@ -6757,7 +6789,7 @@ test('admin cannot use reserved store slugs and entered slugs are normalized', f
         $this->actingAs($admin)
             ->post('/admin/stores', [
                 'user_id' => $reservedSlugUser->id,
-                'name' => 'Slug Reservado ' . $reservedSlug,
+                'name' => 'Slug Reservado '.$reservedSlug,
                 'business_type' => 'store',
                 'slug' => $reservedSlug,
                 'whatsapp' => '573001112233',
@@ -7001,7 +7033,7 @@ test('store home groups products by three categories and category pages show the
             'store_id' => $store->id,
             'name' => $name,
             'slug' => strtolower($name),
-            'description' => 'Descripcion de ' . $name,
+            'description' => 'Descripcion de '.$name,
             'is_active' => true,
             'sort_order' => $index + 1,
         ]);
@@ -7010,7 +7042,7 @@ test('store home groups products by three categories and category pages show the
             Product::create([
                 'user_id' => $user->id,
                 'store_id' => $store->id,
-                'name' => $name . ' Producto ' . $productIndex,
+                'name' => $name.' Producto '.$productIndex,
                 'category' => $name,
                 'price' => 10000 + $productIndex,
             ]);
@@ -7137,7 +7169,7 @@ test('customers can search products in the full catalog', function () {
         Product::create([
             'user_id' => $user->id,
             'store_id' => $store->id,
-            'name' => 'Producto Extra ' . $index,
+            'name' => 'Producto Extra '.$index,
             'price' => 10000 + $index,
         ]);
     }
@@ -7196,7 +7228,7 @@ test('customers can search products inside a category', function () {
         Product::create([
             'user_id' => $user->id,
             'store_id' => $store->id,
-            'name' => 'Ropa Extra ' . $index,
+            'name' => 'Ropa Extra '.$index,
             'price' => 10000 + $index,
             'category' => 'Ropa',
         ]);
@@ -7233,7 +7265,7 @@ test('product search is hidden and ignored until the store has more than twenty 
         Product::create([
             'user_id' => $user->id,
             'store_id' => $store->id,
-            'name' => 'Producto Comun ' . $index,
+            'name' => 'Producto Comun '.$index,
             'price' => 10000 + $index,
         ]);
     }
@@ -7271,7 +7303,7 @@ test('category pages use compact storefront pagination after eight products', fu
         Product::create([
             'user_id' => $user->id,
             'store_id' => $store->id,
-            'name' => 'Audio Producto ' . $index,
+            'name' => 'Audio Producto '.$index,
             'category' => 'Audio',
             'price' => 10000 + $index,
         ]);
@@ -7304,10 +7336,10 @@ test('admin panel routes use admin tokens instead of numeric ids', function () {
 
     expect(route('admin.products.edit', $product))
         ->toContain($product->admin_token)
-        ->not->toContain('/' . $product->id . '/');
+        ->not->toContain('/'.$product->id.'/');
 
     $this->actingAs($storeUser)
-        ->get('/admin/products/' . $product->id . '/edit')
+        ->get('/admin/products/'.$product->id.'/edit')
         ->assertNotFound();
 
     $this->actingAs($storeUser)
@@ -7316,10 +7348,10 @@ test('admin panel routes use admin tokens instead of numeric ids', function () {
 
     expect(route('admin.stores.edit', $store))
         ->toContain($store->admin_token)
-        ->not->toContain('/' . $store->id . '/');
+        ->not->toContain('/'.$store->id.'/');
 
     $this->actingAs($admin)
-        ->get('/admin/stores/' . $store->id . '/edit')
+        ->get('/admin/stores/'.$store->id.'/edit')
         ->assertNotFound();
 });
 
@@ -7433,18 +7465,18 @@ test('checkout clears the store cart without reviving the legacy cart', function
     $order = Order::where('store_id', $store->id)->latest('id')->first();
 
     expect($order->customer_neighborhood)->toBe('San Fernando');
-    expect(app(\App\Services\WhatsAppOrderMessageBuilder::class)->message($order->load(['items', 'store'])))
+    expect(app(WhatsAppOrderMessageBuilder::class)->message($order->load(['items', 'store'])))
         ->toContain('Barrio: San Fernando');
 
     $this->assertDatabaseHas('admin_updates', [
         'title' => 'Pedido nuevo',
-        'body' => 'Pedido #' . $order->id . ' en Tienda Checkout por Cliente Prueba',
+        'body' => 'Pedido #'.$order->id.' en Tienda Checkout por Cliente Prueba',
         'type' => 'pedido',
         'url' => '/admin/orders',
     ]);
 
     expect(session()->has('cart'))->toBeFalse();
-    expect(session()->has('carts.' . $store->id))->toBeFalse();
+    expect(session()->has('carts.'.$store->id))->toBeFalse();
 
     $this->get(route('cart.index', ['store' => $store->slug]))
         ->assertOk()
@@ -7553,7 +7585,7 @@ test('checkout applies selected shipping method cost to orders and whatsapp mess
         ->and((float) $order->shipping_cost)->toBe(8000.0)
         ->and((float) $order->total)->toBe(38000.0);
 
-    expect(app(\App\Services\WhatsAppOrderMessageBuilder::class)->message($order->load(['items', 'store'])))
+    expect(app(WhatsAppOrderMessageBuilder::class)->message($order->load(['items', 'store'])))
         ->toContain('Envio: Domicilio local ($8.000)')
         ->toContain('Total: $38.000');
 });

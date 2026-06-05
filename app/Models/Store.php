@@ -22,6 +22,7 @@ class Store extends Model
     private static ?bool $supportsLocalDeliveryCityCodeColumn = null;
     private static ?bool $supportsMetaPixelColumn = null;
     private static ?bool $supportsSubscriptionColumns = null;
+    private static ?bool $supportsAiTables = null;
 
     public const PRODUCT_SEARCH_THRESHOLD = 20;
     public const TRIAL_DAYS = 7;
@@ -551,7 +552,9 @@ class Store extends Model
 
     public function allowsAiContent(): bool
     {
-        return ($this->plan ?? self::PLAN_PRO) === self::PLAN_PREMIUM;
+        return ($this->plan ?? self::PLAN_PRO) === self::PLAN_PREMIUM
+            && filled(config('services.openai.key'))
+            && self::supportsAiTables();
     }
 
     public function allowsProductReviews(): bool
@@ -569,6 +572,12 @@ class Store extends Model
     public static function supportsShippingMethodsColumn(): bool
     {
         return self::$supportsShippingMethodsColumn ??= Schema::hasColumn('stores', 'shipping_methods');
+    }
+
+    public static function supportsAiTables(): bool
+    {
+        return self::$supportsAiTables ??= Schema::hasTable('ai_generations')
+            && Schema::hasTable('ai_credit_transactions');
     }
 
     public static function supportsLocalDeliveryColumns(): bool

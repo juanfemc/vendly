@@ -43,7 +43,6 @@
     const cartDrawerCount = document.querySelector('[data-cart-drawer-count]');
     const cartDrawerSubtotal = document.querySelector('[data-cart-drawer-subtotal]');
     const cartDrawerShipping = document.querySelector('[data-cart-drawer-shipping]');
-    const cartDrawerTax = document.querySelector('[data-cart-drawer-tax]');
     const cartDrawerTotal = document.querySelector('[data-cart-drawer-total]');
     const navToggle = document.querySelector('.nav-toggle');
     const navbar = document.querySelector('.navbar');
@@ -197,7 +196,6 @@
         const items = Array.isArray(data.cart_items) ? data.cart_items : [];
         const subtotal = Number(data.total || 0);
         const shipping = Number(cartDrawer.dataset.cartShipping || 0);
-        const tax = Number(cartDrawer.dataset.cartTax || 0);
         const count = Number(data.cart_count || 0);
 
         if (cartDrawerCount) {
@@ -211,15 +209,11 @@
         }
 
         if (cartDrawerShipping) {
-            cartDrawerShipping.textContent = shipping > 0 ? formatMoney(shipping) : 'Gratis';
-        }
-
-        if (cartDrawerTax) {
-            cartDrawerTax.textContent = formatMoney(tax);
+            cartDrawerShipping.textContent = shipping > 0 ? formatMoney(shipping) : 'Por calcular';
         }
 
         if (cartDrawerTotal) {
-            cartDrawerTotal.textContent = formatMoney(subtotal + shipping + tax);
+            cartDrawerTotal.textContent = formatMoney(subtotal + shipping);
         }
 
         cartDrawer.dataset.cartSubtotal = String(subtotal);

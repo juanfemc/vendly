@@ -2,8 +2,7 @@
     $drawerCart = app(\App\Services\CartService::class)->cartForStore($store);
     $drawerSubtotal = collect($drawerCart)->sum(fn ($item) => (float) ($item['price'] ?? 0) * (int) ($item['quantity'] ?? 1));
     $drawerShipping = 0;
-    $drawerTax = 0;
-    $drawerTotal = $drawerSubtotal + $drawerShipping + $drawerTax;
+    $drawerTotal = $drawerSubtotal + $drawerShipping;
 @endphp
 
 <label class="store-cart-backdrop" for="minimalShopCartToggle" aria-hidden="true"></label>
@@ -14,7 +13,6 @@
     data-cart-drawer
     data-cart-subtotal="{{ $drawerSubtotal }}"
     data-cart-shipping="{{ $drawerShipping }}"
-    data-cart-tax="{{ $drawerTax }}"
     data-store-url="{{ $storefrontUrls->home($store) }}"
 >
     <div class="minimal-shop-cart-head">
@@ -72,8 +70,7 @@
 
     <div class="minimal-shop-cart-summary">
         <p><span>Subtotal</span><strong data-cart-drawer-subtotal>${{ number_format($drawerSubtotal, 2) }}</strong></p>
-        <p><span>Envio</span><strong data-cart-drawer-shipping>Gratis</strong></p>
-        <p><span>Impuestos</span><strong data-cart-drawer-tax>${{ number_format($drawerTax, 2) }}</strong></p>
+        <p><span>Envio</span><strong data-cart-drawer-shipping>Por calcular</strong></p>
         <p class="minimal-shop-cart-total"><span>Total</span><strong data-cart-drawer-total>${{ number_format($drawerTotal, 2) }}</strong></p>
     </div>
 
