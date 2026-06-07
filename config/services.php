@@ -87,6 +87,7 @@ return [
         'admin_registration_template' => env('WHATSAPP_ADMIN_REGISTRATION_TEMPLATE', 'vendly_nuevo_registro'),
         'customer_welcome_template' => env('WHATSAPP_CUSTOMER_WELCOME_TEMPLATE', 'vendly_bienvenida_cliente'),
         'phone_verification_template' => env('WHATSAPP_PHONE_VERIFICATION_TEMPLATE', 'vendly_verificar_numero'),
+        'authentication_button_sub_type' => env('WHATSAPP_AUTHENTICATION_BUTTON_SUB_TYPE', 'url'),
         'require_phone_verification' => env('WHATSAPP_REQUIRE_PHONE_VERIFICATION', env('APP_ENV') === 'production'),
         'verification_min_response_ms' => (int) env(
             'WHATSAPP_VERIFICATION_MIN_RESPONSE_MS',

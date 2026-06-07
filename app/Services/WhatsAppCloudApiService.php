@@ -18,6 +18,33 @@ class WhatsAppCloudApiService
 
     public function sendTemplate(string $phone, string $template, array $parameters): Response
     {
+        return $this->sendTemplatePayload($phone, $template, $this->bodyComponents($parameters));
+    }
+
+    public function sendAuthenticationCodeTemplate(string $phone, string $template, string $code): Response
+    {
+        $code = trim($code);
+
+        if (! preg_match('/^\d{4,15}$/', $code)) {
+            throw new RuntimeException('El codigo de autenticacion de WhatsApp no es valido.');
+        }
+
+        return $this->sendTemplatePayload($phone, $template, [
+            ...$this->bodyComponents([$code]),
+            [
+                'type' => 'button',
+                'sub_type' => (string) config('services.whatsapp.authentication_button_sub_type', 'url'),
+                'index' => '0',
+                'parameters' => [[
+                    'type' => 'text',
+                    'text' => $code,
+                ]],
+            ],
+        ]);
+    }
+
+    private function sendTemplatePayload(string $phone, string $template, array $components): Response
+    {
         if (! $this->isConfigured()) {
             throw new RuntimeException('WhatsApp Cloud API no esta configurado.');
         }
@@ -42,16 +69,7 @@ class WhatsAppCloudApiService
                     'language' => [
                         'code' => (string) config('services.whatsapp.template_language', 'es_CO'),
                     ],
-                    'components' => [[
-                        'type' => 'body',
-                        'parameters' => collect($parameters)
-                            ->map(fn ($value) => [
-                                'type' => 'text',
-                                'text' => trim((string) $value) ?: '-',
-                            ])
-                            ->values()
-                            ->all(),
-                    ]],
+                    'components' => $components,
                 ],
             ]);
 
@@ -70,6 +88,20 @@ class WhatsAppCloudApiService
         }
 
         return $response;
+    }
+
+    private function bodyComponents(array $parameters): array
+    {
+        return [[
+            'type' => 'body',
+            'parameters' => collect($parameters)
+                ->map(fn ($value) => [
+                    'type' => 'text',
+                    'text' => trim((string) $value) ?: '-',
+                ])
+                ->values()
+                ->all(),
+        ]];
     }
 
     public function normalizePhone(?string $phone): string

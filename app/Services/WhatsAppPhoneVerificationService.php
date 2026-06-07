@@ -53,10 +53,10 @@ class WhatsAppPhoneVerificationService
                 $code = (string) random_int(100000, 999999);
 
                 try {
-                    $this->whatsApp->sendTemplate(
+                    $this->whatsApp->sendAuthenticationCodeTemplate(
                         $phone,
                         (string) config('services.whatsapp.phone_verification_template'),
-                        [$code],
+                        $code,
                     );
                 } catch (Throwable $exception) {
                     report($exception);
