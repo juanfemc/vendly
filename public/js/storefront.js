@@ -56,6 +56,8 @@
     const fashionEmptyState = document.querySelector('[data-fashion-empty-state]');
     const announcementMessages = Array.from(document.querySelectorAll('[data-announcement-message]'));
     const storefrontTopbar = document.querySelector('[data-storefront-topbar]');
+    const homeCategoriesTrack = document.querySelector('.home-categories-track.is-scrollable');
+    const homeCategoriesScrollButtons = Array.from(document.querySelectorAll('[data-home-categories-scroll]'));
     const csrfToken = page.dataset.csrf || '';
     const addingText = page.dataset.addingText || 'Agregando...';
     const addedText = page.dataset.feedbackAdded || 'Producto agregado al carrito';
@@ -102,6 +104,41 @@
             event.preventDefault();
             syncFashionCategory(button.dataset.fashionCategoryFilter);
         });
+    }
+
+    if (homeCategoriesTrack && homeCategoriesScrollButtons.length) {
+        const syncHomeCategoryButtons = () => {
+            const maxScrollLeft = Math.max(0, homeCategoriesTrack.scrollWidth - homeCategoriesTrack.clientWidth - 1);
+            const scrollLeft = Math.max(0, homeCategoriesTrack.scrollLeft);
+
+            homeCategoriesScrollButtons.forEach((button) => {
+                const isPrev = button.dataset.homeCategoriesScroll === 'prev';
+                const isDisabled = isPrev ? scrollLeft <= 0 : scrollLeft >= maxScrollLeft;
+
+                button.disabled = isDisabled;
+                button.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
+            });
+        };
+
+        homeCategoriesScrollButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                if (button.disabled) {
+                    return;
+                }
+
+                const direction = button.dataset.homeCategoriesScroll === 'prev' ? -1 : 1;
+                const scrollAmount = Math.max(homeCategoriesTrack.clientWidth * 0.75, 260);
+
+                homeCategoriesTrack.scrollBy({
+                    left: direction * scrollAmount,
+                    behavior: 'smooth',
+                });
+            });
+        });
+
+        homeCategoriesTrack.addEventListener('scroll', syncHomeCategoryButtons, { passive: true });
+        window.addEventListener('resize', syncHomeCategoryButtons);
+        syncHomeCategoryButtons();
     }
 
     const syncTopbarHeight = () => {

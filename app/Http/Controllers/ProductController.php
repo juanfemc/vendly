@@ -43,30 +43,48 @@ class ProductController extends Controller
         $this->storeVisitService->record($store, request());
     }
 
-    public function index(?Store $store = null)
+    public function index(Request $request, ?Store $store = null)
     {
         $this->authorize('viewAny', Product::class);
 
         $selectedStore = null;
+        $productsPerPage = 12;
+        $productSearch = trim((string) $request->query('q', ''));
 
         if (auth()->user()?->isAdmin()) {
             $selectedStore = $store?->exists ? $store : null;
             $stores = $selectedStore
                 ? collect()
-                : Store::withCount('products')->orderBy('name')->paginate(10);
+                : Store::withCount('products')
+                    ->when($productSearch !== '', function ($query) use ($productSearch) {
+                        $query->where(function ($storeQuery) use ($productSearch) {
+                            $storeQuery
+                                ->where('name', 'like', '%' . $productSearch . '%')
+                                ->orWhereHas('products', fn ($productQuery) => $this->applyProductSearch($productQuery, $productSearch));
+                        });
+                    })
+                    ->orderBy('name')
+                    ->paginate(10)
+                    ->withQueryString();
             $products = $selectedStore
-                ? Product::with('store')->where('store_id', $selectedStore->id)->latest()->get()
+                ? $this->applyProductSearch(Product::with('store')->where('store_id', $selectedStore->id), $productSearch)
+                    ->latest()
+                    ->paginate($productsPerPage)
+                    ->withQueryString()
                 : collect();
 
-            return view('admin.products.index', compact('products', 'stores', 'selectedStore'));
+            return view('admin.products.index', compact('products', 'stores', 'selectedStore', 'productSearch'));
         }
 
         $store = $this->currentStore();
         $products = $store
-            ? Product::where('store_id', $store->id)->latest()->get()
+            ? $this->applyProductSearch(Product::with('store')->where('store_id', $store->id), $productSearch)
+                ->latest()
+                ->paginate($productsPerPage)
+                ->withQueryString()
             : collect();
 
-        return view('admin.products.index', compact('products', 'store'));
+        return view('admin.products.index', compact('products', 'store', 'productSearch'));
     }
 
     public function create()
@@ -538,10 +556,18 @@ class ProductController extends Controller
 
     private function applyProductSearch($query, string $searchQuery)
     {
+        if ($searchQuery === '') {
+            return $query;
+        }
+
         $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $searchQuery) . '%';
 
         return $query->where(function ($query) use ($like) {
-            $query->where('name', 'like', $like);
+            $query
+                ->where('name', 'like', $like)
+                ->orWhere('category', 'like', $like)
+                ->orWhere('material', 'like', $like)
+                ->orWhere('description', 'like', $like);
         });
     }
 

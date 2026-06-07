@@ -21,6 +21,10 @@
 
 @php
     $currentProductStore = $selectedStore ?? $store ?? null;
+    $productSearch = $productSearch ?? request('q', '');
+    $productsTotal = method_exists($products, 'total') ? $products->total() : $products->count();
+    $storeProductCount = $currentProductStore ? $currentProductStore->products()->count() : $productsTotal;
+    $isProductSearchActive = trim((string) $productSearch) !== '';
 @endphp
 
 @if($currentProductStore && $currentProductStore->productLimit())
@@ -28,18 +32,44 @@
         <div class="resource-card__main">
             <h3 class="resource-card__title">Plan {{ $currentProductStore->planLabel() }}</h3>
             <p class="resource-card__subtitle">
-                {{ $products->count() }} de {{ $currentProductStore->productLimit() }} productos disponibles.
+                {{ $storeProductCount }} de {{ $currentProductStore->productLimit() }} productos disponibles.
             </p>
         </div>
     </div>
 @endif
 
+<form method="GET" action="{{ url()->current() }}" class="list-card product-search-panel">
+    <label class="field-label" for="productSearchInput">
+        {{ auth()->user()->isAdmin() && empty($selectedStore) ? 'Buscar tienda o producto' : 'Buscar producto' }}
+    </label>
+    <div class="product-search-panel__controls">
+        <input
+            id="productSearchInput"
+            type="search"
+            name="q"
+            value="{{ $productSearch }}"
+            placeholder="{{ auth()->user()->isAdmin() && empty($selectedStore) ? 'Nombre de tienda o producto' : 'Nombre, categoria, material o descripcion' }}"
+            autocomplete="off"
+        >
+        <button type="submit" class="btn">Buscar</button>
+        @if($isProductSearchActive)
+            <a href="{{ url()->current() }}" class="btn btn-secondary">Limpiar</a>
+        @endif
+    </div>
+</form>
+
 @if($products->isEmpty())
     @if(! auth()->user()->isAdmin() || ! empty($selectedStore))
         <div class="panel-empty">
-            <h3>No hay productos registrados</h3>
-            <p>Agrega el primer producto para empezar a mostrar el catalogo en la tienda.</p>
-            <a href="/admin/products/create" class="btn">Nuevo producto</a>
+            @if($isProductSearchActive)
+                <h3>No encontramos productos</h3>
+                <p>Prueba con otro nombre, categoria, material o descripcion.</p>
+                <a href="{{ url()->current() }}" class="btn btn-secondary">Limpiar busqueda</a>
+            @else
+                <h3>No hay productos registrados</h3>
+                <p>Agrega el primer producto para empezar a mostrar el catalogo en la tienda.</p>
+                <a href="/admin/products/create" class="btn">Nuevo producto</a>
+            @endif
         </div>
     @endif
 @endif
@@ -65,6 +95,14 @@
             </div>
         @endforeach
     </div>
+
+    @if(($stores ?? collect())->count() === 0 && $isProductSearchActive)
+        <div class="panel-empty">
+            <h3>No encontramos tiendas o productos</h3>
+            <p>Prueba con otro nombre de tienda o producto.</p>
+            <a href="{{ url()->current() }}" class="btn btn-secondary">Limpiar busqueda</a>
+        </div>
+    @endif
 
     @if(($stores ?? null) && method_exists($stores, 'hasPages') && $stores->hasPages())
         <div class="list-card admin-pagination">
@@ -139,5 +177,11 @@
             </article>
         @endforeach
     </div>
+
+    @if(method_exists($products, 'hasPages') && $products->hasPages())
+        <div class="list-card admin-pagination">
+            {{ $products->onEachSide(1)->links('pagination::bootstrap-4') }}
+        </div>
+    @endif
 @endif
 @endsection

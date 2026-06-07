@@ -600,6 +600,26 @@
             padding-bottom: 11px;
         }
 
+        .product-search-panel {
+            display: grid;
+            gap: 10px;
+        }
+
+        .product-search-panel .field-label {
+            margin: 0;
+        }
+
+        .product-search-panel__controls {
+            display: grid;
+            grid-template-columns: minmax(220px, 1fr) auto auto;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .product-search-panel__controls input {
+            margin: 0;
+        }
+
         .ai-assistant-panel {
             display: grid;
             gap: 12px;
@@ -1036,6 +1056,14 @@
 
             .order-filter-count {
                 padding-bottom: 0;
+            }
+
+            .product-search-panel__controls {
+                grid-template-columns: 1fr;
+            }
+
+            .product-search-panel__controls .btn {
+                width: 100%;
             }
 
             textarea.long-textarea {

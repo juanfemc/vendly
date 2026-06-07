@@ -4,17 +4,23 @@
         ->values();
     $homeCategoryItemsLabel = $itemsLabel ?? 'productos';
     $homeCategoriesAreCompact = $homeCategories->count() > 3;
+    $homeCenteredCategoryWidth = match ($homeCategories->count()) {
+        1 => '420px',
+        2 => 'min(520px, calc((100% - 14px) / 2))',
+        default => 'min(360px, calc((100% - 28px) / 3))',
+    };
 @endphp
 
 @if($homeCategories->isNotEmpty())
     <section class="home-categories {{ $homeCategoriesAreCompact ? 'home-categories--scroll' : 'home-categories--centered' }}" aria-label="Categorias">
-        <div class="home-categories-intro">
-            <h2>Explora nuestras categorias</h2>
-            <p>Encuentra lo que necesitas entre nuestras categorias mas populares.</p>
-        </div>
-
         <div class="home-categories-scroll-shell">
-            <div class="home-categories-track {{ $homeCategoriesAreCompact ? 'is-scrollable' : 'is-centered' }}">
+            @if($homeCategoriesAreCompact)
+                <button class="home-categories-scroll-button home-categories-scroll-button--prev" type="button" data-home-categories-scroll="prev" aria-label="Ver categorias anteriores">
+                    &larr;
+                </button>
+            @endif
+
+            <div class="home-categories-track {{ $homeCategoriesAreCompact ? 'is-scrollable' : 'is-centered' }}" @if(! $homeCategoriesAreCompact) style="--home-category-width: {{ $homeCenteredCategoryWidth }};" @endif>
                 @foreach($homeCategories as $homeCategory)
                     @php
                         $homeCategoryCount = (int) (($categoryProductCounts ?? collect())[$homeCategory->name] ?? 0);
@@ -35,14 +41,13 @@
                     </a>
                 @endforeach
             </div>
+
+            @if($homeCategoriesAreCompact)
+                <button class="home-categories-scroll-button home-categories-scroll-button--next" type="button" data-home-categories-scroll="next" aria-label="Ver mas categorias">
+                    &rarr;
+                </button>
+            @endif
         </div>
 
-        @if($homeCategoriesAreCompact)
-            <div class="home-categories-scroll-hint" aria-hidden="true">
-                <span>&larr;</span>
-                <small>Desliza para ver mas categorias</small>
-                <span>&rarr;</span>
-            </div>
-        @endif
     </section>
 @endif

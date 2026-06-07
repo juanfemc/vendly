@@ -61,13 +61,30 @@
         $quantityMax = $product->stock_quantity !== null && ! $isReservationStore ? max(1, min(99, (int) $product->stock_quantity)) : 99;
         $showsOfferPricing = $store->allowsOfferBadges() && $product->hasOfferPricing();
         $productBadges = $product->displayBadges($store);
-        $reviewsEnabled = $store->allowsProductReviews();
-        $reviews = $reviewsEnabled ? $product->approvedReviews()->latest()->take(6)->get() : collect();
-        $reviewCount = $reviewsEnabled ? $product->reviewCount() : 0;
-        $reviewAverage = $reviewsEnabled ? $product->reviewAverage() : null;
-        $reviewLabel = $reviewCount > 0
-            ? number_format($reviewAverage, 1) . ' (' . $reviewCount . ' ' . \Illuminate\Support\Str::plural('resena', $reviewCount) . ')'
+        $productReviewsEnabled = $store->allowsProductReviews();
+        $productReviews = $productReviewsEnabled
+            ? $product->approvedReviews()->latest()->take(3)->get()
+            : collect();
+        $productReviewCount = $productReviewsEnabled ? $product->reviewCount() : 0;
+        $productReviewAverage = $productReviewsEnabled ? $product->reviewAverage() : null;
+        $productReviewLabel = $productReviewCount > 0
+            ? number_format($productReviewAverage, 1) . ' (' . $productReviewCount . ' ' . \Illuminate\Support\Str::plural('resena', $productReviewCount) . ')'
             : null;
+        $productDescriptionText = $product->description ?: ($isRestaurant ? 'Este plato aun no tiene una descripcion amplia, pero ya esta disponible para pedir por WhatsApp.' : ($isReservationStore ? 'Este servicio aun no tiene una descripcion amplia configurada, pero ya esta listo para reservarse.' : 'Este producto aun no tiene una descripcion amplia configurada, pero ya esta listo para venderse.'));
+        $productDescriptionPreview = \Illuminate\Support\Str::limit($productDescriptionText, 170);
+        $hasLongProductDescription = \Illuminate\Support\Str::length($productDescriptionText) > \Illuminate\Support\Str::length($productDescriptionPreview);
+        $featureSource = trim(strip_tags(str_replace(['</li>', '</p>', '<br>', '<br/>', '<br />'], "\n", (string) $product->features)));
+        $allProductFeatureItems = collect(preg_split('/[\r\n;]+/', $featureSource) ?: [])
+            ->map(fn ($feature) => trim(preg_replace('/\s+/', ' ', $feature)))
+            ->filter()
+            ->values();
+        $productFeatureItems = $allProductFeatureItems
+            ->take(4)
+            ->values();
+        $extraProductFeatureItems = $allProductFeatureItems
+            ->skip(4)
+            ->values();
+        $hasMoreProductFeatures = $allProductFeatureItems->count() > $productFeatureItems->count();
     @endphp
     @include('storefront.partials.seo', ['seo' => $seo])
     @include('storefront.partials.meta-pixel', ['store' => $store])
@@ -178,133 +195,41 @@
                     <div class="product-stock-state {{ $isProductSoldOut ? 'is-sold-out' : '' }}">{{ $product->stockLabel() }}</div>
                 @endif
 
-                @if($product->material)
-                    <div class="product-detail-description">
-                        <h2>{{ $isRestaurant ? 'Detalle' : 'Material' }}</h2>
-                        <p>{{ $product->material }}</p>
-                    </div>
-                @endif
-
                 <div class="product-detail-description">
                     <h2>{{ $isRestaurant ? 'Sobre este plato' : 'Descripción' }}</h2>
-                    <p>{{ $product->description ?: ($isRestaurant ? 'Este plato aun no tiene una descripcion amplia, pero ya esta disponible para pedir por WhatsApp.' : ($isReservationStore ? 'Este servicio aun no tiene una descripcion amplia configurada, pero ya esta listo para reservarse.' : 'Este producto aun no tiene una descripcion amplia configurada, pero ya esta listo para venderse.')) }}</p>
+                    <p>{{ $productDescriptionPreview }}</p>
+                    @if($hasLongProductDescription)
+                        <details class="product-detail-more">
+                            <summary>Ver descripción completa</summary>
+                            <p>{{ $productDescriptionText }}</p>
+                        </details>
+                    @endif
                 </div>
 
                 @if($product->features)
                     <div class="product-detail-description product-detail-features">
                         <h2>{{ $isRestaurant ? 'Ingredientes y detalles' : 'Características' }}</h2>
-                        <div class="product-rich-content">{!! $product->features !!}</div>
-                    </div>
-                @endif
-
-                @if($reviewsEnabled)
-                    <section class="product-reviews" aria-label="Resenas del producto">
-                        <div class="product-reviews-head">
-                            <div>
-                                <h2>Resenas</h2>
-                                <p>Opiniones de clientes sobre este producto.</p>
+                        @if($productFeatureItems->isNotEmpty())
+                            <div class="product-feature-chips">
+                                @foreach($productFeatureItems as $featureItem)
+                                    <span>{{ $featureItem }}</span>
+                                @endforeach
                             </div>
-                            @if($reviewCount > 0)
-                                <div class="product-review-score" aria-label="{{ $reviewLabel }}">
-                                    <span aria-hidden="true">&#9733;</span>
-                                    <strong>{{ number_format($reviewAverage, 1) }}</strong>
-                                    <small>{{ $reviewCount }} {{ \Illuminate\Support\Str::plural('resena', $reviewCount) }}</small>
-                                </div>
-                            @endif
-                        </div>
-
-                        @if(session('review_success'))
-                            <div class="product-review-alert">{{ session('review_success') }}</div>
-                        @endif
-
-                        <div class="product-review-list">
-                            @foreach($reviews as $review)
-                                <article>
-                                    <div>
-                                        <strong>{{ $review->name }}</strong>
-                                        <span>{{ number_format((float) $review->rating, 1) }} &#9733;</span>
+                            @if($hasMoreProductFeatures)
+                                <details class="product-detail-more">
+                                    <summary>Ver más características</summary>
+                                    <div class="product-feature-chips product-feature-chips--all">
+                                        @foreach($extraProductFeatureItems as $featureItem)
+                                            <span>{{ $featureItem }}</span>
+                                        @endforeach
                                     </div>
-                                    @if($review->comment)
-                                        <p>{{ $review->comment }}</p>
-                                    @endif
-                                </article>
-                            @endforeach
-                        </div>
-
-                        <form action="{{ route('product.reviews.store', $product) }}" method="POST" class="product-review-form">
-                            @csrf
-                            <div class="product-review-form-head">
-                                <h3>Comparte tu experiencia</h3>
-                                <p>Tu resena sera revisada antes de publicarse.</p>
-                            </div>
-                            <label>
-                                <span>Nombre</span>
-                                <input type="text" name="name" value="{{ old('name') }}" maxlength="80" required>
-                            </label>
-                            <label>
-                                <span>Calificacion</span>
-                                <select name="rating" required>
-                                    @for($rating = 5; $rating >= 1; $rating--)
-                                        <option value="{{ $rating }}" @selected((int) old('rating', 5) === $rating)>{{ $rating }} estrellas</option>
-                                    @endfor
-                                </select>
-                            </label>
-                            <label class="product-review-form-comment">
-                                <span>Comentario</span>
-                                <textarea name="comment" rows="3" maxlength="1000">{{ old('comment') }}</textarea>
-                            </label>
-                            <button type="submit">Publicar resena</button>
-                        </form>
-                    </section>
+                                </details>
+                            @endif
+                        @else
+                            <div class="product-rich-content">{!! $product->features !!}</div>
+                        @endif
+                    </div>
                 @endif
-
-                <section class="product-share" aria-label="Compartir producto">
-                    <div>
-                        <h2>Compartir</h2>
-                    </div>
-
-                    <div class="product-share-actions">
-                        <a
-                            href="https://www.facebook.com/sharer/sharer.php?u={{ $shareUrlEncoded }}"
-                            class="product-share-button product-share-button--facebook"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label="Compartir en Facebook"
-                        >
-                            <img src="{{ asset('images/icons/icon-facebook.png') }}" alt="" aria-hidden="true">
-                            <span class="product-share-label">Facebook</span>
-                        </a>
-                        <a
-                            href="https://wa.me/?text={{ $shareTextEncoded }}%20{{ $shareUrlEncoded }}"
-                            class="product-share-button product-share-button--whatsapp"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label="Compartir por WhatsApp"
-                        >
-                            <img src="{{ asset('images/icons/icon-whatsapp.png') }}" alt="" aria-hidden="true">
-                            <span class="product-share-label">WhatsApp</span>
-                        </a>
-                        <a
-                            href="https://twitter.com/intent/tweet?url={{ $shareUrlEncoded }}&text={{ $shareTextEncoded }}"
-                            class="product-share-button product-share-button--x"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label="Compartir en X"
-                        >
-                            <img src="{{ asset('images/icons/icon-x.png') }}" alt="" aria-hidden="true">
-                            <span class="product-share-label">X</span>
-                        </a>
-                        <button
-                            type="button"
-                            class="product-share-button product-share-button--copy"
-                            data-copy-product-link="{{ $metaUrl }}"
-                            aria-label="Copiar enlace del producto"
-                        >
-                            <img src="{{ asset('images/icons/icon-copiar-enlace.png') }}" alt="" aria-hidden="true">
-                            <span class="product-share-label">Copiar enlace</span>
-                        </button>
-                    </div>
-                </section>
 
                 @if($isProductSoldOut)
                     <div class="product-unavailable-message">{{ $isRestaurant ? 'Este plato esta agotado por ahora.' : 'Este producto esta agotado por ahora.' }}</div>
@@ -355,11 +280,118 @@
                         <button type="submit" class="product-detail-primary">
                             <span>{{ $isRestaurant ? 'Pedir ahora' : ($isReservationStore ? 'Reservar ahora' : 'Comprar ahora') }}</span>
                         </button>
-                        @unless($isRestaurant || $isReservationStore)
-                            <p class="product-payment-note">Podras elegir WhatsApp o Mercado Pago en el checkout.</p>
-                        @endunless
                     </form>
+
                 @endif
+
+                @if($productReviewsEnabled)
+                    <section class="product-review-compact" aria-label="Resenas del producto">
+                        <div class="product-review-compact-head">
+                            <div>
+                                <h2>Reseñas</h2>
+                            </div>
+
+                            @if($productReviewCount > 0)
+                                <div class="product-review-compact-score" aria-label="{{ $productReviewLabel }}">
+                                    <span aria-hidden="true">&#9733;</span>
+                                    <strong>{{ number_format($productReviewAverage, 1) }}</strong>
+                                </div>
+                            @endif
+                        </div>
+
+                        @if(session('review_success'))
+                            <div class="product-review-compact-alert">{{ session('review_success') }}</div>
+                        @endif
+
+                        @if($productReviews->isNotEmpty())
+                            <div class="product-review-compact-list">
+                                @foreach($productReviews as $review)
+                                    <article>
+                                        <div>
+                                            <strong>{{ $review->name }}</strong>
+                                            <span>{{ number_format((float) $review->rating, 1) }} &#9733;</span>
+                                        </div>
+                                        @if($review->comment)
+                                            <p>{{ \Illuminate\Support\Str::limit($review->comment, 120) }}</p>
+                                        @endif
+                                    </article>
+                                @endforeach
+                            </div>
+                        @endif
+
+                        <details class="product-review-write">
+                            <summary>Escribir reseña</summary>
+                            <form action="{{ route('product.reviews.store', $product) }}" method="POST" class="product-review-compact-form">
+                                @csrf
+                                <label>
+                                    <span>Nombre</span>
+                                    <input type="text" name="name" value="{{ old('name') }}" maxlength="80" required>
+                                </label>
+                                <label>
+                                    <span>Calificación</span>
+                                    <select name="rating" required>
+                                        @for($rating = 5; $rating >= 1; $rating--)
+                                            <option value="{{ $rating }}" @selected((int) old('rating', 5) === $rating)>{{ $rating }} estrellas</option>
+                                        @endfor
+                                    </select>
+                                </label>
+                                <label class="product-review-compact-comment">
+                                    <span>Comentario</span>
+                                    <textarea name="comment" rows="3" maxlength="1000">{{ old('comment') }}</textarea>
+                                </label>
+                                <button type="submit">Enviar reseña</button>
+                            </form>
+                        </details>
+                    </section>
+                @endif
+
+                <section class="product-share" aria-label="Compartir producto">
+                    <div>
+                        <h2>Compartir</h2>
+                    </div>
+
+                    <div class="product-share-actions">
+                        <a
+                            href="https://www.facebook.com/sharer/sharer.php?u={{ $shareUrlEncoded }}"
+                            class="product-share-button product-share-button--facebook"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Compartir en Facebook"
+                        >
+                            <img src="{{ asset('images/icons/icon-facebook.png') }}" alt="" aria-hidden="true">
+                            <span class="product-share-label">Facebook</span>
+                        </a>
+                        <a
+                            href="https://wa.me/?text={{ $shareTextEncoded }}%20{{ $shareUrlEncoded }}"
+                            class="product-share-button product-share-button--whatsapp"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Compartir por WhatsApp"
+                        >
+                            <img src="{{ asset('images/icons/icon-whatsapp.png') }}" alt="" aria-hidden="true">
+                            <span class="product-share-label">WhatsApp</span>
+                        </a>
+                        <a
+                            href="https://twitter.com/intent/tweet?url={{ $shareUrlEncoded }}&text={{ $shareTextEncoded }}"
+                            class="product-share-button product-share-button--x"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Compartir en X"
+                        >
+                            <img src="{{ asset('images/icons/icon-x.png') }}" alt="" aria-hidden="true">
+                            <span class="product-share-label">X</span>
+                        </a>
+                        <button
+                            type="button"
+                            class="product-share-button product-share-button--copy"
+                            data-copy-product-link="{{ $metaUrl }}"
+                            aria-label="Copiar enlace del producto"
+                        >
+                            <img src="{{ asset('images/icons/icon-copiar-enlace.png') }}" alt="" aria-hidden="true">
+                            <span class="product-share-label">Copiar enlace</span>
+                        </button>
+                    </div>
+                </section>
             </div>
         </section>
 

@@ -22,6 +22,7 @@
         <input type="text" name="slug" value="{{ old('slug', $category->slug) }}" placeholder="Slug">
         <textarea name="description" rows="4" placeholder="Descripcion corta">{{ old('description', $category->description) }}</textarea>
         <input type="file" name="image" accept="image/*">
+        <small style="display:block; margin-top:-6px; color:var(--muted);">Imagen recomendada: JPG, PNG o WebP. Maximo 8 MB.</small>
         @if($category->image)
             <img src="{{ asset('storage/' . $category->image) }}" alt="{{ $category->name }}" style="width:160px; height:100px; object-fit:cover; border-radius:10px; margin:10px 0;">
         @endif

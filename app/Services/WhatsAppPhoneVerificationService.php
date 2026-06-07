@@ -61,7 +61,9 @@ class WhatsAppPhoneVerificationService
                 } catch (Throwable $exception) {
                     report($exception);
 
-                    return Str::random(64);
+                    throw ValidationException::withMessages([
+                        'whatsapp' => 'No pudimos enviar el codigo por WhatsApp. Intenta nuevamente en unos minutos.',
+                    ]);
                 }
 
                 $token = Str::random(64);

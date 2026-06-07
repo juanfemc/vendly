@@ -87,9 +87,12 @@ class StoreCategoryController extends Controller
                 ),
             ],
             'description' => ['nullable', 'string', 'max:1000'],
-            'image' => ['nullable', 'image', 'max:4096'],
+            'image' => ['nullable', 'image', 'max:8192'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],
             'is_active' => ['nullable', 'boolean'],
+        ], [
+            'image.image' => 'La imagen de la categoria debe ser un archivo de imagen valido.',
+            'image.max' => 'La imagen de la categoria no puede pesar mas de 8 MB. Comprimela o elige una imagen mas liviana.',
         ]);
 
         $category = $store->categories()->create([
@@ -152,9 +155,12 @@ class StoreCategoryController extends Controller
                     ->ignore($category->id),
             ],
             'description' => ['nullable', 'string', 'max:1000'],
-            'image' => ['nullable', 'image', 'max:4096'],
+            'image' => ['nullable', 'image', 'max:8192'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],
             'is_active' => ['nullable', 'boolean'],
+        ], [
+            'image.image' => 'La imagen de la categoria debe ser un archivo de imagen valido.',
+            'image.max' => 'La imagen de la categoria no puede pesar mas de 8 MB. Comprimela o elige una imagen mas liviana.',
         ]);
 
         $oldName = $category->name;

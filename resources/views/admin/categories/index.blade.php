@@ -81,6 +81,7 @@
             <input type="text" name="slug" value="{{ old('slug') }}" placeholder="Slug opcional">
             <textarea name="description" rows="3" placeholder="Descripcion corta">{{ old('description') }}</textarea>
             <input type="file" name="image" accept="image/*">
+            <small style="display:block; margin-top:-6px; color:var(--muted);">Imagen recomendada: JPG, PNG o WebP. Maximo 8 MB.</small>
             <label>
                 <span>Posicion en la tienda</span>
                 <select name="sort_order">

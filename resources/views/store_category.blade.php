@@ -37,6 +37,7 @@
         ];
         $faviconImage = $storefrontUrls->favicon($store);
         $seoImage = $absoluteStorageUrl($category->image) ?: $absoluteStorageUrl($store->cover_image) ?: $absoluteStorageUrl($store->logo_image);
+        $categoryHeroImage = $storageAssetUrl($category->image) ?: $storageAssetUrl($store->cover_image) ?: $storageAssetUrl($store->logo_image);
         $metaUrl = $storefrontUrls->category($store, $category);
         $fallbackDescription = $isRestaurant
             ? 'Explora ' . $category->name . ' de la carta de ' . $store->name . ' y envia tu pedido por WhatsApp.'
@@ -76,9 +77,9 @@
                 <h1>{{ $category->name }}</h1>
             </div>
 
-            @if($category->image)
+            @if($categoryHeroImage)
                 <div class="category-page-media">
-                    <img src="{{ asset('storage/' . $category->image) }}" alt="{{ $category->name }}" loading="eager" fetchpriority="high" decoding="async">
+                    <img src="{{ $categoryHeroImage }}" alt="{{ $category->name }}" loading="eager" fetchpriority="high" decoding="async">
                 </div>
             @endif
         </section>

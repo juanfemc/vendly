@@ -152,6 +152,7 @@ class TrialSignupController extends Controller
         } catch (Throwable $exception) {
             Log::warning('No se pudo enviar el codigo de verificacion por WhatsApp.', [
                 'exception' => $exception::class,
+                'message' => $exception->getMessage(),
             ]);
 
             return response()->json([
