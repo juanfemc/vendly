@@ -28,11 +28,9 @@ class WhatsAppRegistrationNotifier
                 'template' => config('services.whatsapp.admin_registration_template'),
                 'parameters' => [
                     $user->name,
-                    $user->email,
-                    $store->whatsapp,
                     $store->name,
-                    $store->location ?: 'No indicada',
-                    url('/'.$store->slug),
+                    $store->whatsapp,
+                    $user->email,
                 ],
             ],
             [
@@ -42,8 +40,6 @@ class WhatsAppRegistrationNotifier
                 'parameters' => [
                     $user->name,
                     $store->name,
-                    Store::TRIAL_DAYS,
-                    route('admin.store.onboarding'),
                 ],
             ],
         ];
