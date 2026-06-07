@@ -47,7 +47,9 @@ class WhatsAppPhoneVerificationService
                 RateLimiter::hit($phoneRateKey, 3600);
 
                 if ($canSend && $canSend() === false) {
-                    return Str::random(64);
+                    throw ValidationException::withMessages([
+                        'whatsapp' => 'Este numero ya utilizo su prueba gratis.',
+                    ]);
                 }
 
                 $code = (string) random_int(100000, 999999);
