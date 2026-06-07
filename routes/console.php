@@ -2,6 +2,7 @@
 
 use App\Jobs\SendWhatsAppTemplate;
 use App\Models\ColombiaLocation;
+use App\Models\CustomerFollowup;
 use App\Models\Store;
 use App\Models\User;
 use App\Models\WhatsAppMessage;
@@ -319,10 +320,155 @@ Artisan::command('whatsapp:recover-stale {--minutes=15 : Antiguedad minima del i
     return self::SUCCESS;
 })->purpose('Recupera mensajes atascados por interrupciones del worker');
 
+Artisan::command('followups:send {--limit=50 : Cantidad maxima de seguimientos a programar}', function () {
+    $limit = max(1, min(500, (int) $this->option('limit')));
+    $followups = CustomerFollowup::query()
+        ->with(['store', 'user', 'whatsappMessage'])
+        ->whereIn('status', [
+            CustomerFollowup::STATUS_PENDING,
+            CustomerFollowup::STATUS_QUEUED,
+        ])
+        ->where('scheduled_for', '<=', now())
+        ->oldest('scheduled_for')
+        ->limit($limit)
+        ->get();
+
+    $queued = 0;
+    $skipped = 0;
+    $alreadyQueued = 0;
+
+    foreach ($followups as $followup) {
+        $message = $followup->whatsappMessage;
+
+        if ($message && in_array($message->status, [
+            WhatsAppMessage::STATUS_SENT,
+            WhatsAppMessage::STATUS_DELIVERED,
+            WhatsAppMessage::STATUS_READ,
+        ], true)) {
+            $followup->update([
+                'status' => CustomerFollowup::STATUS_SENT,
+                'sent_at' => $message->sent_at ?: now(),
+                'error' => null,
+            ]);
+
+            continue;
+        }
+
+        if ($message && in_array($message->status, [
+            WhatsAppMessage::STATUS_QUEUED,
+            WhatsAppMessage::STATUS_PROCESSING,
+            WhatsAppMessage::STATUS_RETRYING,
+        ], true)) {
+            try {
+                SendWhatsAppTemplate::dispatch($message->id);
+                $alreadyQueued++;
+            } catch (\Throwable $exception) {
+                $followup->update([
+                    'status' => CustomerFollowup::STATUS_FAILED,
+                    'error' => Str::limit($exception->getMessage(), 500),
+                    'failed_at' => now(),
+                ]);
+            }
+
+            continue;
+        }
+
+        if ($message && in_array($message->status, [
+            WhatsAppMessage::STATUS_FAILED,
+            WhatsAppMessage::STATUS_UNKNOWN,
+        ], true)) {
+            $followup->update([
+                'status' => CustomerFollowup::STATUS_FAILED,
+                'error' => $message->error ?: 'El mensaje de WhatsApp asociado fallo.',
+                'failed_at' => now(),
+            ]);
+
+            continue;
+        }
+
+        $store = $followup->store;
+        $user = $followup->user ?: $store?->user;
+
+        if (! $store || ! $user || ! $store->isTrialing() || $store->whatsappNumber() === '') {
+            $followup->update([
+                'status' => CustomerFollowup::STATUS_SKIPPED,
+                'skipped_at' => now(),
+                'error' => 'La tienda ya no es elegible para este seguimiento.',
+            ]);
+            $skipped++;
+
+            continue;
+        }
+
+        $phone = $store->whatsappNumber();
+        $fingerprint = hash('sha256', implode('|', [
+            'followup',
+            $followup->id,
+            $store->id,
+            $followup->type,
+            $followup->template,
+        ]));
+
+        try {
+            $message = WhatsAppMessage::firstOrCreate(
+                ['fingerprint' => $fingerprint],
+                [
+                    'store_id' => $store->id,
+                    'user_id' => $user->id,
+                    'audience' => 'customer',
+                    'template' => $followup->template,
+                    'recipient_hash' => hash('sha256', $phone),
+                    'recipient' => $phone,
+                    'parameters' => $followup->parameters,
+                    'status' => WhatsAppMessage::STATUS_QUEUED,
+                ],
+            );
+
+            if (! $message->wasRecentlyCreated && in_array($message->status, [
+                WhatsAppMessage::STATUS_FAILED,
+                WhatsAppMessage::STATUS_UNKNOWN,
+            ], true)) {
+                $followup->update([
+                    'whatsapp_message_id' => $message->id,
+                    'status' => CustomerFollowup::STATUS_FAILED,
+                    'error' => $message->error ?: 'El mensaje de WhatsApp asociado fallo.',
+                    'failed_at' => now(),
+                ]);
+
+                continue;
+            }
+
+            $followup->update([
+                'whatsapp_message_id' => $message->id,
+                'status' => CustomerFollowup::STATUS_QUEUED,
+                'error' => null,
+                'failed_at' => null,
+            ]);
+
+            SendWhatsAppTemplate::dispatch($message->id);
+            $queued++;
+        } catch (\Throwable $exception) {
+            $followup->update([
+                'status' => CustomerFollowup::STATUS_FAILED,
+                'error' => Str::limit($exception->getMessage(), 500),
+                'failed_at' => now(),
+            ]);
+        }
+    }
+
+    $this->info("Seguimientos programados: {$queued}. Ya en cola: {$alreadyQueued}. Omitidos: {$skipped}.");
+
+    return self::SUCCESS;
+})->purpose('Programa seguimientos comerciales de prueba gratis por WhatsApp');
+
 Schedule::command('whatsapp:prune')
     ->dailyAt('03:30')
     ->withoutOverlapping();
 
 Schedule::command('whatsapp:recover-stale')
     ->everyTenMinutes()
+    ->withoutOverlapping();
+
+Schedule::command('followups:send')
+    ->everyFifteenMinutes()
     ->withoutOverlapping();

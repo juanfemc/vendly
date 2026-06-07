@@ -1163,6 +1163,11 @@ class Store extends Model
         return $this->hasMany(AiCreditTransaction::class);
     }
 
+    public function customerFollowups(): HasMany
+    {
+        return $this->hasMany(CustomerFollowup::class);
+    }
+
     public function mercadoPagoAccount()
     {
         return $this->hasOne(StorePaymentAccount::class)

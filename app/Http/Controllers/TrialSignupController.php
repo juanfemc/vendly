@@ -8,6 +8,7 @@ use App\Models\Store;
 use App\Models\TrialSignupClaim;
 use App\Models\User;
 use App\Services\AdminUpdateService;
+use App\Services\CustomerFollowupScheduler;
 use App\Services\StoreSlugService;
 use App\Services\TrialPhoneHashService;
 use App\Services\TurnstileService;
@@ -31,6 +32,7 @@ class TrialSignupController extends Controller
     public function __construct(
         private StoreSlugService $storeSlugs,
         private AdminUpdateService $adminUpdateService,
+        private CustomerFollowupScheduler $customerFollowups,
         private WhatsAppRegistrationNotifier $whatsAppRegistrationNotifier,
         private WhatsAppPhoneVerificationService $phoneVerification,
         private TrialPhoneHashService $trialPhoneHashes,
@@ -111,6 +113,15 @@ class TrialSignupController extends Controller
             $this->whatsAppRegistrationNotifier->notify($user, $store);
         } catch (Throwable $exception) {
             Log::warning('No se pudieron programar los mensajes de registro por WhatsApp.', [
+                'store_id' => $store->id,
+                'exception' => $exception::class,
+            ]);
+        }
+
+        try {
+            $this->customerFollowups->scheduleForStore($store);
+        } catch (Throwable $exception) {
+            Log::warning('No se pudieron programar los seguimientos por WhatsApp.', [
                 'store_id' => $store->id,
                 'exception' => $exception::class,
             ]);
