@@ -665,6 +665,7 @@
     margin-bottom: 0;
     font-size: 14px;
     line-height: 1.55;
+    white-space: normal;
 }
 
 .product-detail-panel .product-detail-description > p {
