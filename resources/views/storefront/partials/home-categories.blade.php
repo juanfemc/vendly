@@ -14,12 +14,6 @@
 @if($homeCategories->isNotEmpty())
     <section class="home-categories {{ $homeCategoriesAreCompact ? 'home-categories--scroll' : 'home-categories--centered' }}" aria-label="Categorias">
         <div class="home-categories-scroll-shell">
-            @if($homeCategoriesAreCompact)
-                <button class="home-categories-scroll-button home-categories-scroll-button--prev" type="button" data-home-categories-scroll="prev" aria-label="Ver categorias anteriores">
-                    &larr;
-                </button>
-            @endif
-
             <div class="home-categories-track {{ $homeCategoriesAreCompact ? 'is-scrollable' : 'is-centered' }}" @if(! $homeCategoriesAreCompact) style="--home-category-width: {{ $homeCenteredCategoryWidth }};" @endif>
                 @foreach($homeCategories as $homeCategory)
                     @php
@@ -41,12 +35,6 @@
                     </a>
                 @endforeach
             </div>
-
-            @if($homeCategoriesAreCompact)
-                <button class="home-categories-scroll-button home-categories-scroll-button--next" type="button" data-home-categories-scroll="next" aria-label="Ver mas categorias">
-                    &rarr;
-                </button>
-            @endif
         </div>
 
     </section>

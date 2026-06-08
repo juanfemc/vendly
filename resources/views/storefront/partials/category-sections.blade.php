@@ -6,10 +6,6 @@
                 <div class="category-block-copy">
                     <h2>{{ $sectionCategory->name }}</h2>
                 </div>
-
-                @if($sectionCategory->image)
-                    <img src="{{ asset('storage/' . $sectionCategory->image) }}" alt="{{ $sectionCategory->name }}" loading="lazy" decoding="async">
-                @endif
             </div>
 
             <div class="products-grid">

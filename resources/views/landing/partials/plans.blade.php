@@ -2,10 +2,6 @@
     <div class="landing-shell">
         <div class="section-head section-head--center">
             <h2>Planes simples. Sin letras pequeñas.</h2>
-            <div class="billing-toggle" aria-label="Periodo de pago">
-                <span>Mensual</span>
-                <strong>Anual -20%</strong>
-            </div>
         </div>
 
         <div class="plans-grid">

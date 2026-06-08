@@ -33,7 +33,7 @@
             'name' => 'Básico',
             'summary' => 'Ideal para empezar',
             'badge' => 'Inicio simple',
-            'price' => 'S/ 0',
+            'price' => '$0',
             'button' => 'Comenzar gratis',
             'features' => [
                 '1 tienda',
@@ -54,7 +54,7 @@
             'name' => 'Pro',
             'summary' => 'Para negocios en crecimiento',
             'badge' => 'Mas popular',
-            'price' => 'S/ 39',
+            'price' => '$10.000',
             'button' => 'Probar Pro gratis',
             'features' => [
                 'Todo lo del Starter',
@@ -77,7 +77,7 @@
             'name' => 'Premium',
             'summary' => 'Para marcas que escalan',
             'badge' => 'Más completo',
-            'price' => 'S/ 79',
+            'price' => '$25.000',
             'button' => 'Probar Premium',
             'features' => [
                 'Todo lo del plan Pro',

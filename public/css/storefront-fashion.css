@@ -1344,6 +1344,8 @@
     place-items: center;
     overflow: hidden;
     background: #f4f5f6;
+    touch-action: pan-y;
+    user-select: none;
 }
 
 .fashion-product-image,

@@ -1530,6 +1530,8 @@
     border-radius: 10px;
     background: #f3f3f3;
     overflow: hidden;
+    touch-action: pan-y;
+    user-select: none;
 }
 
 .storefront-page--technology.storefront-page--minimal-grid .minimal-product-image,

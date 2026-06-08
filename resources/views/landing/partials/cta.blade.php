@@ -1,6 +1,7 @@
 <section class="final-cta" id="contacto">
     <div class="landing-shell final-card">
-        <div class="final-icon">ICONO BOLSA</div>
+        <div class="final-icon"><img src="{{ asset('images/icons/icon-bolsa.webp') }}" alt="icono compra vendly" loading="lazy"></div>
+        
         <div>
             <span class="section-kicker">Únete a Vendly</span>
             <h2>Tú negocio merece verse profesional.</h2>

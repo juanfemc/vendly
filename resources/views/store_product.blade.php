@@ -74,17 +74,12 @@
         $productDescriptionPreview = \Illuminate\Support\Str::limit($productDescriptionText, 170);
         $hasLongProductDescription = \Illuminate\Support\Str::length($productDescriptionText) > \Illuminate\Support\Str::length($productDescriptionPreview);
         $featureSource = trim(strip_tags(str_replace(['</li>', '</p>', '<br>', '<br/>', '<br />'], "\n", (string) $product->features)));
-        $allProductFeatureItems = collect(preg_split('/[\r\n;]+/', $featureSource) ?: [])
+        $productFeaturesText = collect(preg_split('/[\r\n;]+/', $featureSource) ?: [])
             ->map(fn ($feature) => trim(preg_replace('/\s+/', ' ', $feature)))
             ->filter()
-            ->values();
-        $productFeatureItems = $allProductFeatureItems
-            ->take(4)
-            ->values();
-        $extraProductFeatureItems = $allProductFeatureItems
-            ->skip(4)
-            ->values();
-        $hasMoreProductFeatures = $allProductFeatureItems->count() > $productFeatureItems->count();
+            ->implode("\n");
+        $productFeaturesPreview = \Illuminate\Support\Str::limit($productFeaturesText, 170);
+        $hasLongProductFeatures = \Illuminate\Support\Str::length($productFeaturesText) > \Illuminate\Support\Str::length($productFeaturesPreview);
     @endphp
     @include('storefront.partials.seo', ['seo' => $seo])
     @include('storefront.partials.meta-pixel', ['store' => $store])
@@ -200,7 +195,7 @@
                     <p>{{ $productDescriptionPreview }}</p>
                     @if($hasLongProductDescription)
                         <details class="product-detail-more">
-                            <summary>Ver descripción completa</summary>
+                            <summary>Ver más</summary>
                             <p>{{ $productDescriptionText }}</p>
                         </details>
                     @endif
@@ -209,20 +204,12 @@
                 @if($product->features)
                     <div class="product-detail-description product-detail-features">
                         <h2>{{ $isRestaurant ? 'Ingredientes y detalles' : 'Características' }}</h2>
-                        @if($productFeatureItems->isNotEmpty())
-                            <div class="product-feature-chips">
-                                @foreach($productFeatureItems as $featureItem)
-                                    <span>{{ $featureItem }}</span>
-                                @endforeach
-                            </div>
-                            @if($hasMoreProductFeatures)
+                        @if($productFeaturesText !== '')
+                            <p>{!! nl2br(e($productFeaturesPreview)) !!}</p>
+                            @if($hasLongProductFeatures)
                                 <details class="product-detail-more">
-                                    <summary>Ver más características</summary>
-                                    <div class="product-feature-chips product-feature-chips--all">
-                                        @foreach($extraProductFeatureItems as $featureItem)
-                                            <span>{{ $featureItem }}</span>
-                                        @endforeach
-                                    </div>
+                                    <summary>Ver más</summary>
+                                    <p>{!! nl2br(e($productFeaturesText)) !!}</p>
                                 </details>
                             @endif
                         @else
@@ -470,7 +457,11 @@
             const thumbs = [...carousel.querySelectorAll('[data-carousel-thumb]')];
             const prev = carousel.querySelector('[data-carousel-prev]');
             const next = carousel.querySelector('[data-carousel-next]');
+            const stage = carousel.querySelector('.product-carousel-stage, .minimal-product-stage, .fashion-product-stage');
             let current = 0;
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let touchMoved = false;
 
             const showSlide = (index) => {
                 if (slides.length === 0) {
@@ -499,6 +490,45 @@
             thumbs.forEach((thumb, index) => {
                 thumb.addEventListener('click', () => showSlide(index));
             });
+
+            if (stage && slides.length > 1) {
+                stage.addEventListener('touchstart', (event) => {
+                    if (event.target.closest('button, a, input, select, textarea')) {
+                        return;
+                    }
+
+                    const touch = event.touches[0];
+                    touchStartX = touch.clientX;
+                    touchStartY = touch.clientY;
+                    touchMoved = false;
+                }, { passive: true });
+
+                stage.addEventListener('touchmove', (event) => {
+                    if (!event.touches.length) {
+                        return;
+                    }
+
+                    const touch = event.touches[0];
+                    const deltaX = touch.clientX - touchStartX;
+                    const deltaY = touch.clientY - touchStartY;
+
+                    touchMoved = Math.abs(deltaX) > 24 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3;
+                }, { passive: true });
+
+                stage.addEventListener('touchend', (event) => {
+                    if (!touchMoved || !event.changedTouches.length) {
+                        return;
+                    }
+
+                    const deltaX = event.changedTouches[0].clientX - touchStartX;
+
+                    if (Math.abs(deltaX) < 46) {
+                        return;
+                    }
+
+                    showSlide(deltaX < 0 ? current + 1 : current - 1);
+                }, { passive: true });
+            }
         })();
 
         (() => {
