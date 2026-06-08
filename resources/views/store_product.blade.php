@@ -70,16 +70,27 @@
         $productReviewLabel = $productReviewCount > 0
             ? number_format($productReviewAverage, 1) . ' (' . $productReviewCount . ' ' . \Illuminate\Support\Str::plural('resena', $productReviewCount) . ')'
             : null;
+        $productPreviewLimit = 170;
         $productDescriptionText = $product->description ?: ($isRestaurant ? 'Este plato aun no tiene una descripcion amplia, pero ya esta disponible para pedir por WhatsApp.' : ($isReservationStore ? 'Este servicio aun no tiene una descripcion amplia configurada, pero ya esta listo para reservarse.' : 'Este producto aun no tiene una descripcion amplia configurada, pero ya esta listo para venderse.'));
-        $productDescriptionPreview = \Illuminate\Support\Str::limit($productDescriptionText, 170);
-        $hasLongProductDescription = \Illuminate\Support\Str::length($productDescriptionText) > \Illuminate\Support\Str::length($productDescriptionPreview);
+        $hasLongProductDescription = \Illuminate\Support\Str::length($productDescriptionText) > $productPreviewLimit;
+        $productDescriptionPreview = $hasLongProductDescription
+            ? rtrim(\Illuminate\Support\Str::substr($productDescriptionText, 0, $productPreviewLimit)) . '...'
+            : $productDescriptionText;
+        $productDescriptionMore = $hasLongProductDescription
+            ? ltrim(\Illuminate\Support\Str::substr($productDescriptionText, $productPreviewLimit))
+            : '';
         $featureSource = trim(strip_tags(str_replace(['</li>', '</p>', '<br>', '<br/>', '<br />'], "\n", (string) $product->features)));
         $productFeaturesText = collect(preg_split('/[\r\n;]+/', $featureSource) ?: [])
             ->map(fn ($feature) => trim(preg_replace('/\s+/', ' ', $feature)))
             ->filter()
             ->implode("\n");
-        $productFeaturesPreview = \Illuminate\Support\Str::limit($productFeaturesText, 170);
-        $hasLongProductFeatures = \Illuminate\Support\Str::length($productFeaturesText) > \Illuminate\Support\Str::length($productFeaturesPreview);
+        $hasLongProductFeatures = \Illuminate\Support\Str::length($productFeaturesText) > $productPreviewLimit;
+        $productFeaturesPreview = $hasLongProductFeatures
+            ? rtrim(\Illuminate\Support\Str::substr($productFeaturesText, 0, $productPreviewLimit)) . '...'
+            : $productFeaturesText;
+        $productFeaturesMore = $hasLongProductFeatures
+            ? ltrim(\Illuminate\Support\Str::substr($productFeaturesText, $productPreviewLimit))
+            : '';
     @endphp
     @include('storefront.partials.seo', ['seo' => $seo])
     @include('storefront.partials.meta-pixel', ['store' => $store])
@@ -196,7 +207,7 @@
                     @if($hasLongProductDescription)
                         <details class="product-detail-more">
                             <summary>Ver más</summary>
-                            <p>{{ $productDescriptionText }}</p>
+                            <p>{{ $productDescriptionMore }}</p>
                         </details>
                     @endif
                 </div>
@@ -209,7 +220,7 @@
                             @if($hasLongProductFeatures)
                                 <details class="product-detail-more">
                                     <summary>Ver más</summary>
-                                    <p>{!! nl2br(e($productFeaturesText)) !!}</p>
+                                    <p>{!! nl2br(e($productFeaturesMore)) !!}</p>
                                 </details>
                             @endif
                         @else
