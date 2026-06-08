@@ -71,26 +71,35 @@
             ? number_format($productReviewAverage, 1) . ' (' . $productReviewCount . ' ' . \Illuminate\Support\Str::plural('resena', $productReviewCount) . ')'
             : null;
         $productPreviewLimit = 170;
+        $makeProductPreview = function (string $text) use ($productPreviewLimit): array {
+            $text = trim($text);
+
+            if (\Illuminate\Support\Str::length($text) <= $productPreviewLimit) {
+                return [$text, ''];
+            }
+
+            $slice = \Illuminate\Support\Str::substr($text, 0, $productPreviewLimit);
+            $cutAt = $productPreviewLimit;
+
+            if (preg_match('/^(.+)\s+\S*$/us', $slice, $matches)) {
+                $cutAt = \Illuminate\Support\Str::length($matches[1]);
+            }
+
+            return [
+                rtrim(\Illuminate\Support\Str::substr($text, 0, $cutAt)) . '...',
+                ltrim(\Illuminate\Support\Str::substr($text, $cutAt)),
+            ];
+        };
         $productDescriptionText = $product->description ?: ($isRestaurant ? 'Este plato aun no tiene una descripcion amplia, pero ya esta disponible para pedir por WhatsApp.' : ($isReservationStore ? 'Este servicio aun no tiene una descripcion amplia configurada, pero ya esta listo para reservarse.' : 'Este producto aun no tiene una descripcion amplia configurada, pero ya esta listo para venderse.'));
-        $hasLongProductDescription = \Illuminate\Support\Str::length($productDescriptionText) > $productPreviewLimit;
-        $productDescriptionPreview = $hasLongProductDescription
-            ? rtrim(\Illuminate\Support\Str::substr($productDescriptionText, 0, $productPreviewLimit)) . '...'
-            : $productDescriptionText;
-        $productDescriptionMore = $hasLongProductDescription
-            ? ltrim(\Illuminate\Support\Str::substr($productDescriptionText, $productPreviewLimit))
-            : '';
+        [$productDescriptionPreview, $productDescriptionMore] = $makeProductPreview($productDescriptionText);
+        $hasLongProductDescription = $productDescriptionMore !== '';
         $featureSource = trim(strip_tags(str_replace(['</li>', '</p>', '<br>', '<br/>', '<br />'], "\n", (string) $product->features)));
         $productFeaturesText = collect(preg_split('/[\r\n;]+/', $featureSource) ?: [])
             ->map(fn ($feature) => trim(preg_replace('/\s+/', ' ', $feature)))
             ->filter()
             ->implode("\n");
-        $hasLongProductFeatures = \Illuminate\Support\Str::length($productFeaturesText) > $productPreviewLimit;
-        $productFeaturesPreview = $hasLongProductFeatures
-            ? rtrim(\Illuminate\Support\Str::substr($productFeaturesText, 0, $productPreviewLimit)) . '...'
-            : $productFeaturesText;
-        $productFeaturesMore = $hasLongProductFeatures
-            ? ltrim(\Illuminate\Support\Str::substr($productFeaturesText, $productPreviewLimit))
-            : '';
+        [$productFeaturesPreview, $productFeaturesMore] = $makeProductPreview($productFeaturesText);
+        $hasLongProductFeatures = $productFeaturesMore !== '';
     @endphp
     @include('storefront.partials.seo', ['seo' => $seo])
     @include('storefront.partials.meta-pixel', ['store' => $store])
@@ -203,12 +212,14 @@
 
                 <div class="product-detail-description">
                     <h2>{{ $isRestaurant ? 'Sobre este plato' : 'Descripción' }}</h2>
-                    <p>{{ $productDescriptionPreview }}</p>
+                    <p>
+                        {{ $productDescriptionPreview }}
+                        @if($hasLongProductDescription)
+                            <span class="product-detail-more-text" data-product-more-text hidden>{{ $productDescriptionMore }}</span>
+                        @endif
+                    </p>
                     @if($hasLongProductDescription)
-                        <details class="product-detail-more">
-                            <summary>Ver más</summary>
-                            <p>{{ $productDescriptionMore }}</p>
-                        </details>
+                        <button type="button" class="product-detail-more-toggle" data-product-more-toggle data-expanded-label="Ver menos">Ver más</button>
                     @endif
                 </div>
 
@@ -216,12 +227,14 @@
                     <div class="product-detail-description product-detail-features">
                         <h2>{{ $isRestaurant ? 'Ingredientes y detalles' : 'Características' }}</h2>
                         @if($productFeaturesText !== '')
-                            <p>{!! nl2br(e($productFeaturesPreview)) !!}</p>
+                            <p>
+                                {!! nl2br(e($productFeaturesPreview)) !!}
+                                @if($hasLongProductFeatures)
+                                    <span class="product-detail-more-text" data-product-more-text hidden>{!! nl2br(e($productFeaturesMore)) !!}</span>
+                                @endif
+                            </p>
                             @if($hasLongProductFeatures)
-                                <details class="product-detail-more">
-                                    <summary>Ver más</summary>
-                                    <p>{!! nl2br(e($productFeaturesMore)) !!}</p>
-                                </details>
+                                <button type="button" class="product-detail-more-toggle" data-product-more-toggle data-expanded-label="Ver menos">Ver más</button>
                             @endif
                         @else
                             <div class="product-rich-content">{!! $product->features !!}</div>
@@ -632,6 +645,30 @@
                 }
             });
             syncBuyNowFields();
+        })();
+
+        (() => {
+            document.querySelectorAll('[data-product-more-toggle]').forEach((button) => {
+                const container = button.closest('.product-detail-description');
+                const moreText = container?.querySelector('[data-product-more-text]');
+                const collapsedLabel = button.textContent.trim();
+                const expandedLabel = button.dataset.expandedLabel || 'Ver menos';
+
+                if (!moreText) {
+                    return;
+                }
+
+                button.addEventListener('click', () => {
+                    const isExpanded = !moreText.hidden;
+
+                    moreText.hidden = isExpanded;
+                    button.textContent = isExpanded ? collapsedLabel : expandedLabel;
+                    button.classList.toggle('is-expanded', !isExpanded);
+                    button.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
+                });
+
+                button.setAttribute('aria-expanded', 'false');
+            });
         })();
 
         (() => {
