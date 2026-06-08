@@ -90,6 +90,9 @@ return [
         'followup_day_1_template' => env('WHATSAPP_FOLLOWUP_DAY_1_TEMPLATE', 'seguimiento_dia_1_tienda'),
         'followup_day_3_template' => env('WHATSAPP_FOLLOWUP_DAY_3_TEMPLATE', 'seguimiento_dia_3_productos'),
         'followup_day_6_template' => env('WHATSAPP_FOLLOWUP_DAY_6_TEMPLATE', 'seguimiento_dia_6_prueba'),
+        'subscription_expires_3_days_template' => env('WHATSAPP_PLAN_EXPIRES_3_DAYS_TEMPLATE', 'plan_vence_3_dias'),
+        'subscription_expires_1_day_template' => env('WHATSAPP_PLAN_EXPIRES_1_DAY_TEMPLATE', 'plan_vence_manana'),
+        'subscription_expired_template' => env('WHATSAPP_PLAN_EXPIRED_TEMPLATE', 'plan_vencido'),
         'authentication_button_sub_type' => env('WHATSAPP_AUTHENTICATION_BUTTON_SUB_TYPE', 'url'),
         'require_phone_verification' => env('WHATSAPP_REQUIRE_PHONE_VERIFICATION', env('APP_ENV') === 'production'),
         'verification_min_response_ms' => (int) env(

@@ -58,12 +58,68 @@ class CustomerFollowupScheduler
         ])->filter();
     }
 
+    public function scheduleSubscriptionReminders(Store $store): Collection
+    {
+        if ($store->subscriptionStatus() !== Store::SUBSCRIPTION_ACTIVE || ! $store->subscription_ends_at) {
+            return collect();
+        }
+
+        $user = $store->user;
+
+        if (! $user || $store->whatsappNumber() === '') {
+            return collect();
+        }
+
+        $endsAt = $store->subscription_ends_at->copy();
+        $endDate = $endsAt->format('d/m/Y');
+        $contextKey = 'subscription:'.$endsAt->toDateString();
+
+        return collect([
+            $this->scheduleOrUpdate(
+                $store,
+                CustomerFollowup::TYPE_SUBSCRIPTION_3_DAYS_BEFORE,
+                (string) config('services.whatsapp.subscription_expires_3_days_template', 'plan_vence_3_dias'),
+                [
+                    $user->name,
+                    $store->name,
+                    $endDate,
+                ],
+                $endsAt->copy()->subDays(3),
+                $contextKey,
+            ),
+            $this->scheduleOrUpdate(
+                $store,
+                CustomerFollowup::TYPE_SUBSCRIPTION_1_DAY_BEFORE,
+                (string) config('services.whatsapp.subscription_expires_1_day_template', 'plan_vence_manana'),
+                [
+                    $user->name,
+                    $store->name,
+                    $endDate,
+                ],
+                $endsAt->copy()->subDay(),
+                $contextKey,
+            ),
+            $this->scheduleOrUpdate(
+                $store,
+                CustomerFollowup::TYPE_SUBSCRIPTION_EXPIRED,
+                (string) config('services.whatsapp.subscription_expired_template', 'plan_vencido'),
+                [
+                    $user->name,
+                    $store->name,
+                ],
+                $endsAt,
+                $contextKey,
+            ),
+        ])->filter();
+    }
+
     private function schedule(
         Store $store,
         string $type,
         string $template,
         array $parameters,
         mixed $scheduledFor,
+        string $contextKey = 'trial',
     ): ?CustomerFollowup {
         $template = trim($template);
 
@@ -75,6 +131,7 @@ class CustomerFollowupScheduler
             [
                 'store_id' => $store->id,
                 'type' => $type,
+                'context_key' => $contextKey,
             ],
             [
                 'user_id' => $store->user_id,
@@ -84,5 +141,54 @@ class CustomerFollowupScheduler
                 'scheduled_for' => $scheduledFor,
             ],
         );
+    }
+
+    private function scheduleOrUpdate(
+        Store $store,
+        string $type,
+        string $template,
+        array $parameters,
+        mixed $scheduledFor,
+        string $contextKey,
+    ): ?CustomerFollowup {
+        $template = trim($template);
+
+        if ($template === '') {
+            return null;
+        }
+
+        $scheduledFor = $scheduledFor->copy();
+
+        if ($scheduledFor->isPast()) {
+            return null;
+        }
+
+        $followup = CustomerFollowup::firstOrNew([
+            'store_id' => $store->id,
+            'type' => $type,
+            'context_key' => $contextKey,
+        ]);
+
+        if ($followup->exists && in_array($followup->status, [
+            CustomerFollowup::STATUS_SENT,
+            CustomerFollowup::STATUS_CANCELLED,
+        ], true)) {
+            return $followup;
+        }
+
+        $followup->fill([
+            'user_id' => $store->user_id,
+            'whatsapp_message_id' => null,
+            'template' => $template,
+            'parameters' => $parameters,
+            'status' => CustomerFollowup::STATUS_PENDING,
+            'scheduled_for' => $scheduledFor,
+            'sent_at' => null,
+            'failed_at' => null,
+            'skipped_at' => null,
+            'error' => null,
+        ])->save();
+
+        return $followup;
     }
 }

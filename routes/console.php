@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppStatusEvent;
 use App\Services\CheckoutService;
+use App\Services\CustomerFollowupScheduler;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
@@ -357,8 +358,13 @@ Artisan::command('followups:send {--limit=50 : Cantidad maxima de seguimientos a
         if ($message && in_array($message->status, [
             WhatsAppMessage::STATUS_QUEUED,
             WhatsAppMessage::STATUS_PROCESSING,
-            WhatsAppMessage::STATUS_RETRYING,
         ], true)) {
+            $alreadyQueued++;
+
+            continue;
+        }
+
+        if ($message && $message->status === WhatsAppMessage::STATUS_RETRYING) {
             try {
                 SendWhatsAppTemplate::dispatch($message->id);
                 $alreadyQueued++;
@@ -390,10 +396,53 @@ Artisan::command('followups:send {--limit=50 : Cantidad maxima de seguimientos a
         $user = $followup->user ?: $store?->user;
 
         if (! $store || ! $user || ! $store->isTrialing() || $store->whatsappNumber() === '') {
+            $isSubscriptionReminder = in_array($followup->type, [
+                CustomerFollowup::TYPE_SUBSCRIPTION_3_DAYS_BEFORE,
+                CustomerFollowup::TYPE_SUBSCRIPTION_1_DAY_BEFORE,
+                CustomerFollowup::TYPE_SUBSCRIPTION_EXPIRED,
+            ], true);
+            $isExpiredReminder = $followup->type === CustomerFollowup::TYPE_SUBSCRIPTION_EXPIRED;
+
+            if ($isSubscriptionReminder
+                && $store
+                && $user
+                && ($store->subscriptionStatus() === Store::SUBSCRIPTION_ACTIVE
+                    || ($isExpiredReminder && $store->subscriptionStatus() === Store::SUBSCRIPTION_EXPIRED))
+                && $store->subscription_ends_at
+                && $store->whatsappNumber() !== '') {
+                // Subscription reminders are eligible below; trial followups remain blocked here.
+            } else {
+                $followup->update([
+                    'status' => CustomerFollowup::STATUS_SKIPPED,
+                    'skipped_at' => now(),
+                    'error' => 'La tienda ya no es elegible para este seguimiento.',
+                ]);
+                $skipped++;
+
+                continue;
+            }
+        }
+
+        if (in_array($followup->type, [
+            CustomerFollowup::TYPE_SUBSCRIPTION_3_DAYS_BEFORE,
+            CustomerFollowup::TYPE_SUBSCRIPTION_1_DAY_BEFORE,
+            CustomerFollowup::TYPE_SUBSCRIPTION_EXPIRED,
+        ], true) && (
+            ! $store->subscription_ends_at
+            || $followup->context_key !== 'subscription:'.$store->subscription_ends_at->toDateString()
+            || ($followup->type === CustomerFollowup::TYPE_SUBSCRIPTION_EXPIRED
+                ? ! in_array($store->subscriptionStatus(), [Store::SUBSCRIPTION_ACTIVE, Store::SUBSCRIPTION_EXPIRED], true)
+                : $store->subscriptionStatus() !== Store::SUBSCRIPTION_ACTIVE)
+            || $followup->scheduled_for->copy()->startOfDay()->ne($store->subscription_ends_at->copy()->subDays(match ($followup->type) {
+                CustomerFollowup::TYPE_SUBSCRIPTION_3_DAYS_BEFORE => 3,
+                CustomerFollowup::TYPE_SUBSCRIPTION_1_DAY_BEFORE => 1,
+                default => 0,
+            })->startOfDay())
+        )) {
             $followup->update([
                 'status' => CustomerFollowup::STATUS_SKIPPED,
                 'skipped_at' => now(),
-                'error' => 'La tienda ya no es elegible para este seguimiento.',
+                'error' => 'El vencimiento del plan cambio o ya no aplica.',
             ]);
             $skipped++;
 
@@ -406,6 +455,7 @@ Artisan::command('followups:send {--limit=50 : Cantidad maxima de seguimientos a
             $followup->id,
             $store->id,
             $followup->type,
+            $followup->context_key,
             $followup->template,
         ]));
 
@@ -461,6 +511,29 @@ Artisan::command('followups:send {--limit=50 : Cantidad maxima de seguimientos a
     return self::SUCCESS;
 })->purpose('Programa seguimientos comerciales de prueba gratis por WhatsApp');
 
+Artisan::command('followups:schedule-subscriptions {--limit=500 : Cantidad maxima de tiendas activas a revisar}', function () {
+    $limit = max(1, min(5000, (int) $this->option('limit')));
+    $scheduler = app(CustomerFollowupScheduler::class);
+    $reviewedStores = 0;
+    $availableReminders = 0;
+
+    Store::query()
+        ->with('user')
+        ->where('subscription_status', Store::SUBSCRIPTION_ACTIVE)
+        ->whereNotNull('subscription_ends_at')
+        ->orderBy('subscription_ends_at')
+        ->limit($limit)
+        ->get()
+        ->each(function (Store $store) use ($scheduler, &$reviewedStores, &$availableReminders) {
+            $reviewedStores++;
+            $availableReminders += $scheduler->scheduleSubscriptionReminders($store)->count();
+        });
+
+    $this->info("Tiendas revisadas: {$reviewedStores}. Recordatorios disponibles: {$availableReminders}.");
+
+    return self::SUCCESS;
+})->purpose('Programa recordatorios de planes activos proximos a vencer');
+
 Schedule::command('whatsapp:prune')
     ->dailyAt('03:30')
     ->withoutOverlapping();
@@ -469,6 +542,14 @@ Schedule::command('whatsapp:recover-stale')
     ->everyTenMinutes()
     ->withoutOverlapping();
 
+Schedule::command('stores:expire-subscriptions')
+    ->dailyAt('00:20')
+    ->withoutOverlapping();
+
 Schedule::command('followups:send')
     ->everyFifteenMinutes()
+    ->withoutOverlapping();
+
+Schedule::command('followups:schedule-subscriptions')
+    ->dailyAt('08:10')
     ->withoutOverlapping();

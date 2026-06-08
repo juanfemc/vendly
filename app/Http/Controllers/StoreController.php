@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-
 use App\Http\Requests\StoreRequest;
 use App\Http\Requests\StoreSettingsRequest;
 use App\Http\Requests\StoreWithUserRequest;
@@ -12,13 +11,15 @@ use App\Models\Store;
 use App\Models\User;
 use App\Services\AdminUpdateService;
 use App\Services\AiCreditService;
+use App\Services\CustomerFollowupScheduler;
 use App\Services\StoreFileService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
@@ -28,6 +29,7 @@ class StoreController extends Controller
         private StoreFileService $storeFileService,
         private AdminUpdateService $adminUpdateService,
         private AiCreditService $aiCreditService,
+        private CustomerFollowupScheduler $customerFollowups,
     ) {
     }
 
@@ -249,6 +251,15 @@ class StoreController extends Controller
 
         $store->activateSubscription((int) $validated['duration_days'], $requestedPlan);
         $this->enforcePlanLimits($store->refresh());
+
+        try {
+            $this->customerFollowups->scheduleSubscriptionReminders($store);
+        } catch (\Throwable $exception) {
+            Log::warning('No se pudieron programar recordatorios de suscripcion.', [
+                'store_id' => $store->id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
 
         $this->adminUpdateService->record(
             'Suscripcion activada',
