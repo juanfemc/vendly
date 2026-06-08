@@ -93,6 +93,7 @@
         $productDescriptionText = $product->description ?: ($isRestaurant ? 'Este plato aun no tiene una descripcion amplia, pero ya esta disponible para pedir por WhatsApp.' : ($isReservationStore ? 'Este servicio aun no tiene una descripcion amplia configurada, pero ya esta listo para reservarse.' : 'Este producto aun no tiene una descripcion amplia configurada, pero ya esta listo para venderse.'));
         [$productDescriptionPreview, $productDescriptionMore] = $makeProductPreview($productDescriptionText);
         $hasLongProductDescription = $productDescriptionMore !== '';
+        $productDescriptionExpandedPreview = preg_replace('/\.\.\.$/u', '', $productDescriptionPreview);
         $featureSource = trim(strip_tags(str_replace(['</li>', '</p>', '<br>', '<br/>', '<br />'], "\n", (string) $product->features)));
         $productFeaturesText = collect(preg_split('/[\r\n;]+/', $featureSource) ?: [])
             ->map(fn ($feature) => trim(preg_replace('/\s+/', ' ', $feature)))
@@ -100,6 +101,7 @@
             ->implode("\n");
         [$productFeaturesPreview, $productFeaturesMore] = $makeProductPreview($productFeaturesText);
         $hasLongProductFeatures = $productFeaturesMore !== '';
+        $productFeaturesExpandedPreview = preg_replace('/\.\.\.$/u', '', $productFeaturesPreview);
     @endphp
     @include('storefront.partials.seo', ['seo' => $seo])
     @include('storefront.partials.meta-pixel', ['store' => $store])
@@ -213,7 +215,7 @@
                 <div class="product-detail-description">
                     <h2>{{ $isRestaurant ? 'Sobre este plato' : 'Descripción' }}</h2>
                     <p>
-                        {{ $productDescriptionPreview }}
+                        <span data-product-more-preview data-collapsed-text="{{ $productDescriptionPreview }}" data-expanded-text="{{ $productDescriptionExpandedPreview }}">{{ $productDescriptionPreview }}</span>
                         @if($hasLongProductDescription)
                             <span class="product-detail-more-text" data-product-more-text hidden>{{ $productDescriptionMore }}</span>
                         @endif
@@ -228,7 +230,7 @@
                         <h2>{{ $isRestaurant ? 'Ingredientes y detalles' : 'Características' }}</h2>
                         @if($productFeaturesText !== '')
                             <p>
-                                {!! nl2br(e($productFeaturesPreview)) !!}
+                                <span data-product-more-preview data-collapsed-text="{{ $productFeaturesPreview }}" data-expanded-text="{{ $productFeaturesExpandedPreview }}">{!! nl2br(e($productFeaturesPreview)) !!}</span>
                                 @if($hasLongProductFeatures)
                                     <span class="product-detail-more-text" data-product-more-text hidden>{!! nl2br(e($productFeaturesMore)) !!}</span>
                                 @endif
@@ -650,11 +652,12 @@
         (() => {
             document.querySelectorAll('[data-product-more-toggle]').forEach((button) => {
                 const container = button.closest('.product-detail-description');
+                const preview = container?.querySelector('[data-product-more-preview]');
                 const moreText = container?.querySelector('[data-product-more-text]');
                 const collapsedLabel = button.textContent.trim();
                 const expandedLabel = button.dataset.expandedLabel || 'Ver menos';
 
-                if (!moreText) {
+                if (!preview || !moreText) {
                     return;
                 }
 
@@ -662,6 +665,7 @@
                     const isExpanded = !moreText.hidden;
 
                     moreText.hidden = isExpanded;
+                    preview.textContent = isExpanded ? preview.dataset.collapsedText : preview.dataset.expandedText;
                     button.textContent = isExpanded ? collapsedLabel : expandedLabel;
                     button.classList.toggle('is-expanded', !isExpanded);
                     button.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
