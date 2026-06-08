@@ -264,7 +264,11 @@
 
                         <div class="product-quantity-block">
                             <label for="quantity">Cantidad</label>
-                            <input id="quantity" type="number" name="quantity" min="1" max="{{ $quantityMax }}" value="{{ old('quantity', 1) }}" class="product-quantity-input">
+                            <div class="product-quantity-stepper" aria-label="Seleccionar cantidad">
+                                <button type="button" class="product-quantity-button" data-quantity-minus aria-label="Disminuir cantidad">-</button>
+                                <input id="quantity" type="number" name="quantity" min="1" max="{{ $quantityMax }}" value="{{ old('quantity', 1) }}" class="product-quantity-input">
+                                <button type="button" class="product-quantity-button" data-quantity-plus aria-label="Aumentar cantidad">+</button>
+                            </div>
                         </div>
 
                         <button type="submit" class="product-detail-secondary">{{ $isRestaurant ? 'Agregar al pedido' : ($isReservationStore ? 'Agregar a la reserva' : 'Agregar al carrito') }}</button>
@@ -568,8 +572,19 @@
                 }
             };
 
+            const normalizeQuantity = () => {
+                const min = Number(quantityInput.min || 1);
+                const max = Number(quantityInput.max || 99);
+                const rawValue = Number(quantityInput.value || min);
+                const quantity = Math.min(max, Math.max(min, Number.isFinite(rawValue) ? rawValue : min));
+
+                quantityInput.value = quantity;
+
+                return quantity;
+            };
+
             const syncBuyNowFields = () => {
-                const quantity = quantityInput.value || 1;
+                const quantity = normalizeQuantity();
                 const size = selectedSize?.value || '';
                 const color = selectedColor?.value || selectedColorRadio()?.value || '';
 
@@ -598,13 +613,11 @@
 
             quantityInput.addEventListener('input', syncBuyNowFields);
             quantityMinus?.addEventListener('click', () => {
-                const min = Number(quantityInput.min || 1);
-                quantityInput.value = Math.max(min, Number(quantityInput.value || min) - 1);
+                quantityInput.value = normalizeQuantity() - 1;
                 syncBuyNowFields();
             });
             quantityPlus?.addEventListener('click', () => {
-                const max = Number(quantityInput.max || 99);
-                quantityInput.value = Math.min(max, Number(quantityInput.value || 1) + 1);
+                quantityInput.value = normalizeQuantity() + 1;
                 syncBuyNowFields();
             });
             selectedSize?.addEventListener('change', syncBuyNowFields);

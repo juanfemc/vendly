@@ -571,13 +571,60 @@
     font-weight: 700;
 }
 
-.product-quantity-input {
-    width: 120px;
-    height: 50px;
+.product-quantity-stepper {
+    width: max-content;
+    min-width: 142px;
+    height: 48px;
+    display: inline-grid;
+    grid-template-columns: 44px minmax(48px, 1fr) 44px;
+    align-items: center;
+    overflow: hidden;
     border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 0 14px;
+    border-radius: 999px;
+    background: #fff;
+}
+
+.product-quantity-button {
+    width: 44px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1;
+    transition: background 0.18s ease, color 0.18s ease;
+}
+
+.product-quantity-button:hover,
+.product-quantity-button:focus-visible {
+    background: color-mix(in srgb, var(--brand-color, #111) 9%, #ffffff);
+    color: var(--brand-color, #111);
+    outline: none;
+}
+
+.product-quantity-input {
+    width: 54px;
+    height: 48px;
+    border: 0;
+    border-inline: 1px solid var(--line);
+    border-radius: 0;
+    padding: 0 8px;
+    color: var(--ink);
     font-size: 16px;
+    font-weight: 700;
+    text-align: center;
+    appearance: textfield;
+    outline: none;
+}
+
+.product-quantity-input::-webkit-outer-spin-button,
+.product-quantity-input::-webkit-inner-spin-button {
+    margin: 0;
+    appearance: none;
 }
 
 .product-detail-primary,
@@ -620,18 +667,24 @@
     line-height: 1.55;
 }
 
+.product-detail-panel .product-detail-description > p {
+    display: inline;
+}
+
 .product-detail-more {
-    margin-top: 10px;
+    display: inline;
+    margin-left: 5px;
 }
 
 .product-detail-more summary {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     color: var(--brand-color, #111);
     cursor: pointer;
     font-size: 12px;
     font-weight: 900;
+    line-height: 1.45;
     list-style: none;
 }
 
@@ -640,22 +693,24 @@
 }
 
 .product-detail-more summary::after {
-    content: "+";
-    width: 18px;
-    height: 18px;
-    display: inline-grid;
-    place-items: center;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--brand-color, #111) 9%, #ffffff);
+    content: "↓";
+    font-size: 11px;
     line-height: 1;
 }
 
 .product-detail-more[open] summary::after {
-    content: "-";
+    content: "↑";
+}
+
+.product-detail-more[open] {
+    display: block;
+    margin-top: 6px;
+    margin-left: 0;
 }
 
 .product-detail-more p {
-    margin-top: 10px;
+    display: block;
+    margin-top: 6px;
 }
 
 .product-detail-panel .product-detail-features .product-rich-content {
