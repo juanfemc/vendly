@@ -12,6 +12,7 @@
     $landingJsPath = public_path('js/landing.js');
     $landingCssVersion = file_exists($landingCssPath) ? filemtime($landingCssPath) : null;
     $landingJsVersion = file_exists($landingJsPath) ? filemtime($landingJsPath) : null;
+    $landingCssUrl = asset('css/landing.css') . ($landingCssVersion ? '?v=' . $landingCssVersion : '');
 
     $features = [
         ['tag' => 'ICONO CATALOGO', 'title' => 'Catalogo profesional', 'copy' => 'Muestra tus productos con estilo y genera confianza desde el primer vistazo.'],
@@ -114,7 +115,9 @@
     <meta name="twitter:image" content="{{ $landingImage }}">
     <link rel="icon" type="image/png" href="{{ asset('images/vendly-whatsapp-dark.png') }}">
     <link rel="shortcut icon" href="{{ asset('images/vendly-whatsapp-dark.png') }}">
-    <link rel="stylesheet" href="{{ asset('css/landing.css') }}{{ $landingCssVersion ? '?v=' . $landingCssVersion : '' }}">
+    @include('landing.partials.critical-css')
+    <link rel="preload" href="{{ $landingCssUrl }}" as="style">
+    <link rel="stylesheet" href="{{ $landingCssUrl }}">
 </head>
 <body class="landing-page">
     @include('landing.partials.nav')
