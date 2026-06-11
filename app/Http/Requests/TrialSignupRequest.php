@@ -31,13 +31,11 @@ class TrialSignupRequest extends FormRequest
         return [
             'user_name' => ['required', 'string', 'max:255'],
             'user_email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'confirmed', Password::defaults()],
-            'store_name' => ['required', 'string', 'max:255'],
+            'password' => ['required', Password::defaults()],
+            'store_name' => ['nullable', 'string', 'max:255'],
             'whatsapp' => ['required', 'regex:/^573\d{9}$/'],
-            'location' => ['nullable', 'string', 'max:255'],
             'whatsapp_consent' => ['accepted'],
-            'whatsapp_verification_code' => ['nullable', 'digits:6'],
-            'whatsapp_verification_token' => ['nullable', 'string', 'size:64'],
+            'turnstile_token' => ['nullable', 'string'],
         ];
     }
 
@@ -55,12 +53,15 @@ class TrialSignupRequest extends FormRequest
 
     public function storeData(string $slug): array
     {
+        $storeName = trim((string) $this->validated('store_name'));
+
         return [
-            'name' => $this->validated('store_name'),
+            'name' => $storeName !== '' ? $storeName : 'Tienda de '.$this->validated('user_name'),
             'business_type' => 'store',
             'plan' => Store::PLAN_PREMIUM,
             'slug' => $slug,
             'whatsapp' => $this->validated('whatsapp'),
+            'whatsapp_verified_at' => null,
             'whatsapp_consent_at' => now(),
             'whatsapp_consent_version' => config('services.whatsapp.consent_version', 'registration_v1'),
             'whatsapp_consent_text' => self::WHATSAPP_CONSENT_TEXT,
@@ -70,7 +71,6 @@ class TrialSignupRequest extends FormRequest
                 (string) ($this->ip() ?: 'unknown'),
                 (string) config('app.key'),
             ),
-            'location' => $this->validated('location'),
             'brand_color' => '#ff6b00',
             'background_color' => '#ffffff',
             'text_color' => '#111111',

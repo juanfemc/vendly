@@ -8,12 +8,13 @@
     <title>Crear tienda gratis | Vendly</title>
     <style>
         :root {
-            --bg: #070707;
+            --bg: #080808;
             --panel: #111111;
             --card: #ffffff;
             --ink: #111111;
-            --muted: #686868;
+            --muted: #656565;
             --line: #e9e9e9;
+            --soft: #f7f7f7;
             --brand: #ff6b00;
         }
 
@@ -26,8 +27,8 @@
             min-height: 100vh;
             font-family: Arial, sans-serif;
             background:
-                radial-gradient(circle at 18% 12%, rgba(255, 107, 0, 0.22), transparent 28%),
-                linear-gradient(135deg, #050505 0%, #111111 48%, #19110b 100%);
+                radial-gradient(circle at 16% 10%, rgba(255, 107, 0, 0.2), transparent 26%),
+                linear-gradient(135deg, #030303 0%, #101010 52%, #1a120c 100%);
             color: #ffffff;
         }
 
@@ -37,23 +38,24 @@
         }
 
         .signup-shell {
-            width: min(1120px, calc(100% - 32px));
+            width: min(1080px, calc(100% - 32px));
             min-height: 100vh;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: minmax(0, 0.86fr) minmax(420px, 1fr);
+            grid-template-columns: minmax(0, 0.92fr) minmax(380px, 460px);
             gap: 42px;
             align-items: center;
-            padding: 42px 0;
+            padding: 36px 0;
         }
 
         .signup-copy {
             display: grid;
-            gap: 24px;
+            gap: 22px;
         }
 
         .signup-brand {
             display: inline-flex;
+            width: fit-content;
             align-items: center;
             gap: 12px;
             font-size: 28px;
@@ -68,10 +70,25 @@
             object-fit: cover;
         }
 
+        .signup-badge {
+            width: fit-content;
+            min-height: 30px;
+            display: inline-flex;
+            align-items: center;
+            padding: 0 12px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.82);
+            font-size: 12px;
+            font-weight: 800;
+        }
+
         .signup-copy h1 {
+            max-width: 620px;
             margin: 0;
-            font-size: clamp(38px, 5vw, 68px);
-            line-height: 0.95;
+            font-size: clamp(38px, 5vw, 66px);
+            line-height: 0.96;
             letter-spacing: -0.06em;
         }
 
@@ -82,39 +99,45 @@
         .signup-copy p {
             max-width: 520px;
             margin: 0;
-            color: rgba(255, 255, 255, 0.72);
-            font-size: 17px;
-            line-height: 1.7;
+            color: rgba(255, 255, 255, 0.74);
+            font-size: 16px;
+            line-height: 1.65;
         }
 
         .signup-benefits {
-            display: grid;
-            gap: 12px;
-            margin: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 2px 0 0;
             padding: 0;
             list-style: none;
         }
 
         .signup-benefits li {
-            display: flex;
+            min-height: 36px;
+            display: inline-flex;
             align-items: center;
-            gap: 10px;
-            color: rgba(255, 255, 255, 0.82);
-            font-size: 14px;
+            gap: 9px;
+            padding: 0 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.84);
+            font-size: 13px;
             font-weight: 700;
         }
 
         .signup-benefits li::before {
             content: "";
-            width: 9px;
-            height: 9px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
             background: var(--brand);
-            box-shadow: 0 0 0 6px rgba(255, 107, 0, 0.14);
+            box-shadow: 0 0 0 5px rgba(255, 107, 0, 0.14);
         }
 
         .signup-card {
-            border-radius: 26px;
+            border-radius: 24px;
             background: var(--card);
             color: var(--ink);
             box-shadow: 0 30px 90px rgba(0, 0, 0, 0.32);
@@ -122,7 +145,7 @@
         }
 
         .signup-card-head {
-            padding: 30px 30px 18px;
+            padding: 26px 28px 16px;
             border-bottom: 1px solid var(--line);
         }
 
@@ -143,7 +166,7 @@
         .signup-card-head h2 {
             margin: 14px 0 6px;
             font-size: 28px;
-            line-height: 1.12;
+            line-height: 1.08;
             letter-spacing: -0.04em;
         }
 
@@ -151,28 +174,18 @@
             margin: 0;
             color: var(--muted);
             font-size: 14px;
-            line-height: 1.55;
+            line-height: 1.5;
         }
 
         .signup-form {
             display: grid;
-            gap: 18px;
-            padding: 26px 30px 30px;
-        }
-
-        .field-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 14px;
+            gap: 15px;
+            padding: 22px 28px 28px;
         }
 
         .field {
             display: grid;
             gap: 7px;
-        }
-
-        .field--full {
-            grid-column: 1 / -1;
         }
 
         .field label {
@@ -181,13 +194,12 @@
             font-weight: 800;
         }
 
-        .field input,
-        .field select {
+        .field input {
             width: 100%;
             min-height: 48px;
             border: 1px solid var(--line);
             border-radius: 14px;
-            background: #fafafa;
+            background: #fbfbfb;
             color: #111111;
             padding: 0 14px;
             font: inherit;
@@ -195,17 +207,56 @@
             transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
         }
 
-        .field input:focus,
-        .field select:focus {
+        .field input:focus {
             border-color: var(--brand);
             background: #ffffff;
             box-shadow: 0 0 0 4px rgba(255, 107, 0, 0.12);
         }
 
-        .error {
-            color: #b42318;
+        .field small {
+            color: #777777;
             font-size: 12px;
-            line-height: 1.4;
+            line-height: 1.35;
+        }
+
+        .password-field {
+            position: relative;
+        }
+
+        .password-field input {
+            padding-right: 92px;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 8px;
+            top: 8px;
+            height: 32px;
+            border: 0;
+            border-radius: 999px;
+            background: #eeeeee;
+            color: #111111;
+            padding: 0 12px;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .consent-field {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        .consent-field input {
+            width: 17px;
+            height: 17px;
+            margin: 1px 0 0;
+            accent-color: var(--brand);
+            flex: 0 0 auto;
         }
 
         .signup-submit {
@@ -221,21 +272,16 @@
             box-shadow: 0 18px 38px rgba(255, 107, 0, 0.28);
         }
 
-        .consent-field {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            color: var(--muted);
-            font-size: 12px;
-            line-height: 1.5;
+        .signup-submit:disabled {
+            opacity: .6;
+            cursor: not-allowed;
         }
 
-        .consent-field input {
-            width: 17px;
-            height: 17px;
-            margin: 1px 0 0;
-            accent-color: var(--brand);
-            flex: 0 0 auto;
+        .signup-note {
+            margin: -2px 0 0;
+            color: #777777;
+            font-size: 12px;
+            text-align: center;
         }
 
         .signup-login {
@@ -250,10 +296,15 @@
             font-weight: 900;
         }
 
+        .error {
+            color: #b42318;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
         .turnstile-box {
             display: grid;
             gap: 8px;
-            grid-column: 1 / -1;
         }
 
         .turnstile-box .cf-turnstile {
@@ -262,7 +313,6 @@
         }
 
         .security-warning {
-            grid-column: 1 / -1;
             border: 1px solid #fed7aa;
             border-radius: 14px;
             background: #fff7ed;
@@ -275,13 +325,17 @@
         @media (max-width: 900px) {
             .signup-shell {
                 grid-template-columns: 1fr;
-                gap: 28px;
+                gap: 26px;
                 align-items: start;
-                padding-top: 28px;
+                padding-top: 24px;
             }
 
             .signup-copy {
-                gap: 18px;
+                gap: 16px;
+            }
+
+            .signup-copy h1 {
+                max-width: 720px;
             }
 
             .signup-copy p {
@@ -291,16 +345,25 @@
 
         @media (max-width: 560px) {
             .signup-shell {
-                width: min(100% - 20px, 1120px);
-                padding: 18px 0;
+                width: min(100% - 20px, 1080px);
+                padding: 16px 0;
             }
 
             .signup-brand {
-                font-size: 24px;
+                font-size: 23px;
+            }
+
+            .signup-brand img {
+                width: 38px;
+                height: 38px;
             }
 
             .signup-copy h1 {
-                font-size: 36px;
+                font-size: 34px;
+            }
+
+            .signup-benefits {
+                display: grid;
             }
 
             .signup-card {
@@ -312,13 +375,9 @@
                 padding-left: 18px;
                 padding-right: 18px;
             }
-
-            .field-grid {
-                grid-template-columns: 1fr;
-            }
         }
     </style>
-    @if($requiresWhatsAppVerification && $turnstileSiteKey)
+    @if($turnstileSiteKey)
         <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     @endif
 </head>
@@ -331,92 +390,70 @@
                 <span>vendly</span>
             </a>
 
-            <h1>Crea tu tienda y vende por <span>WhatsApp</span>.</h1>
-            <p>Activa una prueba gratis de {{ $trialDays }} dias. No necesitas tarjeta de credito y puedes empezar con tu catalogo en minutos.</p>
+            <span class="signup-badge">Prueba gratis {{ $trialDays }} dias</span>
+            <h1>Crea tu tienda y empieza a vender por <span>WhatsApp</span>.</h1>
+            <p>Entra al panel en segundos. Tu tienda se crea automaticamente y luego completas lo esencial con una guia paso a paso.</p>
 
             <ul class="signup-benefits">
-                <li>Usuario y tienda creados automaticamente</li>
-                <li>Prueba Premium durante {{ $trialDays }} dias</li>
-                <li>Panel listo para subir productos y compartir tu enlace</li>
+                <li>Sin tarjeta de credito</li>
+                <li>Dashboard inmediato</li>
+                <li>Mensajes automaticos</li>
             </ul>
         </section>
 
         <section class="signup-card" aria-label="Formulario de registro">
             <div class="signup-card-head">
-                <span>Gratis {{ $trialDays }} dias</span>
-                <h2>Empieza tu tienda</h2>
-                <p>Completa estos datos y entraremos directo al panel de administracion.</p>
+                <span>Inicio rapido</span>
+                <h2>Crear mi tienda gratis</h2>
+                <p>Solo necesitamos estos datos para crear tu cuenta y activar tu prueba.</p>
             </div>
 
             <form class="signup-form" method="POST" action="{{ route('trial-signup.store') }}">
                 @csrf
 
-                <div class="field-grid">
-                    <div class="field">
-                        <label for="user_name">Tu nombre</label>
-                        <input id="user_name" name="user_name" value="{{ old('user_name') }}" required autocomplete="name">
-                        @error('user_name')<div class="error">{{ $message }}</div>@enderror
-                    </div>
-
-                    <div class="field">
-                        <label for="user_email">Correo</label>
-                        <input id="user_email" type="email" name="user_email" value="{{ old('user_email') }}" required autocomplete="email">
-                        @error('user_email')<div class="error">{{ $message }}</div>@enderror
-                    </div>
-
-                    <div class="field">
-                        <label for="store_name">Nombre de la tienda</label>
-                        <input id="store_name" name="store_name" value="{{ old('store_name') }}" required autocomplete="organization">
-                        @error('store_name')<div class="error">{{ $message }}</div>@enderror
-                    </div>
-
-                    <div class="field">
-                        <label for="whatsapp">WhatsApp de pedidos</label>
-                        <input id="whatsapp" name="whatsapp" value="{{ old('whatsapp') }}" required inputmode="tel" autocomplete="tel" placeholder="Ej. 300 123 4567">
-                        @error('whatsapp')<div class="error">{{ $message }}</div>@enderror
-                    </div>
-
-                    @if($requiresWhatsAppVerification)
-                        <div class="field">
-                            <label for="whatsapp_verification_code">Codigo de verificacion</label>
-                            <div style="display:flex;gap:8px">
-                                <input id="whatsapp_verification_code" name="whatsapp_verification_code" value="{{ old('whatsapp_verification_code') }}" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
-                                <button id="send-whatsapp-code" type="button" style="white-space:nowrap" @disabled($requiresTurnstile && ! $turnstileReady)>Enviar codigo</button>
-                            </div>
-                            <div id="whatsapp-code-status" aria-live="polite"></div>
-                            <input id="whatsapp_verification_token" name="whatsapp_verification_token" type="hidden" value="{{ old('whatsapp_verification_token') }}">
-                            @error('whatsapp_verification_code')<div class="error">{{ $message }}</div>@enderror
-                        </div>
-
-                        @if($turnstileSiteKey)
-                            <div class="turnstile-box">
-                                <div class="cf-turnstile" data-sitekey="{{ $turnstileSiteKey }}"></div>
-                                <div id="turnstile-error" class="error" aria-live="polite"></div>
-                            </div>
-                        @elseif($requiresTurnstile && ! $turnstileReady)
-                            <div class="security-warning" role="alert">
-                                La proteccion anti abuso no esta configurada. Intenta nuevamente mas tarde.
-                            </div>
-                        @endif
-                    @endif
-
-                    <div class="field">
-                        <label for="location">Ciudad o ubicacion</label>
-                        <input id="location" name="location" value="{{ old('location') }}" autocomplete="address-level2">
-                        @error('location')<div class="error">{{ $message }}</div>@enderror
-                    </div>
-
-                    <div class="field">
-                        <label for="password">Contrasena</label>
-                        <input id="password" type="password" name="password" required autocomplete="new-password">
-                        @error('password')<div class="error">{{ $message }}</div>@enderror
-                    </div>
-
-                    <div class="field">
-                        <label for="password_confirmation">Confirmar contrasena</label>
-                        <input id="password_confirmation" type="password" name="password_confirmation" required autocomplete="new-password">
-                    </div>
+                <div class="field">
+                    <label for="user_name">Tu nombre</label>
+                    <input id="user_name" name="user_name" value="{{ old('user_name') }}" required autocomplete="name" placeholder="Ej. Juan">
+                    <small>Asi te saludaremos dentro del panel.</small>
+                    @error('user_name')<div class="error">{{ $message }}</div>@enderror
                 </div>
+
+                <div class="field">
+                    <label for="whatsapp">WhatsApp</label>
+                    <input id="whatsapp" name="whatsapp" value="{{ old('whatsapp') }}" required inputmode="tel" autocomplete="tel" placeholder="Ej. 300 123 4567">
+                    <small>Lo verificaremos en el dashboard para activar seguridad y mensajes.</small>
+                    @error('whatsapp')<div class="error">{{ $message }}</div>@enderror
+                </div>
+
+                <div class="field">
+                    <label for="user_email">Correo</label>
+                    <input id="user_email" type="email" name="user_email" value="{{ old('user_email') }}" required autocomplete="email" placeholder="tu@email.com">
+                    <small>Lo usaremos para iniciar sesion y recuperar tu cuenta.</small>
+                    @error('user_email')<div class="error">{{ $message }}</div>@enderror
+                </div>
+
+                <div class="field">
+                    <label for="password">Contrasena</label>
+                    <div class="password-field">
+                        <input id="password" type="password" name="password" required autocomplete="new-password" placeholder="Minimo 8 caracteres">
+                        <button class="password-toggle" type="button" data-password-toggle>Mostrar</button>
+                    </div>
+                    <small>No necesitas confirmarla. Puedes verla antes de enviar.</small>
+                    @error('password')<div class="error">{{ $message }}</div>@enderror
+                </div>
+
+                <input type="hidden" name="store_name" value="{{ old('store_name') }}">
+
+                @if($turnstileSiteKey)
+                    <div class="turnstile-box">
+                        <div class="cf-turnstile" data-sitekey="{{ $turnstileSiteKey }}"></div>
+                        @error('turnstile_token')<div class="error">{{ $message }}</div>@enderror
+                    </div>
+                @elseif($requiresTurnstile && ! $turnstileReady)
+                    <div class="security-warning" role="alert">
+                        La proteccion anti abuso no esta configurada. Intenta nuevamente mas tarde.
+                    </div>
+                @endif
 
                 <label class="consent-field" for="whatsapp_consent">
                     <input id="whatsapp_consent" name="whatsapp_consent" type="checkbox" value="1" @checked(old('whatsapp_consent')) required>
@@ -424,54 +461,42 @@
                 </label>
                 @error('whatsapp_consent')<div class="error">{{ $message }}</div>@enderror
 
-                <button class="signup-submit" type="submit">Crear mi tienda gratis</button>
-
+                <button class="signup-submit" type="submit" @disabled($requiresTurnstile && ! $turnstileReady)>Crear mi tienda gratis</button>
+                <p class="signup-note">Gratis {{ $trialDays }} dias. Sin tarjeta. Configuras tu tienda despues.</p>
                 <p class="signup-login">Ya tienes cuenta? <a href="{{ route('login') }}">Iniciar sesion</a></p>
             </form>
         </section>
     </main>
-    @if($requiresWhatsAppVerification)
-        <script>
-            document.getElementById('send-whatsapp-code')?.addEventListener('click', async (event) => {
-                const button = event.currentTarget;
-                const status = document.getElementById('whatsapp-code-status');
-                button.disabled = true;
-                status.textContent = 'Enviando codigo...';
 
-                try {
-                    const turnstileToken = document.querySelector('[name="cf-turnstile-response"]')?.value || '';
-                    const response = await fetch(@json(route('trial-signup.whatsapp.verify')), {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': @json(csrf_token()),
-                        },
-                        body: JSON.stringify({
-                            whatsapp: document.getElementById('whatsapp').value,
-                            turnstile_token: turnstileToken,
-                        }),
-                    });
-                    const data = await response.json();
-                    if (data.verification_token) {
-                        document.getElementById('whatsapp_verification_token').value = data.verification_token;
-                    }
-                    const turnstileError = document.getElementById('turnstile-error');
-                    turnstileError?.replaceChildren();
-                    status.textContent = data.message || data.errors?.whatsapp?.[0] || data.errors?.turnstile_token?.[0] || 'No se pudo enviar el codigo.';
-                    if (turnstileError && data.errors?.turnstile_token?.[0]) {
-                        turnstileError.textContent = data.errors.turnstile_token[0];
-                    }
-                    window.turnstile?.reset();
-                } catch (error) {
-                    status.textContent = 'No se pudo enviar el codigo. Intenta nuevamente.';
-                    window.turnstile?.reset();
-                } finally {
-                    button.disabled = false;
-                }
-            });
-        </script>
-    @endif
+    <script>
+        document.querySelector('[data-password-toggle]')?.addEventListener('click', (event) => {
+            const button = event.currentTarget;
+            const input = document.getElementById('password');
+            const isHidden = input.type === 'password';
+
+            input.type = isHidden ? 'text' : 'password';
+            button.textContent = isHidden ? 'Ocultar' : 'Mostrar';
+        });
+
+        document.querySelector('.signup-form')?.addEventListener('submit', (event) => {
+            const token = document.querySelector('[name="cf-turnstile-response"]')?.value;
+
+            if (! token) {
+                return;
+            }
+
+            let input = document.querySelector('[name="turnstile_token"]');
+
+            if (! input) {
+                input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'turnstile_token';
+                event.currentTarget.appendChild(input);
+            }
+
+            input.value = token;
+        });
+    </script>
 </body>
 
 </html>

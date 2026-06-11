@@ -89,6 +89,12 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/admin/store-settings', [StoreController::class, 'updateSettings']);
     Route::get('/admin/onboarding', [StoreOnboardingController::class, 'edit'])->name('admin.store.onboarding');
     Route::post('/admin/onboarding', [StoreOnboardingController::class, 'update'])->name('admin.store.onboarding.update');
+    Route::post('/admin/onboarding/whatsapp/send-code', [StoreOnboardingController::class, 'sendWhatsAppVerificationCode'])
+        ->middleware('throttle:6,1')
+        ->name('admin.store.onboarding.whatsapp.send');
+    Route::post('/admin/onboarding/whatsapp/verify', [StoreOnboardingController::class, 'verifyWhatsApp'])
+        ->middleware('throttle:10,1')
+        ->name('admin.store.onboarding.whatsapp.verify');
     Route::get('/admin/templates', [StoreTemplateController::class, 'index'])->name('admin.templates.index');
     Route::post('/admin/templates/{template}', [StoreTemplateController::class, 'apply'])->name('admin.templates.apply');
     Route::get('/admin/payments', [PaymentSettingsController::class, 'index'])->name('admin.payments.index');
@@ -196,9 +202,6 @@ Route::middleware('guest')->group(function () {
     Route::post('/crear-tienda-gratis', [TrialSignupController::class, 'store'])
         ->middleware('throttle:6,1')
         ->name('trial-signup.store');
-    Route::post('/crear-tienda-gratis/verificar-whatsapp', [TrialSignupController::class, 'sendVerificationCode'])
-        ->middleware('throttle:5,1')
-        ->name('trial-signup.whatsapp.verify');
 });
 
 Route::get('/categorias/{category}', [ProductController::class, 'categoryBySubdomain'])->name('subdomain.store.category.show');

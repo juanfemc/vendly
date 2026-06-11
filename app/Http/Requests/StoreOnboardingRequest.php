@@ -16,9 +16,15 @@ class StoreOnboardingRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $store = $this->user()?->store ?? $this->user()?->stores()->first();
+        $phone = preg_replace('/\D+/', '', (string) $this->input('whatsapp')) ?: '';
+
+        if (strlen($phone) === 10 && str_starts_with($phone, '3')) {
+            $phone = '57'.$phone;
+        }
 
         $this->merge([
             'business_type' => $store?->business_type ?: 'store',
+            'whatsapp' => $phone,
         ]);
     }
 
@@ -27,7 +33,7 @@ class StoreOnboardingRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'business_type' => ['required', Rule::in(array_keys(Store::businessTypeOptions()))],
-            'whatsapp' => ['required', 'string', 'max:255'],
+            'whatsapp' => ['required', 'regex:/^573\d{9}$/'],
             'location' => ['nullable', 'string', 'max:255'],
             'shop_copy' => ['nullable', 'string', 'max:320'],
             'brand_color' => ['nullable', 'regex:/^#?(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/'],

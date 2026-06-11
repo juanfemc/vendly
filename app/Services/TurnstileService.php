@@ -40,7 +40,7 @@ class TurnstileService
 
         if (blank($token)) {
             throw ValidationException::withMessages([
-                'turnstile_token' => 'Confirma que eres una persona para enviar el codigo.',
+                'turnstile_token' => 'Confirma que eres una persona para continuar.',
             ]);
         }
 

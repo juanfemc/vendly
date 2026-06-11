@@ -89,6 +89,7 @@ class Store extends Model
         'custom_domain_status',
         'custom_domain_verified_at',
         'whatsapp',
+        'whatsapp_verified_at',
         'whatsapp_consent_at',
         'whatsapp_consent_version',
         'whatsapp_consent_text',
@@ -136,6 +137,7 @@ class Store extends Model
         'responsive_product_columns' => 'integer',
         'show_hero_products_action' => 'boolean',
         'custom_domain_verified_at' => 'datetime',
+        'whatsapp_verified_at' => 'datetime',
         'trial_starts_at' => 'datetime',
         'trial_ends_at' => 'datetime',
         'subscription_ends_at' => 'datetime',
@@ -419,23 +421,31 @@ class Store extends Model
     public function onboardingChecklist(): array
     {
         return [
-            'profile' => [
-                'label' => 'Datos principales',
-                'description' => 'Nombre, tipo de negocio y WhatsApp de pedidos.',
-                'complete' => trim((string) $this->name) !== ''
-                    && trim((string) $this->business_type) !== ''
-                    && trim((string) $this->whatsapp) !== '',
+            'account' => [
+                'label' => 'Cuenta creada',
+                'description' => 'Tu usuario y tienda ya estan activos.',
+                'complete' => $this->exists && (bool) $this->user_id,
             ],
-            'location' => [
-                'label' => 'Ubicacion',
-                'description' => 'Ciudad o direccion visible para tus clientes.',
-                'complete' => trim((string) $this->location) !== '',
+            'whatsapp_verified' => [
+                'label' => 'WhatsApp verificado',
+                'description' => 'Confirma el numero para activar seguridad y mensajes automaticos.',
+                'complete' => filled($this->whatsapp_verified_at),
+            ],
+            'profile' => [
+                'label' => 'Nombre de tienda configurado',
+                'description' => 'Usa un nombre claro para que tus clientes te reconozcan.',
+                'complete' => trim((string) $this->name) !== ''
+                    && trim((string) $this->business_type) !== '',
             ],
             'identity' => [
-                'label' => 'Identidad visual',
-                'description' => 'Logo y color principal de la tienda.',
-                'complete' => trim((string) $this->logo_image) !== ''
-                    && trim((string) $this->brand_color) !== '',
+                'label' => 'Logo agregado',
+                'description' => 'Sube una imagen que haga tu tienda mas confiable.',
+                'complete' => trim((string) $this->logo_image) !== '',
+            ],
+            'description' => [
+                'label' => 'Descripcion corta',
+                'description' => 'Cuenta en una frase que vendes y por que comprarte.',
+                'complete' => trim((string) $this->shop_copy) !== '',
             ],
             'catalog' => [
                 'label' => 'Primer producto',
