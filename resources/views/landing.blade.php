@@ -115,11 +115,13 @@
     <meta name="twitter:image" content="{{ $landingImage }}">
     <link rel="icon" type="image/png" href="{{ asset('images/vendly-whatsapp-dark.png') }}">
     <link rel="shortcut icon" href="{{ asset('images/vendly-whatsapp-dark.png') }}">
+    @include('landing.partials.meta-pixel')
     @include('landing.partials.critical-css')
     <link rel="preload" href="{{ $landingCssUrl }}" as="style">
     <link rel="stylesheet" href="{{ $landingCssUrl }}">
 </head>
 <body class="landing-page">
+    @include('landing.partials.meta-pixel-noscript')
     @include('landing.partials.nav')
 
     <main>

@@ -68,6 +68,10 @@ return [
         'tiktok' => env('LANDING_TIKTOK_URL'),
     ],
 
+    'meta' => [
+        'landing_pixel_id' => env('LANDING_META_PIXEL_ID'),
+    ],
+
     'turnstile' => [
         'site_key' => env('TURNSTILE_SITE_KEY'),
         'secret_key' => env('TURNSTILE_SECRET_KEY'),
