@@ -90,15 +90,14 @@
                 ltrim(\Illuminate\Support\Str::substr($text, $cutAt)),
             ];
         };
-        $productDescriptionText = $product->description ?: ($isRestaurant ? 'Este plato aun no tiene una descripcion amplia, pero ya esta disponible para pedir por WhatsApp.' : ($isReservationStore ? 'Este servicio aun no tiene una descripcion amplia configurada, pero ya esta listo para reservarse.' : 'Este producto aun no tiene una descripcion amplia configurada, pero ya esta listo para venderse.'));
+        $productDescriptionFallback = $isRestaurant ? 'Este plato aun no tiene una descripcion amplia, pero ya esta disponible para pedir por WhatsApp.' : ($isReservationStore ? 'Este servicio aun no tiene una descripcion amplia configurada, pero ya esta listo para reservarse.' : 'Este producto aun no tiene una descripcion amplia configurada, pero ya esta listo para venderse.');
+        $productDescriptionText = \App\Support\ProductText::plain($product->description) ?: $productDescriptionFallback;
         [$productDescriptionPreview, $productDescriptionMore] = $makeProductPreview($productDescriptionText);
         $hasLongProductDescription = $productDescriptionMore !== '';
         $productDescriptionExpandedPreview = preg_replace('/\.\.\.$/u', '', $productDescriptionPreview);
-        $featureSource = trim(strip_tags(str_replace(['</li>', '</p>', '<br>', '<br/>', '<br />'], "\n", (string) $product->features)));
-        $productFeaturesText = collect(preg_split('/[\r\n;]+/', $featureSource) ?: [])
-            ->map(fn ($feature) => trim(preg_replace('/\s+/', ' ', $feature)))
-            ->filter()
-            ->implode("\n");
+        $productFeaturesText = \App\Support\ProductText::featureLines($product->features);
+        $productFeaturesRich = \App\Support\ProductText::rich($product->features);
+        $hasProductFeatures = $productFeaturesText !== '' || \App\Support\ProductText::plain($productFeaturesRich) !== '';
         [$productFeaturesPreview, $productFeaturesMore] = $makeProductPreview($productFeaturesText);
         $hasLongProductFeatures = $productFeaturesMore !== '';
         $productFeaturesExpandedPreview = preg_replace('/\.\.\.$/u', '', $productFeaturesPreview);
@@ -225,7 +224,7 @@
                     @endif
                 </div>
 
-                @if($product->features)
+                @if($hasProductFeatures)
                     <div class="product-detail-description product-detail-features">
                         <h2>{{ $isRestaurant ? 'Ingredientes y detalles' : 'Características' }}</h2>
                         @if($productFeaturesText !== '')
@@ -239,7 +238,7 @@
                                 <button type="button" class="product-detail-more-toggle" data-product-more-toggle data-expanded-label="Ver menos">Ver más</button>
                             @endif
                         @else
-                            <div class="product-rich-content">{!! $product->features !!}</div>
+                            <div class="product-rich-content">{!! $productFeaturesRich !!}</div>
                         @endif
                     </div>
                 @endif

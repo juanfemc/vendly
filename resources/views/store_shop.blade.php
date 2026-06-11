@@ -11,9 +11,8 @@
         $isRestaurant = $store->isRestaurant();
         $catalogProducts = $products;
         $allProducts = $allProducts ?? collect($products->items());
-        $heroProduct = $allProducts->firstWhere('image', '!=', null) ?? $allProducts->first();
-        $heroImage = $storageAssetUrl($store->cover_image) ?: $storageAssetUrl($heroProduct?->image);
-        $heroMetaImage = $absoluteStorageUrl($store->cover_image) ?: $absoluteStorageUrl($heroProduct?->image);
+        $heroImage = $storageAssetUrl($store->cover_image);
+        $heroMetaImage = $absoluteStorageUrl($store->cover_image);
         $logoImage = $absoluteStorageUrl($store->logo_image);
         $faviconImage = $storefrontUrls->favicon($store);
         $seoImage = $heroMetaImage ?: $logoImage;

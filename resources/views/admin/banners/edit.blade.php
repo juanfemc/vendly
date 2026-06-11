@@ -36,7 +36,7 @@
             Activo
         </label>
         <label class="field-label" for="banner_image">Cambiar imagen del banner</label>
-        <input id="banner_image" type="file" name="image" accept="image/*" data-optimize-image data-max-width="1920" data-max-height="1080" data-quality="0.82" data-output="webp">
+        <input id="banner_image" type="file" name="image" accept="image/*" data-optimize-image data-max-width="1920" data-max-height="1080" data-quality="0.82" data-output="webp" data-max-size="4194304">
 
         <button class="btn">Actualizar banner</button>
     </form>

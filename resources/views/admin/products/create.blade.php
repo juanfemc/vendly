@@ -100,10 +100,10 @@
         <label class="field-label" for="colors">Colores disponibles</label>
         <input id="colors" type="text" name="colors" value="{{ old('colors') }}" placeholder="Ej: Negro, Blanco, Rojo">
         <label class="field-label" for="product_image">Sube la imagen del producto</label>
-        <input id="product_image" type="file" name="image" accept="image/*" data-optimize-image data-max-width="1600" data-max-height="1600" data-quality="0.82" data-output="webp">
+        <input id="product_image" type="file" name="image" accept="image/*" data-optimize-image data-max-width="1600" data-max-height="1600" data-quality="0.82" data-output="webp" data-max-size="2097152">
         @if(auth()->user()->isAdmin() || ($store?->allowsProductGallery() ?? true))
             <label class="field-label" for="product_images">Sube imagenes adicionales del producto</label>
-            <input id="product_images" type="file" name="images[]" accept="image/*" multiple data-optimize-image data-max-width="1600" data-max-height="1600" data-quality="0.82" data-output="webp" data-product-image-preview data-preview-target="product_images_preview">
+            <input id="product_images" type="file" name="images[]" accept="image/*" multiple data-optimize-image data-max-width="1600" data-max-height="1600" data-quality="0.82" data-output="webp" data-max-size="2097152" data-max-total-size="8388608" data-product-image-preview data-preview-target="product_images_preview">
             <div id="product_images_preview" class="product-image-preview" hidden></div>
         @else
             <div class="flash" style="margin-bottom:12px;">La galeria de imagenes por producto esta disponible desde el plan Pro.</div>

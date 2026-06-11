@@ -387,7 +387,7 @@
                     @if($store->logo_image)
                         <img class="onboarding-current-logo" src="{{ asset('storage/' . $store->logo_image) }}" alt="{{ $store->name }}">
                     @endif
-                    <input id="onboarding_logo" type="file" name="logo_image" accept="image/*">
+                    <input id="onboarding_logo" type="file" name="logo_image" accept="image/*" data-optimize-image data-max-width="720" data-max-height="720" data-quality="0.86" data-output="webp" data-max-size="4194304">
                     <small>Usa una imagen cuadrada para que se vea mejor.</small>
                     @error('logo_image')<span class="onboarding-error">{{ $message }}</span>@enderror
                 </div>

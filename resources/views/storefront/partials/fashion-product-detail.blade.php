@@ -19,7 +19,7 @@
     $fashionCurrentColor = $fashionColors->first();
     $fashionReviewAverage = $reviewCount > 0 ? number_format($reviewAverage, 1) : '4.8';
     $fashionReviewCount = $reviewCount > 0 ? $reviewCount : 24;
-    $fashionDescription = $product->description
+    $fashionDescription = \App\Support\ProductText::plain($product->description)
         ?: 'A timeless piece reimagined for today. Soft fabric and a full zip front make it perfect for everyday wear.';
     $fashionFeatureItems = collect([
         'Regular fit',

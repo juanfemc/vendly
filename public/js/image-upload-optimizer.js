@@ -11,6 +11,67 @@
         }, outputType, quality);
     });
 
+    const formatBytes = (bytes) => {
+        if (!Number.isFinite(bytes) || bytes <= 0) {
+            return '0 MB';
+        }
+
+        const mb = bytes / 1024 / 1024;
+
+        return mb >= 1 ? `${mb.toFixed(mb >= 10 ? 0 : 1)} MB` : `${Math.ceil(bytes / 1024)} KB`;
+    };
+
+    const selectedFiles = (input) => Array.from(input.files ?? []);
+
+    const uploadLimitForForm = (form) => {
+        const configuredLimit = Number(form.dataset.maxUploadSize || 0);
+
+        return configuredLimit > 0 ? configuredLimit : 12 * 1024 * 1024;
+    };
+
+    const validateUploadInputs = (uploadInputs, totalLimit = 0) => {
+        let totalSize = 0;
+
+        for (const input of uploadInputs) {
+            const files = selectedFiles(input);
+            const maxFileSize = Number(input.dataset.maxSize || 0);
+            const maxInputSize = Number(input.dataset.maxTotalSize || 0);
+            const inputSize = files.reduce((total, file) => total + file.size, 0);
+
+            totalSize += inputSize;
+
+            if (maxFileSize > 0) {
+                const oversizedFile = files.find((file) => file.size > maxFileSize);
+
+                if (oversizedFile) {
+                    return {
+                        input,
+                        valid: false,
+                        message: `La imagen "${oversizedFile.name}" pesa ${formatBytes(oversizedFile.size)}. Sube una imagen de maximo ${formatBytes(maxFileSize)}.`,
+                    };
+                }
+            }
+
+            if (maxInputSize > 0 && inputSize > maxInputSize) {
+                return {
+                    input,
+                    valid: false,
+                    message: `Las imagenes pesan ${formatBytes(inputSize)} en total. Sube maximo ${formatBytes(maxInputSize)} por carga.`,
+                };
+            }
+        }
+
+        if (totalLimit > 0 && totalSize > totalLimit) {
+            return {
+                input: uploadInputs[0],
+                valid: false,
+                message: `Las imagenes seleccionadas pesan ${formatBytes(totalSize)} en total. Sube maximo ${formatBytes(totalLimit)} por formulario.`,
+            };
+        }
+
+        return { valid: true };
+    };
+
     const readFile = (file) => new Promise((resolve, reject) => {
         const reader = new FileReader();
 
@@ -114,7 +175,7 @@
 
     inputs.forEach((input) => {
         input.addEventListener('change', async () => {
-            const files = Array.from(input.files ?? []);
+            const files = selectedFiles(input);
 
             if (!files.length) {
                 setBusyState(input, false, '');
@@ -138,6 +199,15 @@
 
                 input.files = transfer.files;
 
+                const validation = validateUploadInputs([input]);
+
+                if (!validation.valid) {
+                    input.value = '';
+                    input.dispatchEvent(new CustomEvent('image-upload:optimized'));
+                    setBusyState(input, false, validation.message);
+                    return;
+                }
+
                 const savedKb = files.reduce((total, file, index) => {
                     const optimizedFile = optimizedFiles[index];
 
@@ -159,8 +229,32 @@
             } catch (error) {
                 input.dispatchEvent(new CustomEvent('image-upload:optimized'));
                 setBusyState(input, false, files.length > 1
-                    ? 'No se pudieron optimizar automaticamente. Se subiran las imagenes originales.'
-                    : 'No se pudo optimizar automaticamente. Se subira la imagen original.');
+                    ? 'No se pudieron optimizar automaticamente. Al guardar validaremos el peso y podria pedirte imagenes mas livianas.'
+                    : 'No se pudo optimizar automaticamente. Al guardar validaremos el peso y podria pedirte una imagen mas liviana.');
+            }
+        });
+    });
+
+    const forms = new Set(Array.from(inputs).map((input) => input.form).filter(Boolean));
+
+    forms.forEach((form) => {
+        form.addEventListener('submit', (event) => {
+            const uploadInputs = Array.from(form.querySelectorAll('input[type="file"][data-optimize-image]'));
+            const busyInput = uploadInputs.find((input) => input.dataset.optimizing === 'true');
+
+            if (busyInput) {
+                event.preventDefault();
+                setBusyState(busyInput, true, 'Espera a que terminemos de optimizar las imagenes antes de guardar.');
+                return;
+            }
+
+            const validation = validateUploadInputs(uploadInputs, uploadLimitForForm(form));
+
+            if (!validation.valid && validation.input) {
+                event.preventDefault();
+                setBusyState(validation.input, false, validation.message);
+                validation.input.focus({ preventScroll: true });
+                validation.input.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         });
     });

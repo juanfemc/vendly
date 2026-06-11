@@ -699,7 +699,7 @@
                 @if ($store->logo_image)
                     <img class="settings-media-preview settings-media-preview--logo" src="{{ asset('storage/' . $store->logo_image) }}" alt="{{ $store->name }}">
                 @endif
-                <input id="store_logo_image" type="file" name="logo_image" accept="image/*" data-optimize-image data-max-width="720" data-max-height="720" data-quality="0.86" data-output="webp">
+                <input id="store_logo_image" type="file" name="logo_image" accept="image/*" data-optimize-image data-max-width="720" data-max-height="720" data-quality="0.86" data-output="webp" data-max-size="4194304">
             </div>
 
             <div class="settings-media-card">
@@ -707,7 +707,7 @@
                 @if ($store->cover_image)
                     <img class="settings-media-preview settings-media-preview--cover" src="{{ asset('storage/' . $store->cover_image) }}" alt="{{ $store->name }}">
                 @endif
-                <input id="store_cover_image" type="file" name="cover_image" accept="image/*" data-optimize-image data-max-width="1920" data-max-height="1080" data-quality="0.82" data-output="webp">
+                <input id="store_cover_image" type="file" name="cover_image" accept="image/*" data-optimize-image data-max-width="1920" data-max-height="1080" data-quality="0.82" data-output="webp" data-max-size="4194304">
             </div>
         </div>
     </section>

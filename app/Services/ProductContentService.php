@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\Store;
 use App\Models\StoreCategory;
-use Illuminate\Support\Str;
+use App\Support\ProductText;
 
 class ProductContentService
 {
@@ -37,16 +37,12 @@ class ProductContentService
 
     public function cleanRichText(?string $value): ?string
     {
-        $value = trim((string) $value);
+        $value = ProductText::rich($value);
 
         if ($value === '') {
             return null;
         }
 
-        $allowedTags = '<p><br><strong><b><em><i><u><ul><ol><li><h3><h4>';
-
-        return Str::of(strip_tags($value, $allowedTags))
-            ->replaceMatches('/<([a-z0-9]+)(?:\s[^>]*)?>/i', '<$1>')
-            ->toString();
+        return $value;
     }
 }

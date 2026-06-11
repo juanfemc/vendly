@@ -15,9 +15,8 @@
     $minimalInitials = strtoupper(substr($product->name, 0, 2));
     $minimalBadges = $product->displayBadges($store);
     $minimalSwatches = ['#111111', '#ffffff', '#33415f'];
-    $minimalDescription = $product->description ?: 'Disfruta ' . $product->name . ' con una experiencia pensada para comprar facil, rapido y con confianza.';
-    $plainFeatures = trim(strip_tags(str_replace(['</li>', '<br>', '<br/>', '<br />'], "\n", (string) $product->features)));
-    $minimalFeatureItems = collect(preg_split('/\R+/', $plainFeatures) ?: [])
+    $minimalDescription = \App\Support\ProductText::plain($product->description) ?: 'Disfruta ' . $product->name . ' con una experiencia pensada para comprar facil, rapido y con confianza.';
+    $minimalFeatureItems = collect(preg_split('/\R+/', \App\Support\ProductText::featureLines($product->features)) ?: [])
         ->map(fn ($feature) => trim($feature, " \t\n\r\0\x0B-*"))
         ->filter()
         ->take(6)

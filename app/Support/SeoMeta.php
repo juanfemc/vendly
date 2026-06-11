@@ -41,7 +41,7 @@ class SeoMeta
 
     public static function product(Store $store, Product $product, string $url, ?string $image, string $fallbackDescription, ?string $favicon = null): self
     {
-        $description = trim((string) $product->description);
+        $description = ProductText::plain($product->description);
 
         return new self(
             title: Str::limit($product->name . ' | ' . $store->name, 70, ''),

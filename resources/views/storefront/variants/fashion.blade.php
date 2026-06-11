@@ -42,8 +42,7 @@
             'name' => $category,
             'slug' => \Illuminate\Support\Str::slug($category),
         ])));
-    $fashionHeroProduct = $fashionProducts->firstWhere('image', '!=', null) ?? $fashionProducts->first();
-    $fashionHeroImage = $heroImage ?: ($fashionHeroProduct?->image ? asset('storage/' . $fashionHeroProduct->image) : null);
+    $fashionHeroImage = $heroImage;
     $fashionRecommended = $fashionProducts->take(6)->map(fn ($product, $index) => [
         'category' => $product->category ?: 'Jackets',
         'name' => $product->name,

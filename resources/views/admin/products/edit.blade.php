@@ -24,9 +24,12 @@
     @php
         $selectedCategory = old('category', $product->category);
         $usesCustomCategory = $selectedCategory && ! in_array($selectedCategory, $categoryOptions, true);
+        $descriptionEditorValue = old('description') !== null
+            ? \App\Support\ProductText::plain(old('description'))
+            : \App\Support\ProductText::plain($product->description);
         $featuresEditorValue = old('features') !== null
-            ? e(strip_tags(old('features')))
-            : ($product->features ?? '');
+            ? \App\Support\ProductText::rich(old('features'))
+            : \App\Support\ProductText::rich($product->features);
     @endphp
 
     <form method="POST" action="{{ route('admin.products.update', $product) }}" enctype="multipart/form-data">
@@ -89,7 +92,7 @@
                 Marcar como agotado
             </label>
         @endif
-        <textarea name="description" class="long-textarea" rows="8" placeholder="Descripcion larga del producto">{{ old('description', $product->description) }}</textarea>
+        <textarea name="description" class="long-textarea" rows="8" placeholder="Descripcion larga del producto">{{ $descriptionEditorValue }}</textarea>
         <label class="field-label" for="features_editor">Caracteristicas del producto</label>
         <div class="rich-editor" data-rich-editor>
             <div class="rich-toolbar" aria-label="Herramientas de texto">
@@ -100,7 +103,7 @@
                 <button type="button" data-command="insertOrderedList">1. Lista</button>
             </div>
             <div id="features_editor" class="rich-content" contenteditable="true" data-rich-content>{!! $featuresEditorValue !!}</div>
-            <textarea name="features" data-rich-input hidden>{{ old('features', $product->features) }}</textarea>
+            <textarea name="features" data-rich-input hidden>{{ old('features') !== null ? \App\Support\ProductText::rich(old('features')) : \App\Support\ProductText::rich($product->features) }}</textarea>
         </div>
         <label class="field-label" for="sizes">Tallas disponibles</label>
         <input id="sizes" type="text" name="sizes" value="{{ old('sizes', implode(', ', $product->sizes ?? [])) }}" placeholder="Ej: S, M, L, XL">
@@ -126,10 +129,10 @@
         @endif
 
         <label class="field-label" for="product_image">Sube una nueva imagen del producto</label>
-        <input id="product_image" type="file" name="image" accept="image/*" data-optimize-image data-max-width="1600" data-max-height="1600" data-quality="0.82" data-output="webp">
+        <input id="product_image" type="file" name="image" accept="image/*" data-optimize-image data-max-width="1600" data-max-height="1600" data-quality="0.82" data-output="webp" data-max-size="2097152">
         @if(auth()->user()->isAdmin() || ($product->store?->allowsProductGallery() ?? true))
             <label class="field-label" for="product_images">Agrega imagenes adicionales del producto</label>
-            <input id="product_images" type="file" name="images[]" accept="image/*" multiple data-optimize-image data-max-width="1600" data-max-height="1600" data-quality="0.82" data-output="webp" data-product-image-preview data-preview-target="product_images_preview">
+            <input id="product_images" type="file" name="images[]" accept="image/*" multiple data-optimize-image data-max-width="1600" data-max-height="1600" data-quality="0.82" data-output="webp" data-max-size="2097152" data-max-total-size="8388608" data-product-image-preview data-preview-target="product_images_preview">
             <div id="product_images_preview" class="product-image-preview" hidden></div>
         @else
             <div class="flash" style="margin-bottom:12px;">La galeria de imagenes por producto esta disponible desde el plan Pro.</div>

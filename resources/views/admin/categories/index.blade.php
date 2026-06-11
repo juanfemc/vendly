@@ -80,7 +80,7 @@
             <input type="text" name="name" value="{{ old('name') }}" placeholder="Nombre de la categoria" required>
             <input type="text" name="slug" value="{{ old('slug') }}" placeholder="Slug opcional">
             <textarea name="description" rows="3" placeholder="Descripcion corta">{{ old('description') }}</textarea>
-            <input type="file" name="image" accept="image/*">
+            <input type="file" name="image" accept="image/*" data-optimize-image data-max-width="1600" data-max-height="1200" data-quality="0.84" data-output="webp" data-max-size="8388608">
             <small style="display:block; margin-top:-6px; color:var(--muted);">Imagen recomendada: JPG, PNG o WebP. Maximo 8 MB.</small>
             <label>
                 <span>Posicion en la tienda</span>

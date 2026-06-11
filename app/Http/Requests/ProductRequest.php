@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\ProductText;
 use Illuminate\Validation\Rule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -43,6 +44,7 @@ class ProductRequest extends FormRequest
     public function baseData(): array
     {
         $data = $this->safe()->only(['name', 'category', 'material', 'price', 'description', 'stock_quantity', 'offer_original_price']);
+        $data['description'] = ProductText::plain($data['description'] ?? null) ?: null;
         $data['is_sold_out'] = $this->boolean('is_sold_out');
         $data['has_offer'] = $this->boolean('has_offer');
         $data['custom_badges'] = $this->cleanBadges($this->input('custom_badges'));

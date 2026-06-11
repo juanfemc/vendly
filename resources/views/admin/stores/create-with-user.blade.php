@@ -365,11 +365,11 @@
                 <div class="onboarding-grid">
                     <div class="onboarding-field">
                         <label for="store_cover_image">Portada</label>
-                        <input id="store_cover_image" type="file" name="cover_image" accept="image/*" data-optimize-image data-max-width="1920" data-max-height="1080" data-quality="0.82" data-output="webp">
+                        <input id="store_cover_image" type="file" name="cover_image" accept="image/*" data-optimize-image data-max-width="1920" data-max-height="1080" data-quality="0.82" data-output="webp" data-max-size="4194304">
                     </div>
                     <div class="onboarding-field">
                         <label for="store_logo_image">Logo</label>
-                        <input id="store_logo_image" type="file" name="logo_image" accept="image/*" data-optimize-image data-max-width="800" data-max-height="800" data-quality="0.86" data-output="webp">
+                        <input id="store_logo_image" type="file" name="logo_image" accept="image/*" data-optimize-image data-max-width="800" data-max-height="800" data-quality="0.86" data-output="webp" data-max-size="4194304">
                     </div>
                 </div>
 

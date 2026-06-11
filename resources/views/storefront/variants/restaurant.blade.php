@@ -51,7 +51,7 @@
                                 <strong>${{ number_format($product->price, 0, ',', '.') }}</strong>
                             </div>
 
-                            <p>{{ $product->description ?: 'Plato disponible para pedir por WhatsApp.' }}</p>
+                            <p>{{ \App\Support\ProductText::plain($product->description) ?: 'Plato disponible para pedir por WhatsApp.' }}</p>
 
                             @if($product->hasVariants())
                                 <div class="restaurant-menu-tags">
@@ -107,7 +107,7 @@
                                 <span></span>
                                 <strong>${{ number_format($product->price, 0, ',', '.') }}</strong>
                             </div>
-                            <p>{{ $product->description ?: 'Plato disponible para pedir por WhatsApp.' }}</p>
+                            <p>{{ \App\Support\ProductText::plain($product->description) ?: 'Plato disponible para pedir por WhatsApp.' }}</p>
                         </div>
 
                         <a href="{{ $storefrontUrls->product($store, $product) }}" class="restaurant-menu-order-link {{ $isSoldOut ? 'is-disabled' : '' }}">
