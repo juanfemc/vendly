@@ -85,10 +85,6 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/admin/orders', [OrderController::class, 'index']);
     Route::patch('/admin/orders/{order}/status', [OrderController::class, 'updateStatus'])->name('admin.orders.status');
     Route::delete('/admin/orders/{order}', [OrderController::class, 'destroy'])->name('admin.orders.destroy');
-    Route::get('/admin/whatsapp', [WhatsAppInboxController::class, 'index'])->name('admin.whatsapp.index');
-    Route::post('/admin/whatsapp/{conversation}/send', [WhatsAppInboxController::class, 'send'])
-        ->middleware('throttle:20,1')
-        ->name('admin.whatsapp.send');
     Route::get('/admin/store-settings', [StoreController::class, 'settings']);
     Route::post('/admin/store-settings', [StoreController::class, 'updateSettings']);
     Route::get('/admin/onboarding', [StoreOnboardingController::class, 'edit'])->name('admin.store.onboarding');
@@ -131,6 +127,11 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::put('/admin/testimonials/{testimonial}', [LandingTestimonialController::class, 'update'])->name('admin.testimonials.update');
     Route::patch('/admin/testimonials/{testimonial}/toggle', [LandingTestimonialController::class, 'toggle'])->name('admin.testimonials.toggle');
     Route::delete('/admin/testimonials/{testimonial}', [LandingTestimonialController::class, 'destroy'])->name('admin.testimonials.destroy');
+
+    Route::get('/admin/whatsapp', [WhatsAppInboxController::class, 'index'])->name('admin.whatsapp.index');
+    Route::post('/admin/whatsapp/{conversation}/send', [WhatsAppInboxController::class, 'send'])
+        ->middleware('throttle:20,1')
+        ->name('admin.whatsapp.send');
 
     Route::get('/admin/stores', [StoreController::class, 'index']);
     Route::get('/admin/stores/create-with-user', [StoreController::class, 'createWithUser'])->name('admin.stores.create-with-user');
