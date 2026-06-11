@@ -236,7 +236,8 @@
     color: var(--muted);
     font-size: 15px;
     line-height: 1.8;
-    white-space: pre-wrap;
+    text-align: left;
+    white-space: pre-line;
     overflow-wrap: anywhere;
 }
 
@@ -254,6 +255,7 @@
     color: var(--muted);
     font-size: 15px;
     line-height: 1.8;
+    text-align: left;
 }
 
 .product-rich-content p,
@@ -665,11 +667,8 @@
     margin-bottom: 0;
     font-size: 14px;
     line-height: 1.55;
-    white-space: pre-wrap;
-}
-
-.product-detail-panel .product-detail-description > p {
-    display: inline;
+    text-align: left;
+    white-space: pre-line;
 }
 
 .product-detail-more {
