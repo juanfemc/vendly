@@ -22,6 +22,7 @@ use App\Http\Controllers\PaymentSettingsController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StoreCategoryController;
 use App\Http\Controllers\WhatsAppWebhookController;
+use App\Http\Controllers\WhatsAppInboxController;
 use App\Services\StoreSubdomainService;
 
 /*
@@ -84,6 +85,10 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/admin/orders', [OrderController::class, 'index']);
     Route::patch('/admin/orders/{order}/status', [OrderController::class, 'updateStatus'])->name('admin.orders.status');
     Route::delete('/admin/orders/{order}', [OrderController::class, 'destroy'])->name('admin.orders.destroy');
+    Route::get('/admin/whatsapp', [WhatsAppInboxController::class, 'index'])->name('admin.whatsapp.index');
+    Route::post('/admin/whatsapp/{conversation}/send', [WhatsAppInboxController::class, 'send'])
+        ->middleware('throttle:20,1')
+        ->name('admin.whatsapp.send');
     Route::get('/admin/store-settings', [StoreController::class, 'settings']);
     Route::post('/admin/store-settings', [StoreController::class, 'updateSettings']);
     Route::get('/admin/onboarding', [StoreOnboardingController::class, 'edit'])->name('admin.store.onboarding');

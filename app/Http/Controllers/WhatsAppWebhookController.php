@@ -3,13 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Services\WhatsAppStatusService;
+use App\Services\WhatsAppInboxService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 
 class WhatsAppWebhookController extends Controller
 {
-    public function __construct(private WhatsAppStatusService $statuses)
+    public function __construct(
+        private WhatsAppStatusService $statuses,
+        private WhatsAppInboxService $inbox,
+    )
     {
     }
 
@@ -47,7 +51,10 @@ class WhatsAppWebhookController extends Controller
             'entries' => count($request->input('entry', [])),
         ]);
 
-        $this->updateMessageStatuses($request->input('entry', []));
+        $entries = $request->input('entry', []);
+
+        $this->updateMessageStatuses($entries);
+        $this->inbox->recordIncomingEntries($entries);
 
         return response('EVENT_RECEIVED', 200);
     }

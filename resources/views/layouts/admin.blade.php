@@ -1203,6 +1203,8 @@
                     </div>
                 </details>
 
+                <a href="{{ route('admin.whatsapp.index') }}">WhatsApp</a>
+
                 <details class="sidebar-menu-group" {{ request()->is('admin/categories*') || request()->is('admin/stores*/categories') ? 'open' : '' }}>
                     <summary>Categorias</summary>
                     <div class="sidebar-submenu">
@@ -1250,6 +1252,8 @@
                         <a href="/admin/orders">Ver pedidos</a>
                     </div>
                 </details>
+
+                <a href="{{ route('admin.whatsapp.index') }}">WhatsApp</a>
             @endif
 
             <a href="/profile">Perfil</a>

@@ -21,6 +21,55 @@ class WhatsAppCloudApiService
         return $this->sendTemplatePayload($phone, $template, $this->bodyComponents($parameters));
     }
 
+    public function sendText(string $phone, string $body): Response
+    {
+        if (! $this->isConfigured()) {
+            throw new RuntimeException('WhatsApp Cloud API no esta configurado.');
+        }
+
+        $phone = $this->normalizePhone($phone);
+        $body = trim($body);
+
+        if (! preg_match('/^\d{8,15}$/', $phone)) {
+            throw new RuntimeException('El numero de WhatsApp no es valido.');
+        }
+
+        if ($body === '' || mb_strlen($body) > 4096) {
+            throw new RuntimeException('El mensaje debe tener entre 1 y 4096 caracteres.');
+        }
+
+        $response = Http::withToken((string) config('services.whatsapp.access_token'))
+            ->acceptJson()
+            ->asJson()
+            ->timeout(20)
+            ->post($this->messagesUrl(), [
+                'messaging_product' => 'whatsapp',
+                'recipient_type' => 'individual',
+                'to' => $phone,
+                'type' => 'text',
+                'text' => [
+                    'preview_url' => false,
+                    'body' => $body,
+                ],
+            ]);
+
+        if ($response->failed()) {
+            $message = (string) ($response->json('error.message') ?: 'Meta rechazo el mensaje de WhatsApp.');
+
+            if ($response->status() === 429 || $response->serverError()) {
+                throw new WhatsAppRetryableException($message);
+            }
+
+            throw new RuntimeException($message);
+        }
+
+        if (! is_string($response->json('messages.0.id')) || trim((string) $response->json('messages.0.id')) === '') {
+            throw new WhatsAppDeliveryUnknownException('Meta respondio sin identificador del mensaje.');
+        }
+
+        return $response;
+    }
+
     public function sendAuthenticationCodeTemplate(string $phone, string $template, string $code): Response
     {
         $code = trim($code);

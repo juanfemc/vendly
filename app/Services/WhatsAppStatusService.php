@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\WhatsAppMessage;
+use App\Models\WhatsAppChatMessage;
 use App\Models\WhatsAppStatusEvent;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +25,16 @@ class WhatsAppStatusService
 
                 if ($message) {
                     $this->apply($message, $status, $error);
+
+                    return;
+                }
+
+                $chatMessage = WhatsAppChatMessage::where('provider_message_id', $providerMessageId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($chatMessage) {
+                    $this->applyChatStatus($chatMessage, $status, $error);
 
                     return;
                 }
@@ -57,6 +68,12 @@ class WhatsAppStatusService
         if ($message) {
             $this->reconcile($message);
         }
+
+        $chatMessage = WhatsAppChatMessage::where('provider_message_id', $providerMessageId)->first();
+
+        if ($chatMessage) {
+            $this->reconcileChat($chatMessage);
+        }
     }
 
     public function reconcile(WhatsAppMessage $message): void
@@ -76,6 +93,27 @@ class WhatsAppStatusService
             }
 
             $this->apply($lockedMessage, $event->status, $event->error);
+            $event->delete();
+        }, 3);
+    }
+
+    public function reconcileChat(WhatsAppChatMessage $message): void
+    {
+        if (! $message->provider_message_id) {
+            return;
+        }
+
+        DB::transaction(function () use ($message) {
+            $lockedMessage = WhatsAppChatMessage::whereKey($message->id)->lockForUpdate()->first();
+            $event = WhatsAppStatusEvent::where('provider_message_id', $message->provider_message_id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $lockedMessage || ! $event) {
+                return;
+            }
+
+            $this->applyChatStatus($lockedMessage, $event->status, $event->error);
             $event->delete();
         }, 3);
     }
@@ -100,6 +138,26 @@ class WhatsAppStatusService
     }
 
     private function apply(WhatsAppMessage $message, string $status, ?string $error): void
+    {
+        if (! $this->canAdvance($message->status, $status)) {
+            return;
+        }
+
+        $updates = ['status' => $status];
+
+        if ($status === WhatsAppMessage::STATUS_DELIVERED) {
+            $updates['delivered_at'] = now();
+        } elseif ($status === WhatsAppMessage::STATUS_READ) {
+            $updates['read_at'] = now();
+        } elseif ($status === WhatsAppMessage::STATUS_FAILED) {
+            $updates['failed_at'] = now();
+            $updates['error'] = Str::limit($error ?: 'Meta reporto el envio como fallido.', 500);
+        }
+
+        $message->update($updates);
+    }
+
+    private function applyChatStatus(WhatsAppChatMessage $message, string $status, ?string $error): void
     {
         if (! $this->canAdvance($message->status, $status)) {
             return;
