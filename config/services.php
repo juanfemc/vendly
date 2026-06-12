@@ -69,7 +69,7 @@ return [
     ],
 
     'meta' => [
-        'landing_pixel_id' => env('LANDING_META_PIXEL_ID'),
+        'landing_pixel_id' => env('LANDING_META_PIXEL_ID', '2170146153556872'),
     ],
 
     'turnstile' => [
