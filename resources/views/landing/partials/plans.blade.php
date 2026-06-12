@@ -33,7 +33,7 @@
                         <p class="plan-pending">Funciones por definir.</p>
                     @endif
 
-                    <a href="{{ route('trial-signup.create') }}" class="btn {{ ($plan['name'] ?? '') === 'Pro' ? 'btn--primary' : 'btn--dark' }}">
+                    <a href="{{ route('trial-signup.create') }}" class="btn {{ ($plan['name'] ?? '') === 'Pro' ? 'btn--primary' : 'btn--dark' }}" data-meta-event="Lead">
                         {{ $plan['button'] }}
                     </a>
                 </article>

@@ -9,7 +9,7 @@
             <p>Crea tu tienda en minutos, comparte tu catalogo y recibe pedidos por WhatsApp. Mas ventas. Menos complicaciones.</p>
 
             <div class="action-row">
-                <a href="{{ route('trial-signup.create') }}" class="btn btn--primary">Crear mi tienda gratis</a>
+                <a href="{{ route('trial-signup.create') }}" class="btn btn--primary" data-meta-event="Lead">Crear mi tienda gratis</a>
                 <span class="sr-only">Quiero mi tienda</span>
                 <a href="{{ $hasPortfolio ? '#portafolio' : '#funciones' }}" class="btn btn--ghost">Ver tiendas reales</a>
             </div>

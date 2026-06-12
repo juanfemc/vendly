@@ -7,6 +7,6 @@
             <h2>Tú negocio merece verse profesional.</h2>
             <p>Crea tu tienda gratis y empieza a vender por WhatsApp hoy mismo.</p>
         </div>
-        <a href="{{ route('trial-signup.create') }}" class="btn btn--primary final-card-action">Crear mi tienda gratis</a>
+        <a href="{{ route('trial-signup.create') }}" class="btn btn--primary final-card-action" data-meta-event="Lead">Crear mi tienda gratis</a>
     </div>
 </section>

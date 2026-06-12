@@ -38,8 +38,32 @@
 
                 if (eventName) {
                     fbq('track', eventName);
+
+                    if (
+                        target.tagName === 'A'
+                        && target.href
+                        && target.getAttribute('href').charAt(0) !== '#'
+                        && !event.defaultPrevented
+                        && !event.metaKey
+                        && !event.ctrlKey
+                        && !event.shiftKey
+                        && !event.altKey
+                        && target.dataset.metaNavigate !== 'instant'
+                    ) {
+                        event.preventDefault();
+
+                        setTimeout(function () {
+                            if (target.target === '_blank') {
+                                window.open(target.href, '_blank', 'noopener');
+
+                                return;
+                            }
+
+                            window.location.href = target.href;
+                        }, 350);
+                    }
                 }
-            });
+            }, true);
         });
     </script>
 @endif

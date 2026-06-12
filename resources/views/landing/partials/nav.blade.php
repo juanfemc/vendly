@@ -21,7 +21,7 @@
 
         <div class="landing-nav-actions">
             <a href="{{ route('login') }}" class="login-link">Iniciar sesion</a>
-            <a href="{{ route('trial-signup.create') }}" class="btn btn--primary btn--sm">Crear mi tienda gratis</a>
+            <a href="{{ route('trial-signup.create') }}" class="btn btn--primary btn--sm" data-meta-event="Lead">Crear mi tienda gratis</a>
         </div>
     </div>
 </header>
@@ -71,7 +71,7 @@
             <span class="drawer-icon" aria-hidden="true">♙</span>
             <strong>Iniciar sesión</strong>
         </a>
-        <a href="{{ route('trial-signup.create') }}" class="mobile-drawer-cta" data-menu-close>
+        <a href="{{ route('trial-signup.create') }}" class="mobile-drawer-cta" data-menu-close data-meta-event="Lead">
             <span class="drawer-icon" aria-hidden="true">□</span>
             <strong>Crear mi tienda gratis</strong>
         </a>
