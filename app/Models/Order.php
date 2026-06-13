@@ -12,6 +12,7 @@ class Order extends Model
 
     public const PAYMENT_METHOD_WHATSAPP = 'whatsapp';
     public const PAYMENT_METHOD_MERCADOPAGO = 'mercadopago';
+    public const PAYMENT_METHOD_WOMPI = 'wompi';
 
     public const PAYMENT_STATUS_NOT_REQUIRED = 'not_required';
     public const PAYMENT_STATUS_PENDING = 'pending';
@@ -29,6 +30,7 @@ class Order extends Model
     public const PAYMENT_METHOD_LABELS = [
         self::PAYMENT_METHOD_WHATSAPP => 'WhatsApp',
         self::PAYMENT_METHOD_MERCADOPAGO => 'Mercado Pago',
+        self::PAYMENT_METHOD_WOMPI => 'Wompi',
     ];
 
     public const PAYMENT_STATUS_LABELS = [

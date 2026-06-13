@@ -104,5 +104,91 @@
             @endif
         </div>
     </article>
+
+    <article class="list-card resource-card">
+        <div class="resource-card__main">
+            <div class="resource-card__header">
+                <div>
+                    <h3 class="resource-card__title">Wompi</h3>
+                    <p class="resource-card__subtitle">Configura tu propia cuenta Wompi para recibir pagos directamente.</p>
+                </div>
+                <div class="resource-badges">
+                    @if($wompiAccount?->isWompiReady())
+                        <span class="resource-badge resource-badge--active">Activo</span>
+                    @else
+                        <span class="resource-badge">No activo</span>
+                    @endif
+                </div>
+            </div>
+
+            <div class="resource-metrics">
+                <div class="resource-metric">
+                    <span class="resource-metric__label">Modo</span>
+                    <span class="resource-metric__value">{{ ($wompiAccount?->mode ?? 'sandbox') === 'production' ? 'Produccion' : 'Pruebas' }}</span>
+                </div>
+                <div class="resource-metric">
+                    <span class="resource-metric__label">Conexion</span>
+                    <span class="resource-metric__value">{{ $wompiAccount?->connected_at ? $wompiAccount->connected_at->format('d/m/Y') : 'Sin fecha' }}</span>
+                </div>
+                <div class="resource-metric">
+                    <span class="resource-metric__label">Seguridad</span>
+                    <span class="resource-metric__value">Credenciales encriptadas</span>
+                </div>
+            </div>
+
+            <p class="resource-card__description">
+                Pega las llaves de tu comercio Wompi. Vendly solo las usara para generar pagos y confirmar eventos de esta tienda.
+            </p>
+
+            <form method="POST" action="{{ route('admin.payments.wompi.update') }}" class="settings-form">
+                @csrf
+
+                <label class="settings-toggle">
+                    <input type="checkbox" name="enabled" value="1" @checked($wompiAccount?->isWompiReady())>
+                    <span>Activar Wompi en el checkout</span>
+                </label>
+
+                <div class="settings-grid">
+                    <label class="field-wrap">
+                        <span class="field-label">Modo</span>
+                        <select class="input" name="mode">
+                            <option value="sandbox" @selected(($wompiAccount?->mode ?? 'sandbox') === 'sandbox')>Pruebas</option>
+                            <option value="production" @selected(($wompiAccount?->mode ?? 'sandbox') === 'production')>Produccion</option>
+                        </select>
+                    </label>
+
+                    <label class="field-wrap">
+                        <span class="field-label">Llave publica</span>
+                        <input class="input" type="text" name="public_key" value="{{ old('public_key', $wompiAccount?->public_key) }}" placeholder="pub_test_...">
+                    </label>
+
+                    <label class="field-wrap">
+                        <span class="field-label">Llave privada</span>
+                        <input class="input" type="password" name="private_key" value="" placeholder="{{ $wompiAccount?->private_key ? 'Guardada. Escribe una nueva para cambiarla.' : 'prv_test_...' }}">
+                    </label>
+
+                    <label class="field-wrap">
+                        <span class="field-label">Secreto de eventos</span>
+                        <input class="input" type="password" name="events_secret" value="" placeholder="{{ $wompiAccount?->events_secret ? 'Guardado. Escribe uno nuevo para cambiarlo.' : 'Secreto de eventos' }}">
+                    </label>
+
+                    <label class="field-wrap">
+                        <span class="field-label">Secreto de integridad</span>
+                        <input class="input" type="password" name="integrity_secret" value="" placeholder="{{ $wompiAccount?->integrity_secret ? 'Guardado. Escribe uno nuevo para cambiarlo.' : 'Secreto de integridad' }}">
+                    </label>
+                </div>
+
+                @if ($errors->any())
+                    <div class="flash error">
+                        {{ $errors->first() }}
+                    </div>
+                @endif
+
+                <div class="resource-actions">
+                    <button type="submit" class="btn">Guardar Wompi</button>
+                </div>
+            </form>
+        </div>
+    </article>
 </div>
 @endsection

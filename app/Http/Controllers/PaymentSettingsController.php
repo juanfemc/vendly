@@ -9,6 +9,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 
 class PaymentSettingsController extends Controller
@@ -22,8 +23,76 @@ class PaymentSettingsController extends Controller
         abort_unless($store->allowsOnlinePayments(), 403);
 
         $mercadoPagoAccount = $store->mercadoPagoAccount()->first();
+        $wompiAccount = $store->wompiAccount()->first();
 
-        return view('admin.payments.index', compact('store', 'mercadoPagoAccount'));
+        return view('admin.payments.index', compact('store', 'mercadoPagoAccount', 'wompiAccount'));
+    }
+
+    public function updateWompi(Request $request): RedirectResponse
+    {
+        $store = $this->currentStoreOrFail();
+
+        abort_unless($store->allowsOnlinePayments(), 403);
+
+        $current = $store->wompiAccount()->first();
+
+        $validator = Validator::make($request->all(), [
+            'enabled' => ['nullable', 'boolean'],
+            'mode' => ['required', 'in:' . StorePaymentAccount::MODE_SANDBOX . ',' . StorePaymentAccount::MODE_PRODUCTION],
+            'public_key' => ['nullable', 'string', 'max:1000'],
+            'private_key' => ['nullable', 'string', 'max:1000'],
+            'events_secret' => ['nullable', 'string', 'max:1000'],
+            'integrity_secret' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        if ($validator->fails()) {
+            return back()
+                ->withErrors($validator)
+                ->withInput($request->except(['private_key', 'events_secret', 'integrity_secret']));
+        }
+
+        $validated = $validator->validated();
+
+        foreach (['public_key', 'private_key', 'events_secret', 'integrity_secret'] as $field) {
+            if (isset($validated[$field]) && is_string($validated[$field])) {
+                $validated[$field] = trim($validated[$field]);
+            }
+        }
+
+        $enabled = $request->boolean('enabled');
+
+        if ($enabled) {
+            foreach (['public_key', 'private_key', 'events_secret', 'integrity_secret'] as $field) {
+                if (blank($validated[$field] ?? null) && blank($current?->{$field})) {
+                    return back()
+                        ->withErrors([$field => 'Completa todas las credenciales de Wompi para activarlo.'])
+                        ->withInput($request->except(['private_key', 'events_secret', 'integrity_secret']));
+                }
+            }
+        }
+
+        $now = now();
+
+        StorePaymentAccount::updateOrCreate(
+            [
+                'store_id' => $store->id,
+                'provider' => StorePaymentAccount::PROVIDER_WOMPI,
+            ],
+            [
+                'public_key' => filled($validated['public_key'] ?? null) ? $validated['public_key'] : $current?->public_key,
+                'private_key' => filled($validated['private_key'] ?? null) ? $validated['private_key'] : $current?->private_key,
+                'events_secret' => filled($validated['events_secret'] ?? null) ? $validated['events_secret'] : $current?->events_secret,
+                'integrity_secret' => filled($validated['integrity_secret'] ?? null) ? $validated['integrity_secret'] : $current?->integrity_secret,
+                'mode' => $validated['mode'],
+                'connected_at' => $enabled ? ($current?->connected_at ?? $now) : $current?->connected_at,
+                'disconnected_at' => $enabled ? null : $now,
+                'status' => $enabled ? StorePaymentAccount::STATUS_CONNECTED : StorePaymentAccount::STATUS_DISCONNECTED,
+            ]
+        );
+
+        return redirect()
+            ->route('admin.payments.index')
+            ->with('success', $enabled ? 'Wompi configurado correctamente.' : 'Wompi fue desactivado.');
     }
 
     public function connectMercadoPago(MercadoPagoOAuthService $mercadoPago): RedirectResponse

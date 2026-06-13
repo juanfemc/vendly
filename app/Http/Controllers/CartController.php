@@ -14,6 +14,7 @@ use App\Services\CheckoutService;
 use App\Services\MercadoPagoCheckoutService;
 use App\Services\MercadoPagoOAuthService;
 use App\Services\StorefrontUrlService;
+use App\Services\WompiCheckoutService;
 use App\Services\WhatsAppOrderMessageBuilder;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -30,6 +31,7 @@ class CartController extends Controller
         private AdminUpdateService $adminUpdateService,
         private MercadoPagoCheckoutService $mercadoPagoCheckoutService,
         private MercadoPagoOAuthService $mercadoPagoOAuthService,
+        private WompiCheckoutService $wompiCheckoutService,
         private StorefrontUrlService $storefrontUrls,
     ) {
     }
@@ -95,8 +97,11 @@ class CartController extends Controller
         $mercadoPagoAccount = $store?->mercadoPagoAccount()->first();
         $mercadoPagoAvailable = ($store?->allowsOnlinePayments() ?? false)
             && ($mercadoPagoAccount?->isConnected() ?? false);
+        $wompiAccount = $store?->wompiAccount()->first();
+        $wompiAvailable = ($store?->allowsOnlinePayments() ?? false)
+            && ($wompiAccount?->isWompiReady() ?? false);
 
-        return view('cart_checkout', compact('cart', 'store', 'total', 'shippingMethods', 'localDelivery', 'colombiaDepartments', 'colombiaLocations', 'mercadoPagoAvailable'));
+        return view('cart_checkout', compact('cart', 'store', 'total', 'shippingMethods', 'localDelivery', 'colombiaDepartments', 'colombiaLocations', 'mercadoPagoAvailable', 'wompiAvailable'));
     }
 
     public function updateItem(Request $request, $id)
@@ -249,6 +254,70 @@ class CartController extends Controller
         return view('payment_return', compact('order', 'store', 'storeUrl', 'result', 'paymentConfirmationPending'));
     }
 
+    public function wompiFromCart(CheckoutRequest $request)
+    {
+        $checkout = $this->checkoutContext($request);
+
+        if ($checkout instanceof RedirectResponse) {
+            return $checkout;
+        }
+
+        ['validated' => $validated, 'store' => $store, 'cart' => $cart] = $checkout;
+
+        if (! $store->allowsOnlinePayments()) {
+            return redirect()->route('cart.index', ['store' => $store->slug])->with('error', 'Los pagos en linea estan disponibles solo en el plan Premium.');
+        }
+
+        $wompiAccount = $store->wompiAccount()->first();
+
+        if (! ($wompiAccount?->isWompiReady() ?? false)) {
+            return redirect()->route('cart.index', ['store' => $store->slug])->with('error', 'Esta tienda todavia no tiene Wompi activo.');
+        }
+
+        $paymentData = [
+            'payment_method' => Order::PAYMENT_METHOD_WOMPI,
+            'payment_provider' => StorePaymentAccount::PROVIDER_WOMPI,
+            'payment_status' => Order::PAYMENT_STATUS_PENDING,
+        ];
+
+        if (Order::supportsPaymentExpirationColumn()) {
+            $paymentData['payment_expires_at'] = now()->addMinutes(max(1, (int) config('services.wompi.payment_expiration_minutes', 60)));
+        }
+
+        $order = $this->checkoutService->createOrder($store, $cart, $validated, $paymentData);
+        $checkoutUrl = $this->wompiCheckoutService->checkoutUrl($wompiAccount, $order);
+
+        $order->update([
+            'payment_provider_reference' => $order->admin_token,
+            'payment_preference_id' => $order->admin_token,
+        ]);
+
+        $this->cartService->forgetCartForStore($store);
+
+        return redirect()->away($checkoutUrl);
+    }
+
+    public function wompiReturn(Order $order, string $result)
+    {
+        $paymentConfirmationPending = false;
+
+        $transactionId = request('id') ?: request('transaction_id');
+
+        if (is_string($transactionId) && $transactionId !== '') {
+            try {
+                $this->syncWompiTransaction($order, $transactionId);
+            } catch (ConnectionException|RequestException) {
+                $paymentConfirmationPending = true;
+            }
+        }
+
+        $order->refresh()->loadMissing('store');
+        $store = $order->store;
+        $storeUrl = $store ? $this->storefrontUrls->home($store, request()) : url('/');
+
+        return view('payment_return', compact('order', 'store', 'storeUrl', 'result', 'paymentConfirmationPending'));
+    }
+
     public function mercadoPagoWebhook(Request $request): Response
     {
         if (! $this->hasValidMercadoPagoSignature($request)) {
@@ -274,6 +343,49 @@ class CartController extends Controller
             $this->adminUpdateService->record(
                 'Pedido pagado',
                 'Pedido #' . $order->id . ' fue aprobado por Mercado Pago',
+                'pedido',
+                '/admin/orders'
+            );
+        }
+
+        return response('OK', 200);
+    }
+
+    public function wompiWebhook(Request $request): Response
+    {
+        $transaction = $request->input('data.transaction');
+
+        if (! is_array($transaction)) {
+            return response('Ignored', 200);
+        }
+
+        $reference = (string) ($transaction['reference'] ?? '');
+
+        if ($reference === '') {
+            return response('Ignored', 200);
+        }
+
+        $order = Order::where('admin_token', $reference)
+            ->where('payment_method', Order::PAYMENT_METHOD_WOMPI)
+            ->first();
+
+        if (! $order) {
+            return response('Order not found', 404);
+        }
+
+        $account = $order->store?->wompiAccount()->first();
+
+        if (! ($account?->isWompiReady() ?? false) || ! $this->wompiCheckoutService->hasValidEventSignature($account, $request)) {
+            return response('Invalid signature', 401);
+        }
+
+        $approvedNow = $this->wompiCheckoutService->applyTransactionToOrder($order, $transaction);
+        $this->checkoutService->releaseStockForUnpaidOnlinePaymentOrder($order->refresh());
+
+        if ($approvedNow) {
+            $this->adminUpdateService->record(
+                'Pedido pagado',
+                'Pedido #' . $order->id . ' fue aprobado por Wompi',
                 'pedido',
                 '/admin/orders'
             );
@@ -363,13 +475,29 @@ class CartController extends Controller
         return $this->applyMercadoPagoPayment($order, $payment, $wasApproved);
     }
 
+    private function syncWompiTransaction(Order $order, string $transactionId): bool
+    {
+        $order->loadMissing('store');
+        $account = $order->store?->wompiAccount()->first();
+
+        if (! ($account?->isWompiReady() ?? false)) {
+            return false;
+        }
+
+        $transaction = $this->wompiCheckoutService->getTransaction($account, $transactionId);
+        $approvedNow = $this->wompiCheckoutService->applyTransactionToOrder($order, $transaction);
+        $this->checkoutService->releaseStockForUnpaidOnlinePaymentOrder($order->refresh());
+
+        return $approvedNow;
+    }
+
     private function applyMercadoPagoPayment(Order $order, array $payment, ?bool $wasApproved = null): bool
     {
         $wasApproved ??= $order->payment_status === Order::PAYMENT_STATUS_APPROVED;
         $approvedNow = $this->mercadoPagoCheckoutService->applyPaymentToOrder($order, $payment);
 
         if (! $wasApproved) {
-            $this->checkoutService->releaseStockForUnpaidMercadoPagoOrder($order->refresh());
+            $this->checkoutService->releaseStockForUnpaidOnlinePaymentOrder($order->refresh());
         }
 
         return $approvedNow;

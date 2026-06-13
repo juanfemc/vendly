@@ -237,7 +237,7 @@
     font-size: 15px;
     line-height: 1.8;
     text-align: left;
-    white-space: pre-line;
+    white-space: normal;
     overflow-wrap: anywhere;
 }
 
@@ -668,7 +668,7 @@
     font-size: 14px;
     line-height: 1.55;
     text-align: left;
-    white-space: pre-line;
+    white-space: normal;
 }
 
 .product-detail-more {

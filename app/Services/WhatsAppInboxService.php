@@ -11,6 +11,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -86,6 +87,107 @@ class WhatsAppInboxService
         }
 
         return $message;
+    }
+
+    public function syncRecentTemplateMessages(?array $storeIds = null, int $limit = 150): void
+    {
+        if (! $this->canSyncTemplateMessages()) {
+            return;
+        }
+
+        WhatsAppMessage::query()
+            ->with(['store:id,user_id,name,whatsapp', 'user:id,name'])
+            ->when($storeIds !== null, fn ($query) => $query->whereIn('store_id', $storeIds))
+            ->whereNotNull('recipient')
+            ->latest()
+            ->limit($limit)
+            ->get()
+            ->each(fn (WhatsAppMessage $message) => $this->syncTemplateMessage($message));
+    }
+
+    public function syncTemplateMessage(WhatsAppMessage $message): ?WhatsAppChatMessage
+    {
+        if (! $this->canSyncTemplateMessages()) {
+            return null;
+        }
+
+        $phone = $this->whatsApp->normalizePhone((string) $message->recipient);
+
+        if ($phone === '') {
+            return null;
+        }
+
+        $message->loadMissing(['store:id,user_id,name,whatsapp', 'user:id,name']);
+        $store = $message->store;
+        $occurredAt = $message->sent_at
+            ?? $message->failed_at
+            ?? $message->last_attempt_at
+            ?? $message->created_at
+            ?? now();
+
+        return DB::transaction(function () use ($message, $phone, $store, $occurredAt) {
+            $conversation = WhatsAppConversation::firstOrCreate(
+                ['conversation_key' => $this->conversationKey($store?->id, $phone)],
+                [
+                    'store_id' => $store?->id,
+                    'user_id' => $message->user_id ?: $store?->user_id,
+                    'contact_phone_hash' => hash('sha256', $phone),
+                    'contact_phone' => $phone,
+                    'contact_name' => $message->user?->name,
+                    'status' => 'open',
+                    'last_message_at' => $occurredAt,
+                ],
+            );
+
+            $chatMessage = WhatsAppChatMessage::query()
+                ->where(function ($query) use ($message) {
+                    $query->where('whatsapp_message_id', $message->id);
+
+                    if (filled($message->provider_message_id)) {
+                        $query->orWhere('provider_message_id', $message->provider_message_id);
+                    }
+                })
+                ->lockForUpdate()
+                ->first();
+
+            $chatMessage ??= new WhatsAppChatMessage([
+                'whatsapp_message_id' => $message->id,
+            ]);
+
+            $chatMessage->fill([
+                'conversation_id' => $conversation->id,
+                'store_id' => $store?->id,
+                'sent_by_user_id' => null,
+                'whatsapp_message_id' => $message->id,
+                'direction' => WhatsAppChatMessage::DIRECTION_OUTGOING,
+                'message_type' => 'template',
+                'body' => $this->templateMessageBody($message),
+                'provider_message_id' => $message->provider_message_id,
+                'status' => $message->status,
+                'error' => $message->error,
+                'payload' => [
+                    'audience' => $message->audience,
+                    'template' => $message->template,
+                    'parameters' => $message->parameters ?: [],
+                ],
+                'sent_at' => $message->sent_at,
+                'delivered_at' => $message->delivered_at,
+                'read_at' => $message->read_at,
+                'failed_at' => $message->failed_at,
+            ]);
+
+            if (! $chatMessage->exists) {
+                $chatMessage->created_at = $occurredAt;
+            }
+
+            $chatMessage->save();
+
+            if (! $conversation->last_message_at || $conversation->last_message_at->lt($occurredAt)) {
+                $conversation->update(['last_message_at' => $occurredAt]);
+            }
+
+            return $chatMessage;
+        }, 3);
     }
 
     public function markConversationRead(WhatsAppConversation $conversation): void
@@ -168,6 +270,32 @@ class WhatsAppInboxService
     private function conversationKey(?int $storeId, string $phone): string
     {
         return hash('sha256', ($storeId ?: 'unassigned').'|'.$phone);
+    }
+
+    private function canSyncTemplateMessages(): bool
+    {
+        return Schema::hasColumn('whatsapp_chat_messages', 'whatsapp_message_id');
+    }
+
+    private function templateMessageBody(WhatsAppMessage $message): string
+    {
+        $parameters = collect($message->parameters ?: [])
+            ->filter(fn ($value) => filled($value))
+            ->map(fn ($value) => is_scalar($value) ? (string) $value : json_encode($value))
+            ->take(6)
+            ->implode(' / ');
+
+        $body = 'Plantilla enviada: '.$message->template;
+
+        if ($parameters !== '') {
+            $body .= "\n".$parameters;
+        }
+
+        if ($message->status === WhatsAppMessage::STATUS_FAILED && $message->error) {
+            $body .= "\nError: ".$message->error;
+        }
+
+        return $body;
     }
 
     private function isUniqueConstraintViolation(QueryException $exception): bool

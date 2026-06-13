@@ -73,12 +73,12 @@ Artisan::command('users:make-admin {email : Email del usuario admin} {--name= : 
 })->purpose('Crea o asciende un usuario admin sin sembrarlo automaticamente');
 
 Artisan::command('payments:expire-pending', function () {
-    $expired = app(CheckoutService::class)->expirePendingMercadoPagoOrders();
+    $expired = app(CheckoutService::class)->expirePendingOnlinePaymentOrders();
 
-    $this->info("Pedidos Mercado Pago vencidos: {$expired}");
+    $this->info("Pedidos de pago en linea vencidos: {$expired}");
 
     return self::SUCCESS;
-})->purpose('Cancela pedidos pendientes de Mercado Pago vencidos y libera stock');
+})->purpose('Cancela pedidos pendientes de pago en linea vencidos y libera stock');
 
 Artisan::command('stores:expire-subscriptions', function () {
     $expired = Store::expirePastSubscriptions();

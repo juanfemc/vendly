@@ -7,6 +7,7 @@ use App\Models\WhatsAppChatMessage;
 use App\Models\WhatsAppStatusEvent;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class WhatsAppStatusService
@@ -25,6 +26,7 @@ class WhatsAppStatusService
 
                 if ($message) {
                     $this->apply($message, $status, $error);
+                    $this->applyRelatedChatStatus($message, $providerMessageId, $status, $error);
 
                     return;
                 }
@@ -175,6 +177,39 @@ class WhatsAppStatusService
         }
 
         $message->update($updates);
+    }
+
+    private function applyRelatedChatStatus(
+        WhatsAppMessage $message,
+        string $providerMessageId,
+        string $status,
+        ?string $error,
+    ): void {
+        if (! Schema::hasColumn('whatsapp_chat_messages', 'whatsapp_message_id')) {
+            return;
+        }
+
+        $chatMessage = WhatsAppChatMessage::query()
+            ->where(function ($query) use ($message, $providerMessageId) {
+                $query->where('whatsapp_message_id', $message->id);
+
+                if ($providerMessageId !== '') {
+                    $query->orWhere('provider_message_id', $providerMessageId);
+                }
+            })
+            ->lockForUpdate()
+            ->first();
+
+        if (! $chatMessage) {
+            return;
+        }
+
+        if (! $chatMessage->provider_message_id && $message->provider_message_id) {
+            $chatMessage->provider_message_id = $message->provider_message_id;
+            $chatMessage->save();
+        }
+
+        $this->applyChatStatus($chatMessage, $status, $error);
     }
 
     private function isSupported(string $status): bool

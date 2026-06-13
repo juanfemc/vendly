@@ -245,9 +245,11 @@
 
                             <button class="primary-btn" type="submit">{{ $isRestaurant ? 'Enviar pedido por WhatsApp' : ($isReservationStore ? 'Solicitar reserva por WhatsApp' : 'Finalizar pedido por WhatsApp') }}</button>
 
-                            @if($mercadoPagoAvailable)
+                            @if($mercadoPagoAvailable || ($wompiAvailable ?? false))
                                 <div class="payment-divider"><span>o paga en linea</span></div>
+                            @endif
 
+                            @if($mercadoPagoAvailable)
                                 <button
                                     class="mercadopago-btn"
                                     type="submit"
@@ -255,6 +257,17 @@
                                 >
                                     <span class="mercadopago-mark">MP</span>
                                     <span>Pagar con Mercado Pago</span>
+                                </button>
+                            @endif
+
+                            @if($wompiAvailable ?? false)
+                                <button
+                                    class="wompi-btn"
+                                    type="submit"
+                                    formaction="{{ route('cart.wompi', ['store' => $store?->slug]) }}"
+                                >
+                                    <span class="wompi-mark">W</span>
+                                    <span>Pagar con Wompi</span>
                                 </button>
                             @endif
                         </section>

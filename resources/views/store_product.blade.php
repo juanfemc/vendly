@@ -90,12 +90,13 @@
                 ltrim(\Illuminate\Support\Str::substr($text, $cutAt)),
             ];
         };
+        $compactProductText = fn (string $text): string => trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
         $productDescriptionFallback = $isRestaurant ? 'Este plato aun no tiene una descripcion amplia, pero ya esta disponible para pedir por WhatsApp.' : ($isReservationStore ? 'Este servicio aun no tiene una descripcion amplia configurada, pero ya esta listo para reservarse.' : 'Este producto aun no tiene una descripcion amplia configurada, pero ya esta listo para venderse.');
-        $productDescriptionText = \App\Support\ProductText::plain($product->description) ?: $productDescriptionFallback;
+        $productDescriptionText = $compactProductText(\App\Support\ProductText::plain($product->description) ?: $productDescriptionFallback);
         [$productDescriptionPreview, $productDescriptionMore] = $makeProductPreview($productDescriptionText);
         $hasLongProductDescription = $productDescriptionMore !== '';
         $productDescriptionExpandedPreview = preg_replace('/\.\.\.$/u', '', $productDescriptionPreview);
-        $productFeaturesText = \App\Support\ProductText::featureLines($product->features);
+        $productFeaturesText = $compactProductText(\App\Support\ProductText::featureLines($product->features));
         $productFeaturesRich = \App\Support\ProductText::rich($product->features);
         $hasProductFeatures = $productFeaturesText !== '' || \App\Support\ProductText::plain($productFeaturesRich) !== '';
         [$productFeaturesPreview, $productFeaturesMore] = $makeProductPreview($productFeaturesText);
@@ -229,9 +230,9 @@
                         <h2>{{ $isRestaurant ? 'Ingredientes y detalles' : 'Características' }}</h2>
                         @if($productFeaturesText !== '')
                             <p>
-                                <span data-product-more-preview data-collapsed-text="{{ $productFeaturesPreview }}" data-expanded-text="{{ $productFeaturesExpandedPreview }}">{!! nl2br(e($productFeaturesPreview)) !!}</span>
+                                <span data-product-more-preview data-collapsed-text="{{ $productFeaturesPreview }}" data-expanded-text="{{ $productFeaturesExpandedPreview }}">{{ $productFeaturesPreview }}</span>
                                 @if($hasLongProductFeatures)
-                                    <span class="product-detail-more-text" data-product-more-text hidden>{!! nl2br(e($productFeaturesMore)) !!}</span>
+                                    <span class="product-detail-more-text" data-product-more-text hidden>{{ $productFeaturesMore }}</span>
                                 @endif
                             </p>
                             @if($hasLongProductFeatures)

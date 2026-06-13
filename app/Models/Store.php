@@ -1184,6 +1184,12 @@ class Store extends Model
             ->where('provider', StorePaymentAccount::PROVIDER_MERCADOPAGO);
     }
 
+    public function wompiAccount()
+    {
+        return $this->hasOne(StorePaymentAccount::class)
+            ->where('provider', StorePaymentAccount::PROVIDER_WOMPI);
+    }
+
     public function categories()
     {
         return $this->hasMany(StoreCategory::class);

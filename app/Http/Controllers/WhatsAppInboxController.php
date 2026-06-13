@@ -18,6 +18,10 @@ class WhatsAppInboxController extends Controller
     public function index(Request $request): View
     {
         $user = $request->user();
+        $this->inbox->syncRecentTemplateMessages(
+            $user->isAdmin() ? null : $user->stores()->pluck('id')->all(),
+        );
+
         $conversationsQuery = $this->visibleConversations($request)
             ->with('store')
             ->withMax('messages', 'created_at')

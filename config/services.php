@@ -45,6 +45,17 @@ return [
         'payment_expiration_grace_minutes' => (int) env('MERCADOPAGO_PAYMENT_EXPIRATION_GRACE_MINUTES', 30),
     ],
 
+    'payments' => [
+        'expiration_grace_minutes' => (int) env(
+            'ONLINE_PAYMENT_EXPIRATION_GRACE_MINUTES',
+            env('MERCADOPAGO_PAYMENT_EXPIRATION_GRACE_MINUTES', 30)
+        ),
+    ],
+
+    'wompi' => [
+        'payment_expiration_minutes' => (int) env('WOMPI_PAYMENT_EXPIRATION_MINUTES', 60),
+    ],
+
     'openai' => [
         'key' => env('OPENAI_API_KEY'),
         'model' => env('OPENAI_MODEL', 'gpt-4.1-mini'),

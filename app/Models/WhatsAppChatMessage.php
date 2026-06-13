@@ -13,15 +13,20 @@ class WhatsAppChatMessage extends Model
     public const DIRECTION_OUTGOING = 'outgoing';
 
     public const STATUS_RECEIVED = 'received';
+    public const STATUS_QUEUED = 'queued';
+    public const STATUS_PROCESSING = 'processing';
+    public const STATUS_RETRYING = 'retrying';
     public const STATUS_SENT = 'sent';
     public const STATUS_DELIVERED = 'delivered';
     public const STATUS_READ = 'read';
     public const STATUS_FAILED = 'failed';
+    public const STATUS_UNKNOWN = 'unknown';
 
     protected $fillable = [
         'conversation_id',
         'store_id',
         'sent_by_user_id',
+        'whatsapp_message_id',
         'direction',
         'message_type',
         'body',
@@ -60,5 +65,10 @@ class WhatsAppChatMessage extends Model
     public function sender(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sent_by_user_id');
+    }
+
+    public function templateMessage(): BelongsTo
+    {
+        return $this->belongsTo(WhatsAppMessage::class, 'whatsapp_message_id');
     }
 }

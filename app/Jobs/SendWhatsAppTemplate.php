@@ -6,6 +6,7 @@ use App\Exceptions\WhatsAppDeliveryUnknownException;
 use App\Exceptions\WhatsAppRetryableException;
 use App\Models\WhatsAppMessage;
 use App\Services\WhatsAppCloudApiService;
+use App\Services\WhatsAppInboxService;
 use App\Services\WhatsAppStatusService;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -32,7 +33,7 @@ class SendWhatsAppTemplate implements ShouldBeEncrypted, ShouldQueue
         return [30, 120, 300];
     }
 
-    public function handle(WhatsAppCloudApiService $whatsApp, WhatsAppStatusService $statuses): void
+    public function handle(WhatsAppCloudApiService $whatsApp, WhatsAppStatusService $statuses, WhatsAppInboxService $inbox): void
     {
         $claimed = WhatsAppMessage::whereKey($this->messageId)
             ->whereIn('status', [
@@ -76,6 +77,8 @@ class SendWhatsAppTemplate implements ShouldBeEncrypted, ShouldQueue
                 'error' => Str::limit($exception->getMessage(), 500),
             ]);
 
+            $inbox->syncTemplateMessage($message->refresh());
+
             throw $exception;
         } catch (Throwable $exception) {
             $message->update([
@@ -84,11 +87,14 @@ class SendWhatsAppTemplate implements ShouldBeEncrypted, ShouldQueue
                 'failed_at' => now(),
             ]);
 
+            $inbox->syncTemplateMessage($message->refresh());
+
             return;
         }
 
         try {
             $statuses->reconcile($message->refresh());
+            $inbox->syncTemplateMessage($message->refresh());
         } catch (Throwable $exception) {
             report($exception);
         }
@@ -96,12 +102,26 @@ class SendWhatsAppTemplate implements ShouldBeEncrypted, ShouldQueue
 
     public function failed(Throwable $exception): void
     {
-        WhatsAppMessage::whereKey($this->messageId)
+        $message = WhatsAppMessage::whereKey($this->messageId)
             ->where('status', WhatsAppMessage::STATUS_RETRYING)
-            ->update([
+            ->first();
+
+        if ($message) {
+            $message->update([
                 'status' => WhatsAppMessage::STATUS_FAILED,
-                'error' => encrypt(Str::limit($exception->getMessage(), 500)),
+                'error' => Str::limit($exception->getMessage(), 500),
                 'failed_at' => now(),
             ]);
+        } else {
+            $message = WhatsAppMessage::find($this->messageId);
+        }
+
+        if ($message) {
+            try {
+                app(WhatsAppInboxService::class)->syncTemplateMessage($message);
+            } catch (Throwable $syncException) {
+                report($syncException);
+            }
+        }
     }
 }

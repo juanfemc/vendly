@@ -40,6 +40,7 @@ Route::delete('/cart/item/{id}', [CartController::class, 'removeItem'])->name('c
 Route::delete('/cart', [CartController::class, 'clear'])->name('cart.clear');
 Route::post('/cart/whatsapp', [CartController::class, 'whatsappFromCart'])->middleware('throttle:10,1')->name('cart.whatsapp');
 Route::post('/cart/mercadopago', [CartController::class, 'mercadoPagoFromCart'])->middleware('throttle:10,1')->name('cart.mercadopago');
+Route::post('/cart/wompi', [CartController::class, 'wompiFromCart'])->middleware('throttle:10,1')->name('cart.wompi');
 Route::post('/productos/{product}/reviews', [ProductReviewController::class, 'store'])
     ->middleware('throttle:8,1')
     ->name('product.reviews.store');
@@ -47,9 +48,16 @@ Route::get('/cart/mercadopago/{order}/{result}', [CartController::class, 'mercad
     ->whereIn('result', ['success', 'failure', 'pending'])
     ->whereUuid('order')
     ->name('cart.mercadopago.return');
+Route::get('/cart/wompi/{order}/{result}', [CartController::class, 'wompiReturn'])
+    ->whereIn('result', ['success', 'failure', 'pending'])
+    ->whereUuid('order')
+    ->name('cart.wompi.return');
 Route::post('/webhooks/mercadopago', [CartController::class, 'mercadoPagoWebhook'])
     ->middleware('throttle:120,1')
     ->name('cart.mercadopago.webhook');
+Route::post('/webhooks/wompi', [CartController::class, 'wompiWebhook'])
+    ->middleware('throttle:120,1')
+    ->name('cart.wompi.webhook');
 Route::get('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify'])
     ->middleware('throttle:30,1')
     ->name('whatsapp.webhook.verify');
@@ -98,6 +106,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/admin/templates', [StoreTemplateController::class, 'index'])->name('admin.templates.index');
     Route::post('/admin/templates/{template}', [StoreTemplateController::class, 'apply'])->name('admin.templates.apply');
     Route::get('/admin/payments', [PaymentSettingsController::class, 'index'])->name('admin.payments.index');
+    Route::post('/admin/payments/wompi', [PaymentSettingsController::class, 'updateWompi'])->name('admin.payments.wompi.update');
     Route::get('/admin/payments/mercadopago/connect', [PaymentSettingsController::class, 'connectMercadoPago'])->name('admin.payments.mercadopago.connect');
     Route::get('/admin/payments/mercadopago/callback', [PaymentSettingsController::class, 'mercadoPagoCallback'])->name('admin.payments.mercadopago.callback');
     Route::get('/admin/store-visits', [StoreController::class, 'visits'])->name('admin.store.visits');

@@ -586,6 +586,43 @@ body.cart-page {
     transform: translateY(-1px);
 }
 
+.wompi-btn {
+    width: 100%;
+    min-height: 54px;
+    margin-top: 10px;
+    border: 1px solid #4b22f4;
+    border-radius: 14px;
+    background: #4b22f4;
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 14px 18px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+}
+
+.wompi-btn:hover {
+    filter: brightness(0.98);
+    box-shadow: 0 12px 26px rgba(75, 34, 244, 0.18);
+    transform: translateY(-1px);
+}
+
+.wompi-mark {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #4b22f4;
+    display: inline-grid;
+    place-items: center;
+    font-size: 13px;
+    font-weight: 900;
+}
+
 .mercadopago-mark {
     width: 34px;
     height: 34px;

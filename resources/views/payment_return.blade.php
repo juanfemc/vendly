@@ -14,16 +14,17 @@
         || $order->payment_status === \App\Models\Order::PAYMENT_STATUS_CANCELLED
         || $result === 'failure';
     $paymentConfirmationPending = $paymentConfirmationPending ?? false;
+    $paymentMethod = $order->paymentMethodLabel();
     $paymentTitle = $isApproved
         ? 'Pedido recibido'
         : ($isRejected ? 'Pago no completado' : 'Pedido recibido');
     $paymentCopy = $paymentConfirmationPending
-        ? 'Estamos confirmando tu pago con Mercado Pago. La tienda vera el estado actualizado en cuanto recibamos la confirmacion.'
+        ? "Estamos confirmando tu pago con {$paymentMethod}. La tienda vera el estado actualizado en cuanto recibamos la confirmacion."
         : ($isApproved
         ? 'Tu pago fue aprobado y la tienda ya puede gestionar tu pedido.'
         : ($isRejected
-            ? 'Mercado Pago no completo el pago. Puedes volver a la tienda e intentarlo nuevamente.'
-            : 'Tu pago esta pendiente de confirmacion. La tienda vera el pedido en su panel cuando Mercado Pago actualice el estado.'));
+            ? "{$paymentMethod} no completo el pago. Puedes volver a la tienda e intentarlo nuevamente."
+            : "Tu pago esta pendiente de confirmacion. La tienda vera el pedido en su panel cuando {$paymentMethod} actualice el estado."));
 @endphp
 <body class="cart-page" style="--accent: {{ $brandTheme->color }};">
     @include('storefront.partials.meta-pixel-noscript', ['store' => $store])

@@ -1,9 +1,8 @@
 <section class="store-hero">
     @if($showHeroProductsAction)
         <div class="store-hero-products-action">
-            <p class="store-hero-short-copy">{{ $heroShortCopy }}</p>
             <a href="{{ $storefrontUrls->products($store) }}" class="catalog-all-link">
-                Ver todos los {{ $itemsLabel }}
+                Comprar ahora
             </a>
         </div>
     @endif

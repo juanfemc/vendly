@@ -86,25 +86,25 @@ class CheckoutService
         });
     }
 
-    public function expirePendingMercadoPagoOrders(): int
+    public function expirePendingOnlinePaymentOrders(): int
     {
         if (! Order::supportsPaymentExpirationColumn()) {
             return 0;
         }
 
         $expiredCount = 0;
-        $graceMinutes = max(0, (int) config('services.mercadopago.payment_expiration_grace_minutes', 30));
+        $graceMinutes = max(0, (int) config('services.payments.expiration_grace_minutes', 30));
         $expiresBefore = now()->subMinutes($graceMinutes);
 
         $expiredOrders = Order::with(['items.product', 'store'])
-            ->where('payment_method', Order::PAYMENT_METHOD_MERCADOPAGO)
+            ->whereIn('payment_method', [Order::PAYMENT_METHOD_MERCADOPAGO, Order::PAYMENT_METHOD_WOMPI])
             ->where('payment_status', Order::PAYMENT_STATUS_PENDING)
             ->whereNotNull('payment_expires_at')
             ->where('payment_expires_at', '<=', $expiresBefore)
             ->get();
 
         foreach ($expiredOrders as $order) {
-            if (! $this->mercadoPagoOrderCanExpire($order)) {
+            if ($order->payment_method === Order::PAYMENT_METHOD_MERCADOPAGO && ! $this->mercadoPagoOrderCanExpire($order)) {
                 continue;
             }
 
@@ -143,9 +143,14 @@ class CheckoutService
         return $expiredCount;
     }
 
-    public function releaseStockForUnpaidMercadoPagoOrder(Order $order): bool
+    public function expirePendingMercadoPagoOrders(): int
     {
-        if ($order->payment_method !== Order::PAYMENT_METHOD_MERCADOPAGO) {
+        return $this->expirePendingOnlinePaymentOrders();
+    }
+
+    public function releaseStockForUnpaidOnlinePaymentOrder(Order $order): bool
+    {
+        if (! in_array($order->payment_method, [Order::PAYMENT_METHOD_MERCADOPAGO, Order::PAYMENT_METHOD_WOMPI], true)) {
             return false;
         }
 
@@ -162,7 +167,7 @@ class CheckoutService
 
             $order->loadMissing(['items.product', 'store']);
 
-            if ($order->payment_method !== Order::PAYMENT_METHOD_MERCADOPAGO
+            if (! in_array($order->payment_method, [Order::PAYMENT_METHOD_MERCADOPAGO, Order::PAYMENT_METHOD_WOMPI], true)
                 || ! in_array($order->payment_status, [Order::PAYMENT_STATUS_REJECTED, Order::PAYMENT_STATUS_CANCELLED], true)
                 || $order->status !== 'pendiente'
                 || (Order::supportsPaymentExpirationColumn() && $order->payment_expires_at === null)
