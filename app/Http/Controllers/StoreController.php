@@ -120,6 +120,8 @@ class StoreController extends Controller
             route('admin.stores.edit', $store)
         );
 
+        $this->scheduleSubscriptionReminders($store);
+
         return redirect('/admin/stores')->with('success', 'Tienda creada.');
     }
 
@@ -148,6 +150,8 @@ class StoreController extends Controller
             'tienda',
             route('admin.stores.edit', $store)
         );
+
+        $this->scheduleSubscriptionReminders($store);
 
         return redirect()
             ->route('admin.stores.edit', $store)
@@ -192,6 +196,8 @@ class StoreController extends Controller
             'tienda',
             route('admin.stores.edit', $store)
         );
+
+        $this->scheduleSubscriptionReminders($store->refresh());
 
         return redirect('/admin/stores')->with('success', 'Tienda actualizada.');
     }
@@ -252,14 +258,7 @@ class StoreController extends Controller
         $store->activateSubscription((int) $validated['duration_days'], $requestedPlan);
         $this->enforcePlanLimits($store->refresh());
 
-        try {
-            $this->customerFollowups->scheduleSubscriptionReminders($store);
-        } catch (\Throwable $exception) {
-            Log::warning('No se pudieron programar recordatorios de suscripcion.', [
-                'store_id' => $store->id,
-                'error' => $exception->getMessage(),
-            ]);
-        }
+        $this->scheduleSubscriptionReminders($store);
 
         $this->adminUpdateService->record(
             'Suscripcion activada',
@@ -381,6 +380,32 @@ class StoreController extends Controller
                 ? Carbon::parse($startsAt)->addDays($durationDays)->toDateString()
                 : null,
         ];
+    }
+
+    private function scheduleSubscriptionReminders(Store $store): void
+    {
+        try {
+            $store = $store->refresh();
+
+            if ($store->subscriptionStatus() !== Store::SUBSCRIPTION_ACTIVE
+                || ! $store->subscription_ends_at
+                || ! $store->is_active
+                || ! $store->user?->isActive()) {
+                $this->customerFollowups->cancelPendingSubscriptionReminders(
+                    $store,
+                    'El plan de la tienda cambio o ya no tiene fecha de vencimiento.',
+                );
+
+                return;
+            }
+
+            $this->customerFollowups->scheduleSubscriptionReminders($store);
+        } catch (\Throwable $exception) {
+            Log::warning('No se pudieron programar recordatorios de suscripcion.', [
+                'store_id' => $store->id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
     
 }

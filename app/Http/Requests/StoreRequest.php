@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\ValidatesStoreProfile;
 use App\Models\Store;
+use App\Models\User;
 use App\Services\StoreSlugService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -84,12 +85,26 @@ class StoreRequest extends FormRequest
         ]);
 
         if (Store::supportsSubscriptionColumns()) {
+            $store = $this->route('store');
+            $sameOwner = $store instanceof Store && (int) $this->input('user_id') === (int) $store->user_id;
+            $currentSubscriptionEndsAt = $sameOwner ? $store->subscription_ends_at : null;
+            $selectedUser = $sameOwner
+                ? $store->user
+                : User::find($this->input('user_id'));
+            $userActiveEndsAt = $selectedUser?->active_ends_at;
+
             $data['subscription_status'] = $this->input('subscription_status') ?: Store::SUBSCRIPTION_ACTIVE;
             $data['trial_ends_at'] = $this->filled('trial_ends_at') ? $this->date('trial_ends_at')->endOfDay() : null;
-            $data['subscription_ends_at'] = $this->filled('subscription_ends_at') ? $this->date('subscription_ends_at')->endOfDay() : null;
+            $data['subscription_ends_at'] = $this->filled('subscription_ends_at')
+                ? $this->date('subscription_ends_at')->endOfDay()
+                : $currentSubscriptionEndsAt;
 
             if ($data['subscription_status'] === Store::SUBSCRIPTION_TRIALING && ! $this->filled('trial_ends_at')) {
                 $data['trial_ends_at'] = now()->addDays(Store::TRIAL_DAYS);
+            }
+
+            if ($data['subscription_status'] === Store::SUBSCRIPTION_ACTIVE && ! $data['subscription_ends_at']) {
+                $data['subscription_ends_at'] = $userActiveEndsAt?->copy()->endOfDay();
             }
 
             if ($data['subscription_status'] === Store::SUBSCRIPTION_TRIALING) {

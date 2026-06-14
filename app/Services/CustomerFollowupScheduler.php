@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\CustomerFollowup;
 use App\Models\Store;
+use App\Models\WhatsAppMessage;
 use Illuminate\Support\Collection;
 
 class CustomerFollowupScheduler
@@ -16,7 +17,7 @@ class CustomerFollowupScheduler
 
         $user = $store->user;
 
-        if (! $user || $store->whatsappNumber() === '') {
+        if (! $store->is_active || ! $user?->isActive() || $store->whatsappNumber() === '') {
             return collect();
         }
 
@@ -60,19 +61,51 @@ class CustomerFollowupScheduler
 
     public function scheduleSubscriptionReminders(Store $store): Collection
     {
-        if ($store->subscriptionStatus() !== Store::SUBSCRIPTION_ACTIVE || ! $store->subscription_ends_at) {
+        if (! $store->subscription_ends_at) {
             return collect();
         }
 
         $user = $store->user;
+        $status = $store->subscriptionStatus();
+        $canScheduleActiveReminders = $status === Store::SUBSCRIPTION_ACTIVE
+            && $store->is_active
+            && $user?->isActive()
+            && $store->whatsappNumber() !== '';
+        $canScheduleExpiredReminder = $status === Store::SUBSCRIPTION_EXPIRED
+            && $store->is_active
+            && (bool) $user?->is_active
+            && $store->whatsappNumber() !== '';
 
-        if (! $user || $store->whatsappNumber() === '') {
+        if (! $canScheduleActiveReminders && ! $canScheduleExpiredReminder) {
             return collect();
         }
 
         $endsAt = $store->subscription_ends_at->copy();
         $endDate = $endsAt->format('d/m/Y');
         $contextKey = 'subscription:'.$endsAt->toDateString();
+
+        $this->cancelPendingSubscriptionRemindersExceptContext(
+            $store,
+            $contextKey,
+            'El vencimiento del plan cambio y este recordatorio fue reemplazado.',
+        );
+
+        $expiredReminder = $this->scheduleOrUpdate(
+            $store,
+            CustomerFollowup::TYPE_SUBSCRIPTION_EXPIRED,
+            (string) config('services.whatsapp.subscription_expired_template', 'plan_vencido'),
+            [
+                $user->name,
+                $store->name,
+            ],
+            $endsAt,
+            $contextKey,
+            allowPast: true,
+        );
+
+        if (! $canScheduleActiveReminders) {
+            return collect([$expiredReminder])->filter();
+        }
 
         return collect([
             $this->scheduleOrUpdate(
@@ -99,18 +132,75 @@ class CustomerFollowupScheduler
                 $endsAt->copy()->subDay(),
                 $contextKey,
             ),
-            $this->scheduleOrUpdate(
-                $store,
-                CustomerFollowup::TYPE_SUBSCRIPTION_EXPIRED,
-                (string) config('services.whatsapp.subscription_expired_template', 'plan_vencido'),
-                [
-                    $user->name,
-                    $store->name,
-                ],
-                $endsAt,
-                $contextKey,
-            ),
+            $expiredReminder,
         ])->filter();
+    }
+
+    public function cancelPendingSubscriptionReminders(Store $store, string $reason = 'La tienda ya no es elegible para recordatorios de plan.'): int
+    {
+        return $this->cancelPendingForStore($store, $reason, $this->subscriptionReminderTypes());
+    }
+
+    public function cancelPendingSubscriptionRemindersExceptContext(Store $store, string $contextKey, string $reason = 'El vencimiento del plan cambio.'): int
+    {
+        return $this->cancelPendingForStore(
+            $store,
+            $reason,
+            $this->subscriptionReminderTypes(),
+            $contextKey,
+        );
+    }
+
+    public function cancelPendingForStore(Store $store, string $reason = 'La tienda ya no es elegible para este seguimiento.', ?array $types = null, ?string $exceptContextKey = null): int
+    {
+        $followups = CustomerFollowup::query()
+            ->with('whatsappMessage')
+            ->where('store_id', $store->id)
+            ->whereIn('status', [
+                CustomerFollowup::STATUS_PENDING,
+                CustomerFollowup::STATUS_QUEUED,
+            ]);
+
+        if ($types !== null) {
+            $followups->whereIn('type', $types);
+        }
+
+        if ($exceptContextKey !== null) {
+            $followups->where(function ($query) use ($exceptContextKey) {
+                $query
+                    ->whereNull('context_key')
+                    ->orWhere('context_key', '!=', $exceptContextKey);
+            });
+        }
+
+        $followups = $followups->get();
+
+        foreach ($followups as $followup) {
+            $message = $followup->whatsappMessage;
+
+            if ($message?->status === WhatsAppMessage::STATUS_PROCESSING) {
+                continue;
+            }
+
+            if ($message && in_array($message->status, [
+                WhatsAppMessage::STATUS_QUEUED,
+                WhatsAppMessage::STATUS_RETRYING,
+            ], true)) {
+                $message->update([
+                    'status' => WhatsAppMessage::STATUS_CANCELLED,
+                    'error' => $reason,
+                    'cancelled_at' => now(),
+                ]);
+            }
+
+            $followup->update([
+                'status' => CustomerFollowup::STATUS_CANCELLED,
+                'cancelled_at' => now(),
+                'error' => $reason,
+            ]);
+        }
+
+        return $followups->count();
     }
 
     private function schedule(
@@ -150,6 +240,7 @@ class CustomerFollowupScheduler
         array $parameters,
         mixed $scheduledFor,
         string $contextKey,
+        bool $allowPast = false,
     ): ?CustomerFollowup {
         $template = trim($template);
 
@@ -160,7 +251,11 @@ class CustomerFollowupScheduler
         $scheduledFor = $scheduledFor->copy();
 
         if ($scheduledFor->isPast()) {
-            return null;
+            if (! $allowPast) {
+                return null;
+            }
+
+            $scheduledFor = now();
         }
 
         $followup = CustomerFollowup::firstOrNew([
@@ -169,11 +264,17 @@ class CustomerFollowupScheduler
             'context_key' => $contextKey,
         ]);
 
-        if ($followup->exists && in_array($followup->status, [
-            CustomerFollowup::STATUS_SENT,
-            CustomerFollowup::STATUS_CANCELLED,
-        ], true)) {
+        if ($followup->exists && $followup->status === CustomerFollowup::STATUS_SENT) {
             return $followup;
+        }
+
+        if ($followup->exists && $followup->status === CustomerFollowup::STATUS_FAILED) {
+            $payloadChanged = $followup->template !== $template
+                || (array) $followup->parameters !== $parameters;
+
+            if (! $payloadChanged) {
+                return $followup;
+            }
         }
 
         $followup->fill([
@@ -186,9 +287,19 @@ class CustomerFollowupScheduler
             'sent_at' => null,
             'failed_at' => null,
             'skipped_at' => null,
+            'cancelled_at' => null,
             'error' => null,
         ])->save();
 
         return $followup;
+    }
+
+    private function subscriptionReminderTypes(): array
+    {
+        return [
+            CustomerFollowup::TYPE_SUBSCRIPTION_3_DAYS_BEFORE,
+            CustomerFollowup::TYPE_SUBSCRIPTION_1_DAY_BEFORE,
+            CustomerFollowup::TYPE_SUBSCRIPTION_EXPIRED,
+        ];
     }
 }

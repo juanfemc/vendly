@@ -3,12 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Store;
 use App\Services\AdminUpdateService;
+use App\Services\CustomerFollowupScheduler;
 use App\Services\StoreFileService;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
@@ -17,6 +20,7 @@ class AdminUserController extends Controller
     public function __construct(
         private StoreFileService $storeFileService,
         private AdminUpdateService $adminUpdateService,
+        private CustomerFollowupScheduler $customerFollowups,
     ) {
     }
 
@@ -98,6 +102,10 @@ class AdminUserController extends Controller
 
         $user->update($data);
 
+        if ($user->role === 'store') {
+            $this->syncUserStoresSubscription($user->refresh());
+        }
+
         $this->adminUpdateService->record(
             'Usuario actualizado',
             $user->name,
@@ -132,9 +140,15 @@ class AdminUserController extends Controller
             'active_ends_at' => $newEndsAt->toDateString(),
         ]);
 
-        $user->stores()->update([
-            'is_active' => true,
-        ]);
+        $user->stores()->get()->each(function ($store) use ($newEndsAt) {
+            $store->update([
+                'is_active' => true,
+                'subscription_status' => Store::SUBSCRIPTION_ACTIVE,
+                'subscription_ends_at' => $newEndsAt->copy()->endOfDay(),
+            ]);
+
+            $this->scheduleSubscriptionReminders($store);
+        });
 
         $this->adminUpdateService->record(
             'Acceso extendido',
@@ -159,9 +173,36 @@ class AdminUserController extends Controller
             'is_active' => $nextState,
         ]);
 
-        $user->stores()->update([
+        $user = $user->refresh();
+        $subscriptionIsActive = $nextState && $user->isActive() && $user->active_ends_at;
+        $storeUpdates = [
             'is_active' => $nextState,
-        ]);
+        ];
+
+        if (Store::supportsSubscriptionColumns()) {
+            $storeUpdates['subscription_status'] = $subscriptionIsActive
+                ? Store::SUBSCRIPTION_ACTIVE
+                : Store::SUBSCRIPTION_PAUSED;
+        }
+
+        $user->stores()->update($storeUpdates);
+
+        $user->stores()->get()->each(function ($store) use ($nextState, $user, $subscriptionIsActive) {
+            if ($nextState) {
+                if (Store::supportsSubscriptionColumns() && $subscriptionIsActive) {
+                    $store->update([
+                        'subscription_status' => Store::SUBSCRIPTION_ACTIVE,
+                        'subscription_ends_at' => $user->active_ends_at->copy()->endOfDay(),
+                    ]);
+                }
+
+                $this->scheduleSubscriptionReminders($store);
+
+                return;
+            }
+
+            $this->cancelPendingFollowups($store, 'El usuario o la tienda fue pausado.');
+        });
 
         $this->adminUpdateService->record(
             $nextState ? 'Usuario reactivado' : 'Usuario pausado',
@@ -211,5 +252,78 @@ class AdminUserController extends Controller
             'active_duration_days' => $durationDays,
             'active_ends_at' => $endsAt,
         ];
+    }
+
+    private function syncUserStoresSubscription(User $user): void
+    {
+        $subscriptionIsActive = $user->isActive() && $user->active_ends_at;
+
+        $user->stores()->get()->each(function ($store) use ($user, $subscriptionIsActive) {
+            $store->update([
+                'is_active' => (bool) $user->is_active,
+                'subscription_status' => $subscriptionIsActive
+                    ? Store::SUBSCRIPTION_ACTIVE
+                    : Store::SUBSCRIPTION_PAUSED,
+                'subscription_ends_at' => $user->active_ends_at?->copy()->endOfDay(),
+            ]);
+
+            if (! $subscriptionIsActive) {
+                $this->cancelPendingSubscriptionReminders($store, 'La fecha de vencimiento del usuario cambio o ya no aplica.');
+
+                return;
+            }
+
+            $this->scheduleSubscriptionReminders($store);
+        });
+    }
+
+    private function scheduleSubscriptionReminders($store): void
+    {
+        try {
+            $store = $store->refresh();
+
+            if ($store->subscriptionStatus() !== Store::SUBSCRIPTION_ACTIVE
+                || ! $store->subscription_ends_at
+                || ! $store->is_active
+                || ! $store->user?->isActive()) {
+                $this->customerFollowups->cancelPendingSubscriptionReminders(
+                    $store,
+                    'El plan de la tienda cambio o ya no tiene fecha de vencimiento.',
+                );
+
+                return;
+            }
+
+            $this->customerFollowups->scheduleSubscriptionReminders($store);
+        } catch (\Throwable $exception) {
+            Log::warning('No se pudieron programar recordatorios de suscripcion desde usuarios.', [
+                'store_id' => $store->id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    private function cancelPendingFollowups($store, string $reason): void
+    {
+        try {
+            $this->customerFollowups->cancelPendingForStore($store->refresh(), $reason);
+        } catch (\Throwable $exception) {
+            Log::warning('No se pudieron cancelar seguimientos desde usuarios.', [
+                'store_id' => $store->id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    private function cancelPendingSubscriptionReminders($store, string $reason): void
+    {
+        try {
+            $this->customerFollowups->cancelPendingSubscriptionReminders($store->refresh(), $reason);
+        } catch (\Throwable $exception) {
+            Log::warning('No se pudieron cancelar recordatorios de suscripcion desde usuarios.', [
+                'store_id' => $store->id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 }

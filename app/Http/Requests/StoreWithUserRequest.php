@@ -7,6 +7,7 @@ use App\Models\Store;
 use App\Services\StoreSlugService;
 use App\Support\StoreTemplateCatalog;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
@@ -54,7 +55,7 @@ class StoreWithUserRequest extends FormRequest
 
     public function storeData(): array
     {
-        return $this->storeProfileData([
+        $data = $this->storeProfileData([
             'name',
             'business_type',
             'plan',
@@ -89,5 +90,23 @@ class StoreWithUserRequest extends FormRequest
             'tiktok_url',
             'meta_pixel_id',
         ]);
+
+        if (Store::supportsSubscriptionColumns()) {
+            $startsAt = $this->filled('active_starts_at')
+                ? Carbon::parse($this->input('active_starts_at'))->startOfDay()
+                : null;
+            $durationDays = $this->filled('active_duration_days')
+                ? (int) $this->input('active_duration_days')
+                : null;
+
+            $data['subscription_status'] = Store::SUBSCRIPTION_ACTIVE;
+            $data['subscription_ends_at'] = $startsAt && $durationDays
+                ? $startsAt->copy()->addDays(max(1, $durationDays))->endOfDay()
+                : null;
+            $data['trial_starts_at'] = null;
+            $data['trial_ends_at'] = null;
+        }
+
+        return $data;
     }
 }

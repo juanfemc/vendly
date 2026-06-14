@@ -17,6 +17,7 @@ class WhatsAppMessage extends Model
     public const STATUS_READ = 'read';
     public const STATUS_FAILED = 'failed';
     public const STATUS_UNKNOWN = 'unknown';
+    public const STATUS_CANCELLED = 'cancelled';
 
     protected $fillable = [
         'store_id',
@@ -36,6 +37,7 @@ class WhatsAppMessage extends Model
         'delivered_at',
         'read_at',
         'failed_at',
+        'cancelled_at',
     ];
 
     protected $casts = [
@@ -48,6 +50,7 @@ class WhatsAppMessage extends Model
         'delivered_at' => 'datetime',
         'read_at' => 'datetime',
         'failed_at' => 'datetime',
+        'cancelled_at' => 'datetime',
     ];
 
     public function store(): BelongsTo

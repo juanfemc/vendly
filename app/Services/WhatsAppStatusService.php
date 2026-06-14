@@ -237,6 +237,7 @@ class WhatsAppStatusService
             WhatsAppMessage::STATUS_RETRYING => 0,
             WhatsAppMessage::STATUS_UNKNOWN => 0,
             WhatsAppMessage::STATUS_FAILED => 0,
+            WhatsAppMessage::STATUS_CANCELLED => 0,
             WhatsAppMessage::STATUS_SENT => 1,
             WhatsAppMessage::STATUS_DELIVERED => 2,
             WhatsAppMessage::STATUS_READ => 3,

@@ -53,19 +53,29 @@ class SendWhatsAppTemplate implements ShouldBeEncrypted, ShouldQueue
         $message = WhatsAppMessage::findOrFail($this->messageId);
 
         try {
+            if ($message->refresh()->status !== WhatsAppMessage::STATUS_PROCESSING) {
+                return;
+            }
+
             $response = $whatsApp->sendTemplate(
                 $message->recipient,
                 $message->template,
                 $message->parameters,
             );
 
-            $message->update([
-                'status' => WhatsAppMessage::STATUS_SENT,
-                'provider_message_id' => $response->json('messages.0.id'),
-                'sent_at' => now(),
-                'failed_at' => null,
-                'error' => null,
-            ]);
+            $updated = WhatsAppMessage::whereKey($message->id)
+                ->where('status', WhatsAppMessage::STATUS_PROCESSING)
+                ->update([
+                    'status' => WhatsAppMessage::STATUS_SENT,
+                    'provider_message_id' => $response->json('messages.0.id'),
+                    'sent_at' => now(),
+                    'failed_at' => null,
+                    'error' => null,
+                ]);
+
+            if ($updated !== 1) {
+                return;
+            }
         } catch (ConnectionException|WhatsAppDeliveryUnknownException $exception) {
             $message->update([
                 'status' => WhatsAppMessage::STATUS_UNKNOWN,

@@ -291,7 +291,9 @@ class WhatsAppInboxService
             $body .= "\n".$parameters;
         }
 
-        if ($message->status === WhatsAppMessage::STATUS_FAILED && $message->error) {
+        if ($message->status === WhatsAppMessage::STATUS_CANCELLED && $message->error) {
+            $body .= "\nCancelado: ".$message->error;
+        } elseif ($message->status === WhatsAppMessage::STATUS_FAILED && $message->error) {
             $body .= "\nError: ".$message->error;
         }
 

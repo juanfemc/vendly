@@ -34,6 +34,7 @@ class CustomerFollowup extends Model
         'sent_at',
         'failed_at',
         'skipped_at',
+        'cancelled_at',
         'error',
     ];
 
@@ -44,6 +45,7 @@ class CustomerFollowup extends Model
         'sent_at' => 'datetime',
         'failed_at' => 'datetime',
         'skipped_at' => 'datetime',
+        'cancelled_at' => 'datetime',
     ];
 
     public function store(): BelongsTo

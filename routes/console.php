@@ -238,7 +238,22 @@ Artisan::command('whatsapp:retry-failed {--limit=100 : Cantidad maxima de mensaj
             'status' => WhatsAppMessage::STATUS_QUEUED,
             'error' => null,
             'failed_at' => null,
+            'cancelled_at' => null,
         ]);
+
+        CustomerFollowup::query()
+            ->where('whatsapp_message_id', $message->id)
+            ->whereIn('status', [
+                CustomerFollowup::STATUS_FAILED,
+                CustomerFollowup::STATUS_CANCELLED,
+            ])
+            ->update([
+                'status' => CustomerFollowup::STATUS_QUEUED,
+                'failed_at' => null,
+                'skipped_at' => null,
+                'cancelled_at' => null,
+                'error' => null,
+            ]);
 
         try {
             SendWhatsAppTemplate::dispatch($message->id);
@@ -249,6 +264,15 @@ Artisan::command('whatsapp:retry-failed {--limit=100 : Cantidad maxima de mensaj
                 'error' => Str::limit($exception->getMessage(), 500),
                 'failed_at' => now(),
             ]);
+
+            CustomerFollowup::query()
+                ->where('whatsapp_message_id', $message->id)
+                ->where('status', CustomerFollowup::STATUS_QUEUED)
+                ->update([
+                    'status' => CustomerFollowup::STATUS_FAILED,
+                    'error' => Str::limit($exception->getMessage(), 500),
+                    'failed_at' => now(),
+                ]);
         }
     }
 
@@ -267,6 +291,7 @@ Artisan::command('whatsapp:prune {--days= : Dias de retencion}', function () {
             WhatsAppMessage::STATUS_READ,
             WhatsAppMessage::STATUS_FAILED,
             WhatsAppMessage::STATUS_UNKNOWN,
+            WhatsAppMessage::STATUS_CANCELLED,
         ])
         ->delete();
     $eventsDeleted = WhatsAppStatusEvent::query()
@@ -340,6 +365,34 @@ Artisan::command('followups:send {--limit=50 : Cantidad maxima de seguimientos a
 
     foreach ($followups as $followup) {
         $message = $followup->whatsappMessage;
+        $store = $followup->store;
+        $user = $followup->user ?: $store?->user;
+        $isSubscriptionReminder = in_array($followup->type, [
+            CustomerFollowup::TYPE_SUBSCRIPTION_3_DAYS_BEFORE,
+            CustomerFollowup::TYPE_SUBSCRIPTION_1_DAY_BEFORE,
+            CustomerFollowup::TYPE_SUBSCRIPTION_EXPIRED,
+        ], true);
+        $isExpiredReminder = $followup->type === CustomerFollowup::TYPE_SUBSCRIPTION_EXPIRED;
+        $userCanReceiveSubscriptionReminder = $isExpiredReminder
+            ? (bool) $user?->is_active
+            : (bool) $user?->isActive();
+        $subscriptionReminderIsEligible = $isSubscriptionReminder
+            && $store
+            && $user
+            && $store->is_active
+            && $userCanReceiveSubscriptionReminder
+            && $store->subscription_ends_at
+            && $store->whatsappNumber() !== ''
+            && ($isExpiredReminder
+                ? in_array($store->subscriptionStatus(), [Store::SUBSCRIPTION_ACTIVE, Store::SUBSCRIPTION_EXPIRED], true)
+                : $store->subscriptionStatus() === Store::SUBSCRIPTION_ACTIVE);
+        $trialFollowupIsEligible = ! $isSubscriptionReminder
+            && $store
+            && $user
+            && $store->is_active
+            && $user->isActive()
+            && $store->isTrialing()
+            && $store->whatsappNumber() !== '';
 
         if ($message && in_array($message->status, [
             WhatsAppMessage::STATUS_SENT,
@@ -349,15 +402,46 @@ Artisan::command('followups:send {--limit=50 : Cantidad maxima de seguimientos a
             $followup->update([
                 'status' => CustomerFollowup::STATUS_SENT,
                 'sent_at' => $message->sent_at ?: now(),
+                'failed_at' => null,
+                'skipped_at' => null,
+                'cancelled_at' => null,
                 'error' => null,
             ]);
 
             continue;
         }
 
+        if ($message && $message->status === WhatsAppMessage::STATUS_PROCESSING) {
+            $alreadyQueued++;
+
+            continue;
+        }
+
+        if (($isSubscriptionReminder && ! $subscriptionReminderIsEligible)
+            || (! $isSubscriptionReminder && ! $trialFollowupIsEligible)) {
+            if ($message && in_array($message->status, [
+                WhatsAppMessage::STATUS_QUEUED,
+                WhatsAppMessage::STATUS_RETRYING,
+            ], true)) {
+                $message->update([
+                    'status' => WhatsAppMessage::STATUS_CANCELLED,
+                    'error' => 'La tienda ya no es elegible para este seguimiento.',
+                    'cancelled_at' => now(),
+                ]);
+            }
+
+            $followup->update([
+                'status' => CustomerFollowup::STATUS_CANCELLED,
+                'cancelled_at' => now(),
+                'error' => 'La tienda ya no es elegible para este seguimiento.',
+            ]);
+            $skipped++;
+
+            continue;
+        }
+
         if ($message && in_array($message->status, [
             WhatsAppMessage::STATUS_QUEUED,
-            WhatsAppMessage::STATUS_PROCESSING,
         ], true)) {
             $alreadyQueued++;
 
@@ -382,45 +466,18 @@ Artisan::command('followups:send {--limit=50 : Cantidad maxima de seguimientos a
         if ($message && in_array($message->status, [
             WhatsAppMessage::STATUS_FAILED,
             WhatsAppMessage::STATUS_UNKNOWN,
+            WhatsAppMessage::STATUS_CANCELLED,
         ], true)) {
             $followup->update([
-                'status' => CustomerFollowup::STATUS_FAILED,
+                'status' => $message->status === WhatsAppMessage::STATUS_CANCELLED
+                    ? CustomerFollowup::STATUS_CANCELLED
+                    : CustomerFollowup::STATUS_FAILED,
                 'error' => $message->error ?: 'El mensaje de WhatsApp asociado fallo.',
-                'failed_at' => now(),
+                'failed_at' => $message->status === WhatsAppMessage::STATUS_CANCELLED ? null : now(),
+                'cancelled_at' => $message->status === WhatsAppMessage::STATUS_CANCELLED ? now() : null,
             ]);
 
             continue;
-        }
-
-        $store = $followup->store;
-        $user = $followup->user ?: $store?->user;
-
-        if (! $store || ! $user || ! $store->isTrialing() || $store->whatsappNumber() === '') {
-            $isSubscriptionReminder = in_array($followup->type, [
-                CustomerFollowup::TYPE_SUBSCRIPTION_3_DAYS_BEFORE,
-                CustomerFollowup::TYPE_SUBSCRIPTION_1_DAY_BEFORE,
-                CustomerFollowup::TYPE_SUBSCRIPTION_EXPIRED,
-            ], true);
-            $isExpiredReminder = $followup->type === CustomerFollowup::TYPE_SUBSCRIPTION_EXPIRED;
-
-            if ($isSubscriptionReminder
-                && $store
-                && $user
-                && ($store->subscriptionStatus() === Store::SUBSCRIPTION_ACTIVE
-                    || ($isExpiredReminder && $store->subscriptionStatus() === Store::SUBSCRIPTION_EXPIRED))
-                && $store->subscription_ends_at
-                && $store->whatsappNumber() !== '') {
-                // Subscription reminders are eligible below; trial followups remain blocked here.
-            } else {
-                $followup->update([
-                    'status' => CustomerFollowup::STATUS_SKIPPED,
-                    'skipped_at' => now(),
-                    'error' => 'La tienda ya no es elegible para este seguimiento.',
-                ]);
-                $skipped++;
-
-                continue;
-            }
         }
 
         if (in_array($followup->type, [
@@ -433,15 +490,19 @@ Artisan::command('followups:send {--limit=50 : Cantidad maxima de seguimientos a
             || ($followup->type === CustomerFollowup::TYPE_SUBSCRIPTION_EXPIRED
                 ? ! in_array($store->subscriptionStatus(), [Store::SUBSCRIPTION_ACTIVE, Store::SUBSCRIPTION_EXPIRED], true)
                 : $store->subscriptionStatus() !== Store::SUBSCRIPTION_ACTIVE)
-            || $followup->scheduled_for->copy()->startOfDay()->ne($store->subscription_ends_at->copy()->subDays(match ($followup->type) {
-                CustomerFollowup::TYPE_SUBSCRIPTION_3_DAYS_BEFORE => 3,
-                CustomerFollowup::TYPE_SUBSCRIPTION_1_DAY_BEFORE => 1,
-                default => 0,
-            })->startOfDay())
+            || ($followup->type === CustomerFollowup::TYPE_SUBSCRIPTION_EXPIRED
+                ? $followup->scheduled_for->copy()->startOfDay()->lt($store->subscription_ends_at->copy()->startOfDay())
+                : $followup->scheduled_for->copy()->startOfDay()->ne($store->subscription_ends_at->copy()->subDays(match ($followup->type) {
+                    CustomerFollowup::TYPE_SUBSCRIPTION_3_DAYS_BEFORE => 3,
+                    CustomerFollowup::TYPE_SUBSCRIPTION_1_DAY_BEFORE => 1,
+                    default => 0,
+                })->startOfDay()))
         )) {
             $followup->update([
                 'status' => CustomerFollowup::STATUS_SKIPPED,
                 'skipped_at' => now(),
+                'failed_at' => null,
+                'cancelled_at' => null,
                 'error' => 'El vencimiento del plan cambio o ya no aplica.',
             ]);
             $skipped++;
@@ -450,16 +511,34 @@ Artisan::command('followups:send {--limit=50 : Cantidad maxima de seguimientos a
         }
 
         $phone = $store->whatsappNumber();
-        $fingerprint = hash('sha256', implode('|', [
+        $fingerprintParts = [
             'followup',
             $followup->id,
             $store->id,
             $followup->type,
             $followup->context_key,
             $followup->template,
-        ]));
+        ];
+        $fingerprint = hash('sha256', implode('|', $fingerprintParts));
+
+        $existingMessage = WhatsAppMessage::where('fingerprint', $fingerprint)->first();
+
+        if (! $followup->whatsapp_message_id
+            && $existingMessage
+            && in_array($existingMessage->status, [
+                WhatsAppMessage::STATUS_FAILED,
+                WhatsAppMessage::STATUS_UNKNOWN,
+                WhatsAppMessage::STATUS_CANCELLED,
+            ], true)) {
+            $fingerprint = hash('sha256', implode('|', [
+                ...$fingerprintParts,
+                'revived',
+                $followup->updated_at?->timestamp ?? now()->timestamp,
+            ]));
+        }
 
         try {
+            $message = null;
             $message = WhatsAppMessage::firstOrCreate(
                 ['fingerprint' => $fingerprint],
                 [
@@ -477,12 +556,16 @@ Artisan::command('followups:send {--limit=50 : Cantidad maxima de seguimientos a
             if (! $message->wasRecentlyCreated && in_array($message->status, [
                 WhatsAppMessage::STATUS_FAILED,
                 WhatsAppMessage::STATUS_UNKNOWN,
+                WhatsAppMessage::STATUS_CANCELLED,
             ], true)) {
                 $followup->update([
                     'whatsapp_message_id' => $message->id,
-                    'status' => CustomerFollowup::STATUS_FAILED,
+                    'status' => $message->status === WhatsAppMessage::STATUS_CANCELLED
+                        ? CustomerFollowup::STATUS_CANCELLED
+                        : CustomerFollowup::STATUS_FAILED,
                     'error' => $message->error ?: 'El mensaje de WhatsApp asociado fallo.',
-                    'failed_at' => now(),
+                    'failed_at' => $message->status === WhatsAppMessage::STATUS_CANCELLED ? null : now(),
+                    'cancelled_at' => $message->status === WhatsAppMessage::STATUS_CANCELLED ? now() : null,
                 ]);
 
                 continue;
@@ -493,11 +576,21 @@ Artisan::command('followups:send {--limit=50 : Cantidad maxima de seguimientos a
                 'status' => CustomerFollowup::STATUS_QUEUED,
                 'error' => null,
                 'failed_at' => null,
+                'skipped_at' => null,
+                'cancelled_at' => null,
             ]);
 
             SendWhatsAppTemplate::dispatch($message->id);
             $queued++;
         } catch (\Throwable $exception) {
+            if (isset($message) && $message) {
+                $message->update([
+                    'status' => WhatsAppMessage::STATUS_FAILED,
+                    'error' => Str::limit($exception->getMessage(), 500),
+                    'failed_at' => now(),
+                ]);
+            }
+
             $followup->update([
                 'status' => CustomerFollowup::STATUS_FAILED,
                 'error' => Str::limit($exception->getMessage(), 500),
@@ -516,11 +609,22 @@ Artisan::command('followups:schedule-subscriptions {--limit=500 : Cantidad maxim
     $scheduler = app(CustomerFollowupScheduler::class);
     $reviewedStores = 0;
     $availableReminders = 0;
+    $today = now()->toDateString();
 
     Store::query()
         ->with('user')
-        ->where('subscription_status', Store::SUBSCRIPTION_ACTIVE)
+        ->where('is_active', true)
+        ->whereIn('subscription_status', [Store::SUBSCRIPTION_ACTIVE, Store::SUBSCRIPTION_EXPIRED])
         ->whereNotNull('subscription_ends_at')
+        ->whereHas('user', function ($query) use ($today) {
+            $query
+                ->where('is_active', true)
+                ->where(function ($query) use ($today) {
+                    $query
+                        ->whereNull('active_starts_at')
+                        ->orWhereDate('active_starts_at', '<=', $today);
+                });
+        })
         ->orderBy('subscription_ends_at')
         ->limit($limit)
         ->get()
@@ -532,7 +636,7 @@ Artisan::command('followups:schedule-subscriptions {--limit=500 : Cantidad maxim
     $this->info("Tiendas revisadas: {$reviewedStores}. Recordatorios disponibles: {$availableReminders}.");
 
     return self::SUCCESS;
-})->purpose('Programa recordatorios de planes activos proximos a vencer');
+})->purpose('Programa recordatorios de planes activos y vencidos');
 
 Schedule::command('whatsapp:prune')
     ->dailyAt('03:30')
