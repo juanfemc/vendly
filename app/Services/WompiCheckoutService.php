@@ -34,7 +34,7 @@ class WompiCheckoutService
             $payload['expiration-time'] = $expirationTime;
         }
 
-        return self::CHECKOUT_URL . '?' . Arr::query($payload);
+        return self::CHECKOUT_URL . '?' . $this->checkoutQuery($payload);
     }
 
     public function getTransaction(StorePaymentAccount $account, string $transactionId): array
@@ -137,6 +137,15 @@ class WompiCheckoutService
         }
 
         return hash('sha256', $payload . $account->integrity_secret);
+    }
+
+    private function checkoutQuery(array $payload): string
+    {
+        return str_replace(
+            'signature%3Aintegrity=',
+            'signature:integrity=',
+            Arr::query($payload),
+        );
     }
 
     private function expirationTime(Order $order): ?string
