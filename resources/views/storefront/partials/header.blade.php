@@ -7,12 +7,9 @@
 
 <div class="storefront-topbar" data-storefront-topbar>
     @if(! empty($announcementMessages))
-        @php
-            $announcementStepSeconds = 34;
-        @endphp
-        <section class="store-announcement-bar" aria-label="Avisos de la tienda" data-announcement-bar>
+        <section class="store-announcement-bar" aria-label="Avisos de la tienda" data-announcement-bar data-announcement-speed="42">
             <div class="shell store-announcement-shell">
-                <div class="store-announcement-viewport" style="--announcement-step-duration: {{ $announcementStepSeconds }}s;">
+                <div class="store-announcement-viewport">
                     <div class="store-announcement-message is-marquee-active" data-announcement-message>
                         @for($announcementLoop = 0; $announcementLoop < 8; $announcementLoop++)
                             <p class="store-announcement-group" @if($announcementLoop > 0) aria-hidden="true" @endif>

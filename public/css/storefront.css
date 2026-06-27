@@ -159,7 +159,7 @@ body.storefront-page .product-detail-copy h1 {
 }
 
 .store-announcement-message.is-marquee-active {
-    animation: store-announcement-marquee var(--announcement-step-duration, 36s) linear infinite;
+    animation: store-announcement-marquee var(--announcement-duration, 34s) linear infinite;
 }
 
 @keyframes store-announcement-marquee {
@@ -168,7 +168,7 @@ body.storefront-page .product-detail-copy h1 {
     }
 
     100% {
-        transform: translateX(-12.5%);
+        transform: translateX(calc(-1 * var(--announcement-distance, 12.5%)));
     }
 }
 

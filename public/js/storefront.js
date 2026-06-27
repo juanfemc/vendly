@@ -117,6 +117,39 @@
     window.addEventListener('load', syncTopbarHeight);
     window.addEventListener('resize', syncTopbarHeight);
 
+    const syncAnnouncementMarquee = () => {
+        if (!announcementMessages.length) {
+            return;
+        }
+
+        announcementMessages.forEach((message) => {
+            const group = message.querySelector('.store-announcement-group');
+            const bar = message.closest('[data-announcement-bar]');
+            const configuredSpeed = Number.parseFloat(bar?.dataset.announcementSpeed || '42');
+            const pixelsPerSecond = Number.isFinite(configuredSpeed)
+                ? Math.max(24, configuredSpeed)
+                : 42;
+
+            if (!group || !group.offsetWidth) {
+                return;
+            }
+
+            const distance = group.offsetWidth;
+            const duration = Math.max(18, distance / pixelsPerSecond);
+
+            message.style.setProperty('--announcement-distance', `${distance}px`);
+            message.style.setProperty('--announcement-duration', `${duration.toFixed(2)}s`);
+        });
+    };
+
+    syncAnnouncementMarquee();
+    window.addEventListener('load', syncAnnouncementMarquee);
+    window.addEventListener('resize', syncAnnouncementMarquee);
+
+    if (document.fonts?.ready) {
+        document.fonts.ready.then(syncAnnouncementMarquee).catch(() => {});
+    }
+
     const showFeedback = (message) => {
         if (!feedback) {
             return;
