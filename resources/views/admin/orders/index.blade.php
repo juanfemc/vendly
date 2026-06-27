@@ -144,6 +144,16 @@
                 @if ($order->notes)
                     <p class="resource-card__description"><strong>Notas:</strong> {{ $order->notes }}</p>
                 @endif
+
+                @if (\App\Models\Order::supportsTermsAcceptanceColumns() && $order->terms_accepted_at)
+                    <p class="resource-card__description">
+                        <strong>Terminos aceptados:</strong>
+                        {{ $order->terms_accepted_at->format('Y-m-d H:i') }}
+                        @if($order->terms_version)
+                            · Version {{ $order->terms_version }}
+                        @endif
+                    </p>
+                @endif
             </div>
 
             <div class="resource-actions">

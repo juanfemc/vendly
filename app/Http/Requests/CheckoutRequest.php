@@ -37,8 +37,10 @@ class CheckoutRequest extends FormRequest
 
     public function rules(): array
     {
-        $isReservationStore = $this->checkoutStore()?->isReservationStore() ?? false;
+        $store = $this->checkoutStore();
+        $isReservationStore = $store?->isReservationStore() ?? false;
         $usesColombiaLocations = ColombiaLocation::hasCatalog();
+        $requiresTermsAcceptance = $store?->requiresTermsAcceptance() ?? false;
 
         return [
             'email' => ['nullable', 'email', 'max:255'],
@@ -63,6 +65,14 @@ class CheckoutRequest extends FormRequest
             'shipping_method' => ['nullable', 'string', 'max:20'],
             ...self::reservationRules($isReservationStore),
             'notes' => ['nullable', 'string', 'max:1000'],
+            'terms_acceptance' => [$requiresTermsAcceptance ? 'accepted' : 'nullable'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'terms_acceptance.accepted' => 'Debes aceptar los terminos y condiciones de la tienda para continuar.',
         ];
     }
 

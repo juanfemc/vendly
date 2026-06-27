@@ -2098,6 +2098,59 @@
     font-weight: 900;
 }
 
+.fashion-checkout-form .checkout-terms {
+    display: grid;
+    gap: 8px;
+    padding: 16px;
+    border: 1px solid #d7dbe0;
+    border-radius: 3px;
+    background: #ffffff;
+}
+
+.fashion-checkout-form .checkout-terms-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    color: #111111;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.fashion-checkout-form .checkout-terms-label input {
+    width: 17px;
+    height: 17px;
+    margin: 1px 0 0;
+    flex: 0 0 auto;
+    accent-color: #111111;
+}
+
+.fashion-checkout-form .checkout-terms-label span {
+    display: grid;
+    gap: 3px;
+}
+
+.fashion-checkout-form .checkout-terms-label a {
+    color: #111111;
+    font-size: 12px;
+    font-weight: 900;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.fashion-checkout-form .checkout-terms-copy {
+    margin: 0;
+    color: #6b7280;
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.fashion-checkout-form .checkout-terms-error {
+    margin: 0;
+    color: #b91c1c;
+    font-size: 12px;
+    font-weight: 900;
+}
+
 .fashion-checkout-actions {
     display: flex;
     align-items: center;

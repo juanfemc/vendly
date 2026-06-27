@@ -75,6 +75,22 @@
         line-height: 1.45;
     }
 
+    .settings-toggle-line {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: #374151;
+        font-size: 14px;
+        line-height: 1.4;
+    }
+
+    .settings-toggle-line input {
+        width: 18px;
+        height: 18px;
+        margin: 0;
+        accent-color: #111827;
+    }
+
     .settings-check-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -558,6 +574,45 @@
                 </div>
             </div>
             <p class="settings-help">Actualiza a Pro o Premium para ofrecer opciones como domicilio local, envio nacional o recogida en tienda.</p>
+        </section>
+    @endif
+
+    @if(\App\Models\Store::supportsTermsAcceptanceColumns())
+        <section class="settings-section">
+            <div class="settings-section-head">
+                <div>
+                    <h3 class="settings-section-title">Terminos en checkout</h3>
+                    <p class="settings-section-copy">Opcional: exige que el cliente acepte tus condiciones antes de enviar el pedido o pagar en linea.</p>
+                </div>
+            </div>
+
+            <div class="settings-grid">
+                <label class="settings-field settings-field--full">
+                    <span class="field-label">Aceptacion obligatoria</span>
+                    <span class="settings-toggle-line">
+                        <input type="checkbox" name="require_terms_acceptance" value="1" @checked(old('require_terms_acceptance', $store->require_terms_acceptance))>
+                        <span>Solicitar aceptacion de terminos y condiciones en el checkout</span>
+                    </span>
+                </label>
+                <div class="settings-field">
+                    <label class="field-label" for="terms_title">Texto del checkbox</label>
+                    <input id="terms_title" type="text" name="terms_title" value="{{ old('terms_title', $store->terms_title) }}" maxlength="120" placeholder="Acepto los terminos y condiciones">
+                </div>
+                <div class="settings-field">
+                    <label class="field-label" for="terms_version">Version</label>
+                    <input id="terms_version" type="text" name="terms_version" value="{{ old('terms_version', $store->terms_version) }}" maxlength="80" placeholder="v1">
+                </div>
+                <div class="settings-field settings-field--full">
+                    <label class="field-label" for="terms_url">Enlace a terminos completos</label>
+                    <input id="terms_url" type="url" name="terms_url" value="{{ old('terms_url', $store->terms_url) }}" maxlength="255" placeholder="https://tu-dominio.com/terminos">
+                    <p class="settings-help">Si tienes una pagina externa con tus terminos, pegala aqui. El checkout mostrara el enlace al cliente.</p>
+                </div>
+                <div class="settings-field settings-field--full">
+                    <label class="field-label" for="terms_content">Resumen o texto legal</label>
+                    <textarea id="terms_content" name="terms_content" maxlength="5000" placeholder="Ej: Acepto politicas de cambios, garantias, tiempos de entrega y tratamiento de datos de la tienda.">{{ old('terms_content', $store->terms_content) }}</textarea>
+                    <p class="settings-help">Este texto se guarda como evidencia dentro del pedido cuando el cliente acepta.</p>
+                </div>
+            </div>
         </section>
     @endif
 

@@ -246,6 +246,8 @@
                 <textarea name="notes" placeholder="Add delivery notes or product details">{{ old('notes') }}</textarea>
             </label>
 
+            @include('storefront.partials.checkout-terms', ['store' => $store, 'mode' => 'fashion'])
+
             <div class="fashion-checkout-actions">
                 <a href="{{ route('cart.index', ['store' => $store->slug]) }}">‹ Return to Cart</a>
                 <button type="submit">Continue to Review</button>

@@ -243,6 +243,8 @@
                                 <textarea class="textarea" name="notes" placeholder="{{ $isRestaurant ? 'Instrucciones del pedido (opcional)' : ($isReservationStore ? 'Fecha, hora o detalles de la reserva (opcional)' : 'Notas del pedido (opcional)') }}">{{ old('notes') }}</textarea>
                             </div>
 
+                            @include('storefront.partials.checkout-terms', ['store' => $store, 'mode' => $isTechnologyStore ? 'technology' : 'default'])
+
                             <button class="primary-btn" type="submit">{{ $isRestaurant ? 'Enviar pedido por WhatsApp' : ($isReservationStore ? 'Solicitar reserva por WhatsApp' : 'Finalizar pedido por WhatsApp') }}</button>
 
                             @if($mercadoPagoAvailable || ($wompiAvailable ?? false))

@@ -72,7 +72,6 @@ class MercadoPagoCheckoutService
         }
 
         if (in_array($status, ['cancelled', 'refunded', 'charged_back'], true)) {
-            $updates['payment_status'] = Order::PAYMENT_STATUS_CANCELLED;
             $updates['paid_at'] = null;
 
             if ($order->status === 'pagado') {
@@ -191,7 +190,8 @@ class MercadoPagoCheckoutService
         return match ($mercadoPagoStatus) {
             'approved' => Order::PAYMENT_STATUS_APPROVED,
             'rejected' => Order::PAYMENT_STATUS_REJECTED,
-            'cancelled', 'refunded', 'charged_back' => Order::PAYMENT_STATUS_CANCELLED,
+            'cancelled' => Order::PAYMENT_STATUS_CANCELLED,
+            'refunded', 'charged_back' => Order::PAYMENT_STATUS_REFUNDED,
             default => Order::PAYMENT_STATUS_PENDING,
         };
     }

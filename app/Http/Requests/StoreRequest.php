@@ -82,6 +82,11 @@ class StoreRequest extends FormRequest
             'facebook_url',
             'tiktok_url',
             'meta_pixel_id',
+            'require_terms_acceptance',
+            'terms_title',
+            'terms_content',
+            'terms_url',
+            'terms_version',
         ]);
 
         if (Store::supportsSubscriptionColumns()) {

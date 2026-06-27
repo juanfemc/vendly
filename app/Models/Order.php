@@ -19,6 +19,8 @@ class Order extends Model
     public const PAYMENT_STATUS_APPROVED = 'approved';
     public const PAYMENT_STATUS_REJECTED = 'rejected';
     public const PAYMENT_STATUS_CANCELLED = 'cancelled';
+    public const PAYMENT_STATUS_EXPIRED = 'expired';
+    public const PAYMENT_STATUS_REFUNDED = 'refunded';
 
     public const STATUSES = [
         'pendiente' => 'Pendiente',
@@ -36,9 +38,11 @@ class Order extends Model
     public const PAYMENT_STATUS_LABELS = [
         self::PAYMENT_STATUS_NOT_REQUIRED => 'No requerido',
         self::PAYMENT_STATUS_PENDING => 'Pendiente',
-        self::PAYMENT_STATUS_APPROVED => 'Aprobado',
+        self::PAYMENT_STATUS_APPROVED => 'Pagado',
         self::PAYMENT_STATUS_REJECTED => 'Rechazado',
         self::PAYMENT_STATUS_CANCELLED => 'Cancelado',
+        self::PAYMENT_STATUS_EXPIRED => 'Vencido',
+        self::PAYMENT_STATUS_REFUNDED => 'Reembolsado',
     ];
 
     protected $fillable = [
@@ -62,6 +66,12 @@ class Order extends Model
         'payment_id',
         'paid_at',
         'payment_expires_at',
+        'terms_accepted_at',
+        'terms_version',
+        'terms_snapshot',
+        'terms_url',
+        'terms_ip_hash',
+        'terms_user_agent_hash',
         'total',
         'store_id',
         'admin_token',
@@ -72,6 +82,7 @@ class Order extends Model
         'shipping_cost' => 'decimal:2',
         'paid_at' => 'datetime',
         'payment_expires_at' => 'datetime',
+        'terms_accepted_at' => 'datetime',
     ];
 
     public function statusLabel(): string
@@ -95,6 +106,16 @@ class Order extends Model
             && Schema::hasColumn('orders', 'shipping_cost');
     }
 
+    public static function supportsTermsAcceptanceColumns(): bool
+    {
+        return Schema::hasColumn('orders', 'terms_accepted_at')
+            && Schema::hasColumn('orders', 'terms_version')
+            && Schema::hasColumn('orders', 'terms_snapshot')
+            && Schema::hasColumn('orders', 'terms_url')
+            && Schema::hasColumn('orders', 'terms_ip_hash')
+            && Schema::hasColumn('orders', 'terms_user_agent_hash');
+    }
+
     public function paymentMethodLabel(): string
     {
         return self::PAYMENT_METHOD_LABELS[$this->payment_method] ?? 'WhatsApp';
@@ -109,6 +130,8 @@ class Order extends Model
     {
         return match ($this->payment_status) {
             self::PAYMENT_STATUS_APPROVED => 'resource-badge--success',
+            self::PAYMENT_STATUS_EXPIRED,
+            self::PAYMENT_STATUS_REFUNDED,
             self::PAYMENT_STATUS_REJECTED,
             self::PAYMENT_STATUS_CANCELLED => 'resource-badge--danger',
             self::PAYMENT_STATUS_PENDING => 'resource-badge--warning',

@@ -22,6 +22,7 @@ class Store extends Model
     private static ?bool $supportsLocalDeliveryCityCodeColumn = null;
     private static ?bool $supportsMetaPixelColumn = null;
     private static ?bool $supportsSubscriptionColumns = null;
+    private static ?bool $supportsTermsAcceptanceColumns = null;
     private static ?bool $supportsAiTables = null;
 
     public const PRODUCT_SEARCH_THRESHOLD = 20;
@@ -122,6 +123,11 @@ class Store extends Model
         'facebook_url',
         'tiktok_url',
         'meta_pixel_id',
+        'require_terms_acceptance',
+        'terms_title',
+        'terms_content',
+        'terms_url',
+        'terms_version',
         'admin_token',
     ];
 
@@ -136,6 +142,7 @@ class Store extends Model
         'reservation_available_days' => 'array',
         'responsive_product_columns' => 'integer',
         'show_hero_products_action' => 'boolean',
+        'require_terms_acceptance' => 'boolean',
         'custom_domain_verified_at' => 'datetime',
         'whatsapp_verified_at' => 'datetime',
         'trial_starts_at' => 'datetime',
@@ -560,6 +567,22 @@ class Store extends Model
             && self::supportsMetaPixelColumn();
     }
 
+    public function requiresTermsAcceptance(): bool
+    {
+        return self::supportsTermsAcceptanceColumns()
+            && (bool) $this->require_terms_acceptance;
+    }
+
+    public function termsAcceptanceTitle(): string
+    {
+        return trim((string) $this->terms_title) ?: 'Acepto los terminos y condiciones';
+    }
+
+    public function termsAcceptanceVersion(): string
+    {
+        return trim((string) $this->terms_version) ?: 'v1';
+    }
+
     public function allowsAiContent(): bool
     {
         return ($this->plan ?? self::PLAN_PRO) === self::PLAN_PREMIUM
@@ -755,6 +778,15 @@ class Store extends Model
     public static function supportsMetaPixelColumn(): bool
     {
         return self::$supportsMetaPixelColumn ??= Schema::hasColumn('stores', 'meta_pixel_id');
+    }
+
+    public static function supportsTermsAcceptanceColumns(): bool
+    {
+        return self::$supportsTermsAcceptanceColumns ??= Schema::hasColumn('stores', 'require_terms_acceptance')
+            && Schema::hasColumn('stores', 'terms_title')
+            && Schema::hasColumn('stores', 'terms_content')
+            && Schema::hasColumn('stores', 'terms_url')
+            && Schema::hasColumn('stores', 'terms_version');
     }
 
     public static function supportsSubscriptionColumns(): bool

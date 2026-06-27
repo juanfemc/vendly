@@ -114,6 +114,11 @@ trait ValidatesStoreProfile
             'facebook_url' => ['nullable', 'url', 'max:255'],
             'tiktok_url' => ['nullable', 'url', 'max:255'],
             'meta_pixel_id' => ['nullable', 'string', 'max:50', 'regex:/^[0-9]+$/'],
+            'require_terms_acceptance' => ['nullable', 'boolean'],
+            'terms_title' => ['nullable', 'string', 'max:120'],
+            'terms_content' => ['nullable', 'string', 'max:5000'],
+            'terms_url' => ['nullable', 'url', 'max:255'],
+            'terms_version' => ['nullable', 'string', 'max:80'],
         ];
     }
 
@@ -194,6 +199,27 @@ trait ValidatesStoreProfile
             $data['meta_pixel_id'] = trim((string) ($data['meta_pixel_id'] ?? '')) ?: null;
         } else {
             $data['meta_pixel_id'] = null;
+        }
+
+        if (Store::supportsTermsAcceptanceColumns()) {
+            $data['require_terms_acceptance'] = $this->boolean('require_terms_acceptance', false);
+            $data['terms_title'] = trim((string) ($data['terms_title'] ?? '')) ?: null;
+            $data['terms_content'] = trim((string) ($data['terms_content'] ?? '')) ?: null;
+            $data['terms_url'] = trim((string) ($data['terms_url'] ?? '')) ?: null;
+            $data['terms_version'] = trim((string) ($data['terms_version'] ?? '')) ?: null;
+
+            if ($data['require_terms_acceptance']) {
+                $data['terms_title'] ??= 'Acepto los terminos y condiciones';
+                $data['terms_version'] ??= 'v1';
+            }
+        } else {
+            unset(
+                $data['require_terms_acceptance'],
+                $data['terms_title'],
+                $data['terms_content'],
+                $data['terms_url'],
+                $data['terms_version'],
+            );
         }
 
         if (! Store::supportsReservationScheduleColumns()) {

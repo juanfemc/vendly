@@ -55,6 +55,16 @@ class CheckoutService
                 $orderData['shipping_cost'] = $shipping['cost'];
             }
 
+            if (Order::supportsTermsAcceptanceColumns() && $store->requiresTermsAcceptance()) {
+                if (! $this->acceptedTerms($customerData)) {
+                    throw ValidationException::withMessages([
+                        'terms_acceptance' => 'Debes aceptar los terminos y condiciones de la tienda para continuar.',
+                    ]);
+                }
+
+                $orderData = array_merge($orderData, $this->termsAcceptanceData($store));
+            }
+
             $order = Order::create($orderData);
 
             foreach ($cart as $cartKey => $item) {
@@ -128,7 +138,7 @@ class CheckoutService
 
                 $order->update([
                     'status' => 'pendiente',
-                    'payment_status' => Order::PAYMENT_STATUS_CANCELLED,
+                    'payment_status' => Order::PAYMENT_STATUS_EXPIRED,
                     'paid_at' => null,
                 ]);
 
@@ -154,7 +164,11 @@ class CheckoutService
             return false;
         }
 
-        if (! in_array($order->payment_status, [Order::PAYMENT_STATUS_REJECTED, Order::PAYMENT_STATUS_CANCELLED], true)) {
+        if (! in_array($order->payment_status, [
+            Order::PAYMENT_STATUS_REJECTED,
+            Order::PAYMENT_STATUS_CANCELLED,
+            Order::PAYMENT_STATUS_EXPIRED,
+        ], true)) {
             return false;
         }
 
@@ -168,7 +182,11 @@ class CheckoutService
             $order->loadMissing(['items.product', 'store']);
 
             if (! in_array($order->payment_method, [Order::PAYMENT_METHOD_MERCADOPAGO, Order::PAYMENT_METHOD_WOMPI], true)
-                || ! in_array($order->payment_status, [Order::PAYMENT_STATUS_REJECTED, Order::PAYMENT_STATUS_CANCELLED], true)
+                || ! in_array($order->payment_status, [
+                    Order::PAYMENT_STATUS_REJECTED,
+                    Order::PAYMENT_STATUS_CANCELLED,
+                    Order::PAYMENT_STATUS_EXPIRED,
+                ], true)
                 || $order->status !== 'pendiente'
                 || (Order::supportsPaymentExpirationColumn() && $order->payment_expires_at === null)
             ) {
@@ -334,5 +352,31 @@ class CheckoutService
             'name' => $method['name'],
             'cost' => $store->shippingCostForSubtotal($method, $subtotal),
         ];
+    }
+
+    private function termsAcceptanceData(Store $store): array
+    {
+        $key = (string) config('app.key', 'vendly');
+        $ip = (string) request()->ip();
+        $userAgent = (string) request()->userAgent();
+        $snapshot = trim((string) $store->terms_content);
+
+        if ($snapshot === '' && filled($store->terms_url)) {
+            $snapshot = 'Terminos publicados en: ' . $store->terms_url;
+        }
+
+        return [
+            'terms_accepted_at' => now(),
+            'terms_version' => $store->termsAcceptanceVersion(),
+            'terms_snapshot' => $snapshot ?: $store->termsAcceptanceTitle(),
+            'terms_url' => trim((string) $store->terms_url) ?: null,
+            'terms_ip_hash' => $ip !== '' ? hash_hmac('sha256', $ip, $key) : null,
+            'terms_user_agent_hash' => $userAgent !== '' ? hash_hmac('sha256', $userAgent, $key) : null,
+        ];
+    }
+
+    private function acceptedTerms(array $customerData): bool
+    {
+        return in_array($customerData['terms_acceptance'] ?? null, [true, 1, '1', 'on', 'yes'], true);
     }
 }

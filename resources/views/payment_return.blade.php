@@ -10,9 +10,12 @@
 @php
     $brandTheme = \App\Support\BrandTheme::from($store?->brand_color);
     $isApproved = $order->payment_status === \App\Models\Order::PAYMENT_STATUS_APPROVED;
-    $isRejected = $order->payment_status === \App\Models\Order::PAYMENT_STATUS_REJECTED
-        || $order->payment_status === \App\Models\Order::PAYMENT_STATUS_CANCELLED
-        || $result === 'failure';
+    $isRejected = in_array($order->payment_status, [
+        \App\Models\Order::PAYMENT_STATUS_REJECTED,
+        \App\Models\Order::PAYMENT_STATUS_CANCELLED,
+        \App\Models\Order::PAYMENT_STATUS_EXPIRED,
+        \App\Models\Order::PAYMENT_STATUS_REFUNDED,
+    ], true) || $result === 'failure';
     $paymentConfirmationPending = $paymentConfirmationPending ?? false;
     $paymentMethod = $order->paymentMethodLabel();
     $paymentTitle = $isApproved
